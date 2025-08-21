@@ -114,8 +114,7 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
-        const prefix = this.configService.get('NODE_ENV') === 'production' ? 'atlas_live' : 'atlas_dev';
-        const apiKey = `${prefix}_${(0, uuid_1.v4)().replace(/-/g, '')}`;
+        const apiKey = `atlas_${(0, uuid_1.v4)().replace(/-/g, '')}`;
         let expiresAt;
         if (createApiKeyDto.expirationDays) {
             expiresAt = new Date();

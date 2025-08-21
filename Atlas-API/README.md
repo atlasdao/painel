@@ -119,12 +119,12 @@ POST /api/v1/auth/api-key
 Authorization: Bearer seu_jwt_token
 
 # Usar API Key
-curl -X POST http://localhost:19997/api/v1/pix/qrcode \
-  -H "X-API-Key: atlas_dev_abc123..." \
+curl -X POST https://atlas2.orion.moe/api/v1/pix/qrcode \
+  -H "X-API-Key: atlas_abc123..." \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 100.50,
-    "depixAddress": "VJL...",
+    "depixAddress": "lq1qq...",
     "description": "Pagamento"
   }'
 ```
@@ -202,6 +202,11 @@ npm run test:cov
 ## 📚 Documentação da API
 
 A documentação Swagger está disponível em:
+```
+https://atlas2.orion.moe/api/docs
+```
+
+Para desenvolvimento local:
 ```
 http://localhost:19997/api/docs
 ```

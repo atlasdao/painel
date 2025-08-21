@@ -110,8 +110,7 @@ export class AuthService {
     }
 
     // Generate unique API key with professional format
-    const prefix = this.configService.get('NODE_ENV') === 'production' ? 'atlas_live' : 'atlas_dev';
-    const apiKey = `${prefix}_${uuidv4().replace(/-/g, '')}`;
+    const apiKey = `atlas_${uuidv4().replace(/-/g, '')}`;
     
     // Calculate expiration
     let expiresAt: Date | undefined;

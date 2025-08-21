@@ -41,7 +41,7 @@ export default function PaymentPage() {
 
   const fetchPaymentData = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:19997/api/v1'}/pay/${shortCode}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pay/${shortCode}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -70,7 +70,7 @@ export default function PaymentPage() {
   const generateNewQRCode = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:19997/api/v1'}/pay/${shortCode}/generate-qr`,
+        `${process.env.NEXT_PUBLIC_API_URL}/pay/${shortCode}/generate-qr`,
         { method: 'POST' }
       );
 

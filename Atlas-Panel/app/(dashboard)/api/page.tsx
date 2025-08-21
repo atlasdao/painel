@@ -456,7 +456,7 @@ export default function ApiPage() {
                         <span className="px-2 py-1 bg-green-900/50 text-green-400 text-xs rounded">POST</span>
                       </div>
                       <pre className="text-xs text-gray-300 overflow-x-auto mb-3">
-{`${window.location.origin.replace('3000', '19997')}/api/v1/pix/qrcode`}
+{`${process.env.NEXT_PUBLIC_API_URL}/pix/qrcode`}
                       </pre>
                       <details className="cursor-pointer">
                         <summary className="text-sm text-gray-400 hover:text-white">Ver exemplo</summary>
@@ -464,7 +464,7 @@ export default function ApiPage() {
                           <div>
                             <p className="text-xs text-gray-400 mb-1">Request:</p>
                             <pre className="text-xs bg-gray-800 p-3 rounded overflow-x-auto">
-{`curl -X POST ${window.location.origin.replace('3000', '19997')}/api/v1/pix/qrcode \\
+{`curl -X POST ${process.env.NEXT_PUBLIC_API_URL}/pix/qrcode \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -495,7 +495,7 @@ export default function ApiPage() {
                         <span className="px-2 py-1 bg-blue-900/50 text-blue-400 text-xs rounded">GET</span>
                       </div>
                       <pre className="text-xs text-gray-300 overflow-x-auto mb-3">
-{`${window.location.origin.replace('3000', '19997')}/api/v1/pix/deposit/{transactionId}/status`}
+{`${process.env.NEXT_PUBLIC_API_URL}/pix/deposit/{transactionId}/status`}
                       </pre>
                       <details className="cursor-pointer">
                         <summary className="text-sm text-gray-400 hover:text-white">Ver exemplo</summary>
@@ -503,7 +503,7 @@ export default function ApiPage() {
                           <div>
                             <p className="text-xs text-gray-400 mb-1">Request:</p>
                             <pre className="text-xs bg-gray-800 p-3 rounded overflow-x-auto">
-{`curl -X GET ${window.location.origin.replace('3000', '19997')}/api/v1/pix/deposit/abc123/status \\
+{`curl -X GET ${process.env.NEXT_PUBLIC_API_URL}/pix/deposit/abc123/status \\
   -H "X-API-Key: YOUR_API_KEY"`}
                             </pre>
                           </div>
@@ -530,7 +530,7 @@ export default function ApiPage() {
                         <span className="px-2 py-1 bg-blue-900/50 text-blue-400 text-xs rounded">GET</span>
                       </div>
                       <pre className="text-xs text-gray-300 overflow-x-auto mb-3">
-{`${window.location.origin.replace('3000', '19997')}/api/v1/pix/limits`}
+{`${process.env.NEXT_PUBLIC_API_URL}/pix/limits`}
                       </pre>
                       <details className="cursor-pointer">
                         <summary className="text-sm text-gray-400 hover:text-white">Ver exemplo</summary>
@@ -538,7 +538,7 @@ export default function ApiPage() {
                           <div>
                             <p className="text-xs text-gray-400 mb-1">Request:</p>
                             <pre className="text-xs bg-gray-800 p-3 rounded overflow-x-auto">
-{`curl -X GET ${window.location.origin.replace('3000', '19997')}/api/v1/pix/limits \\
+{`curl -X GET ${process.env.NEXT_PUBLIC_API_URL}/pix/limits \\
   -H "X-API-Key: YOUR_API_KEY"`}
                             </pre>
                           </div>

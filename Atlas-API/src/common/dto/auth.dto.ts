@@ -69,7 +69,7 @@ export class UserResponseDto {
 
   @ApiPropertyOptional({
     description: 'API key for external authentication',
-    example: 'atlas_live_abc123xyz456...',
+    example: 'atlas_abc123xyz456...',
   })
   apiKey?: string;
 
@@ -167,7 +167,7 @@ export class CreateApiKeyDto {
 export class ApiKeyResponseDto {
   @ApiProperty({
     description: 'Generated API key',
-    example: 'atlas_live_abc123xyz456...',
+    example: 'atlas_abc123xyz456...',
   })
   apiKey: string;
 

@@ -107,7 +107,7 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'API key for external authentication',
-        example: 'atlas_live_abc123xyz456...',
+        example: 'atlas_abc123xyz456...',
     }),
     __metadata("design:type", String)
 ], UserResponseDto.prototype, "apiKey", void 0);
@@ -235,7 +235,7 @@ exports.ApiKeyResponseDto = ApiKeyResponseDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Generated API key',
-        example: 'atlas_live_abc123xyz456...',
+        example: 'atlas_abc123xyz456...',
     }),
     __metadata("design:type", String)
 ], ApiKeyResponseDto.prototype, "apiKey", void 0);
