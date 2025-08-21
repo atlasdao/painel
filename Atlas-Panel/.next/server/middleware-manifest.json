@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge-runtime-webpack.js",
+        "server/middleware.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!api|_next\\/static|_next\\/image|favicon.ico|atlas-logo.jpg).*))(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/((?!api|_next/static|_next/image|favicon.ico|atlas-logo.jpg).*)"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "yjflyrp7pxaTQ4msLnbjT",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "qnslUWJ3xCJcWftwsbpTZHZwQ6EVRm1J1C2i9JJP1AY=",
+        "__NEXT_PREVIEW_MODE_ID": "86bbdafa91ab3d1e148064127e54d2c9",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "0cb8f3a38479b76076e10c3454ccd4ebefaec14c7d1ecf58d34ab6ea85f03d06",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "a7541f402afe46218754057699947dc8da4d587397a527db9872bcb3b0e75dd1"
+      }
+    }
+  },
+  "functions": {},
+  "sortedMiddleware": [
+    "/"
+  ]
+}

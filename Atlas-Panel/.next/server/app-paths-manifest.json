@@ -1,0 +1,22 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/page": "app/page.js",
+  "/pay/[shortCode]/page": "app/pay/[shortCode]/page.js",
+  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(auth)/reset-password/page": "app/(auth)/reset-password/page.js",
+  "/(dashboard)/admin/api-requests/page": "app/(dashboard)/admin/api-requests/page.js",
+  "/(dashboard)/admin/audit/page": "app/(dashboard)/admin/audit/page.js",
+  "/(dashboard)/admin/transactions/page": "app/(dashboard)/admin/transactions/page.js",
+  "/(dashboard)/admin/users/page": "app/(dashboard)/admin/users/page.js",
+  "/(dashboard)/admin/system/page": "app/(dashboard)/admin/system/page.js",
+  "/(dashboard)/api-keys/page": "app/(dashboard)/api-keys/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/payment-links/page": "app/(dashboard)/payment-links/page.js",
+  "/(dashboard)/api/page": "app/(dashboard)/api/page.js",
+  "/(dashboard)/deposit/page": "app/(dashboard)/deposit/page.js",
+  "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js",
+  "/(dashboard)/transactions/page": "app/(dashboard)/transactions/page.js"
+}

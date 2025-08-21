@@ -1,0 +1,330 @@
+import { AdminService } from './admin.service';
+import { TransactionCleanupService } from '../services/transaction-cleanup.service';
+import { TransactionStatus, TransactionType } from '@prisma/client';
+export declare class AdminController {
+    private readonly adminService;
+    private readonly transactionCleanupService;
+    constructor(adminService: AdminService, transactionCleanupService: TransactionCleanupService);
+    private checkAdminRole;
+    getAllUsers(req: any, skip?: number, take?: number, isActive?: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        password: string;
+        apiKey: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        isActive: boolean;
+        passwordResetCode: string | null;
+        passwordResetExpires: Date | null;
+        passwordResetAttempts: number;
+        isAccountValidated: boolean;
+        validationPaymentId: string | null;
+        validatedAt: Date | null;
+        apiDailyLimit: number;
+        apiMonthlyLimit: number;
+        createdAt: Date;
+        updatedAt: Date;
+        lastLoginAt: Date | null;
+    }[]>;
+    getUserById(req: any, userId: string): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        password: string;
+        apiKey: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        isActive: boolean;
+        passwordResetCode: string | null;
+        passwordResetExpires: Date | null;
+        passwordResetAttempts: number;
+        isAccountValidated: boolean;
+        validationPaymentId: string | null;
+        validatedAt: Date | null;
+        apiDailyLimit: number;
+        apiMonthlyLimit: number;
+        createdAt: Date;
+        updatedAt: Date;
+        lastLoginAt: Date | null;
+    }>;
+    updateUserStatus(req: any, userId: string, isActive: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        password: string;
+        apiKey: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        isActive: boolean;
+        passwordResetCode: string | null;
+        passwordResetExpires: Date | null;
+        passwordResetAttempts: number;
+        isAccountValidated: boolean;
+        validationPaymentId: string | null;
+        validatedAt: Date | null;
+        apiDailyLimit: number;
+        apiMonthlyLimit: number;
+        createdAt: Date;
+        updatedAt: Date;
+        lastLoginAt: Date | null;
+    }>;
+    updateUser(req: any, userId: string, data: any): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        password: string;
+        apiKey: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        isActive: boolean;
+        passwordResetCode: string | null;
+        passwordResetExpires: Date | null;
+        passwordResetAttempts: number;
+        isAccountValidated: boolean;
+        validationPaymentId: string | null;
+        validatedAt: Date | null;
+        apiDailyLimit: number;
+        apiMonthlyLimit: number;
+        createdAt: Date;
+        updatedAt: Date;
+        lastLoginAt: Date | null;
+    }>;
+    generateUserApiKey(req: any, userId: string): Promise<{
+        apiKey: string;
+    }>;
+    revokeUserApiKey(req: any, userId: string): Promise<void>;
+    deleteUser(req: any, userId: string): Promise<void>;
+    getUserStatsById(req: any, userId: string): Promise<{
+        totalTransactions: number;
+        totalVolume: number;
+        pendingTransactions: number;
+        completedTransactions: number;
+    }>;
+    getAllTransactions(req: any, skip?: number, take?: number, limit?: number, offset?: number, status?: TransactionStatus, type?: TransactionType, userId?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        type: import("@prisma/client").$Enums.TransactionType;
+        status: import("@prisma/client").$Enums.TransactionStatus;
+        amount: number;
+        currency: string;
+        pixKey: string | null;
+        pixKeyType: import("@prisma/client").$Enums.PixKeyType | null;
+        externalId: string | null;
+        metadata: string | null;
+        errorMessage: string | null;
+        processedAt: Date | null;
+        userId: string;
+    }[]>;
+    updateTransactionStatus(req: any, transactionId: string, data: {
+        status: TransactionStatus;
+        errorMessage?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        type: import("@prisma/client").$Enums.TransactionType;
+        status: import("@prisma/client").$Enums.TransactionStatus;
+        amount: number;
+        currency: string;
+        pixKey: string | null;
+        pixKeyType: import("@prisma/client").$Enums.PixKeyType | null;
+        externalId: string | null;
+        metadata: string | null;
+        errorMessage: string | null;
+        processedAt: Date | null;
+        userId: string;
+    }>;
+    getAuditLogs(req: any, skip?: number, take?: number, userId?: string, action?: string, resource?: string, startDate?: Date, endDate?: Date): Promise<{
+        id: string;
+        createdAt: Date;
+        requestBody: string | null;
+        userId: string | null;
+        action: string;
+        resource: string;
+        resourceId: string | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        responseBody: string | null;
+        statusCode: number | null;
+        duration: number | null;
+        transactionId: string | null;
+    }[]>;
+    getSystemStats(req: any): Promise<{
+        users: any;
+        transactions: any;
+        revenue: any;
+    }>;
+    getUserStats(req: any): Promise<{
+        totalUsers: number;
+        activeUsers: number;
+        inactiveUsers: number;
+        usersWithApiKeys: number;
+    }>;
+    getAuditStats(req: any, startDate?: Date, endDate?: Date): Promise<{
+        action: string;
+        count: number;
+    }[]>;
+    getDashboardStats(req: any): Promise<any>;
+    getDashboardData(req: any, limit?: number): Promise<{
+        stats: {
+            users: any;
+            transactions: any;
+            revenue: any;
+        };
+        recentTransactions: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            description: string | null;
+            type: import("@prisma/client").$Enums.TransactionType;
+            status: import("@prisma/client").$Enums.TransactionStatus;
+            amount: number;
+            currency: string;
+            pixKey: string | null;
+            pixKeyType: import("@prisma/client").$Enums.PixKeyType | null;
+            externalId: string | null;
+            metadata: string | null;
+            errorMessage: string | null;
+            processedAt: Date | null;
+            userId: string;
+        }[];
+        recentUsers: {
+            id: string;
+            email: string;
+            username: string;
+            password: string;
+            apiKey: string | null;
+            role: import("@prisma/client").$Enums.UserRole;
+            isActive: boolean;
+            passwordResetCode: string | null;
+            passwordResetExpires: Date | null;
+            passwordResetAttempts: number;
+            isAccountValidated: boolean;
+            validationPaymentId: string | null;
+            validatedAt: Date | null;
+            apiDailyLimit: number;
+            apiMonthlyLimit: number;
+            createdAt: Date;
+            updatedAt: Date;
+            lastLoginAt: Date | null;
+        }[];
+        auditStats: {
+            action: string;
+            count: number;
+        }[];
+        timestamp: Date;
+    }>;
+    getAllUsersWithLimits(req: any, skip?: number, take?: number, isFirstDay?: boolean, isKycVerified?: boolean, isHighRiskUser?: boolean): Promise<{
+        users: (import("@prisma/client").UserLimit & {
+            user: {
+                email: string;
+                username: string;
+                createdAt: Date;
+            };
+        })[];
+        total: number;
+    }>;
+    getUserLimits(req: any, userId: string): Promise<{
+        limits: any;
+        dailyUsage: any;
+        monthlyUsage: any;
+        isFirstDay: boolean;
+        isKycVerified: boolean;
+        isHighRiskUser: boolean;
+    }>;
+    updateUserLimits(req: any, userId: string, updateLimitsDto: {
+        dailyDepositLimit?: number;
+        dailyWithdrawLimit?: number;
+        dailyTransferLimit?: number;
+        maxDepositPerTx?: number;
+        maxWithdrawPerTx?: number;
+        maxTransferPerTx?: number;
+        monthlyDepositLimit?: number;
+        monthlyWithdrawLimit?: number;
+        monthlyTransferLimit?: number;
+        isKycVerified?: boolean;
+        isHighRiskUser?: boolean;
+        notes?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        dailyDepositLimit: number;
+        dailyWithdrawLimit: number;
+        dailyTransferLimit: number;
+        maxDepositPerTx: number;
+        maxWithdrawPerTx: number;
+        maxTransferPerTx: number;
+        monthlyDepositLimit: number;
+        monthlyWithdrawLimit: number;
+        monthlyTransferLimit: number;
+        isFirstDay: boolean;
+        isKycVerified: boolean;
+        isHighRiskUser: boolean;
+        lastLimitUpdate: Date;
+        updatedByAdminId: string | null;
+        notes: string | null;
+    }>;
+    resetUserFirstDay(req: any, userId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        dailyDepositLimit: number;
+        dailyWithdrawLimit: number;
+        dailyTransferLimit: number;
+        maxDepositPerTx: number;
+        maxWithdrawPerTx: number;
+        maxTransferPerTx: number;
+        monthlyDepositLimit: number;
+        monthlyWithdrawLimit: number;
+        monthlyTransferLimit: number;
+        isFirstDay: boolean;
+        isKycVerified: boolean;
+        isHighRiskUser: boolean;
+        lastLimitUpdate: Date;
+        updatedByAdminId: string | null;
+        notes: string | null;
+    }>;
+    applyKycLimits(req: any, userId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        dailyDepositLimit: number;
+        dailyWithdrawLimit: number;
+        dailyTransferLimit: number;
+        maxDepositPerTx: number;
+        maxWithdrawPerTx: number;
+        maxTransferPerTx: number;
+        monthlyDepositLimit: number;
+        monthlyWithdrawLimit: number;
+        monthlyTransferLimit: number;
+        isFirstDay: boolean;
+        isKycVerified: boolean;
+        isHighRiskUser: boolean;
+        lastLimitUpdate: Date;
+        updatedByAdminId: string | null;
+        notes: string | null;
+    }>;
+    updateEulenToken(req: any, data: {
+        token: string;
+    }): Promise<{
+        message: string;
+    }>;
+    getTransactionCleanupStats(req: any): Promise<{
+        totalPending: number;
+        expiredReady: number;
+        recentPending: number;
+        totalExpired: number;
+        cutoffTime: Date;
+        timeoutMinutes: number;
+        monitoringFrequency: string;
+    }>;
+    manualTransactionCleanup(req: any): Promise<{
+        message: string;
+        expiredCount: number;
+        timestamp: string;
+    }>;
+}

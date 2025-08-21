@@ -1,0 +1,334 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Role enum for consistent role management
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// User model for authentication and authorization
+model User {
+  id                    String        @id @default(uuid())
+  email                 String        @unique
+  username              String        @unique
+  password              String
+  apiKey                String?       @unique
+  role                  UserRole      @default(USER)
+  isActive              Boolean       @default(true)
+  
+  // Password reset fields
+  passwordResetCode     String?       // 6-digit code
+  passwordResetExpires  DateTime?     // Expiration time for reset code
+  passwordResetAttempts Int          @default(0) // Track attempts to prevent brute force
+  
+  // Account validation
+  isAccountValidated    Boolean       @default(false) // Account validated with R$1 payment
+  validationPaymentId   String?       // Transaction ID of validation payment
+  validatedAt           DateTime?     // When account was validated
+  
+  // API limits
+  apiDailyLimit         Float         @default(6000) // Daily limit for API usage
+  apiMonthlyLimit       Float         @default(180000) // Monthly limit for API usage
+  
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  lastLoginAt           DateTime?
+  transactions          Transaction[]
+  auditLogs             AuditLog[]
+  limits                UserLimit?
+  reputation            UserReputation?
+  apiKeyRequests        ApiKeyRequest[]
+  paymentLinks          PaymentLink[]
+
+  @@index([email])
+  @@index([username])
+  @@index([apiKey])
+  @@index([role])
+  @@index([passwordResetCode])
+}
+
+// Transaction model for PIX operations
+model Transaction {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  type            TransactionType
+  status          TransactionStatus
+  amount          Float
+  currency        String            @default("BRL")
+  pixKey          String?
+  pixKeyType      PixKeyType?
+  externalId      String?           @unique
+  description     String?
+  metadata        String? // JSON stored as string
+  errorMessage    String?
+  processedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  webhookEvents   WebhookEvent[]
+  auditLogs       AuditLog[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([externalId])
+  @@index([createdAt])
+}
+
+// Webhook events for async notifications
+model WebhookEvent {
+  id            String              @id @default(uuid())
+  transactionId String
+  transaction   Transaction         @relation(fields: [transactionId], references: [id])
+  url           String
+  method        String              @default("POST")
+  headers       String? // JSON stored as string
+  payload       String // JSON stored as string
+  status        WebhookEventStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  maxAttempts   Int                 @default(3)
+  lastAttemptAt DateTime?
+  responseCode  Int?
+  responseBody  String?
+  nextRetryAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([nextRetryAt])
+}
+
+// Audit log for compliance
+model AuditLog {
+  id            String      @id @default(uuid())
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  action        String
+  resource      String
+  resourceId    String?
+  ipAddress     String?
+  userAgent     String?
+  requestBody   String? // JSON stored as string
+  responseBody  String? // JSON stored as string
+  statusCode    Int?
+  duration      Int? // in milliseconds
+  createdAt     DateTime    @default(now())
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// API Rate Limiting
+model RateLimit {
+  id        String   @id @default(uuid())
+  key       String   @unique // Can be IP, userId, or apiKey
+  type      String   // 'ip', 'user', 'api_key'
+  requests  Int      @default(0)
+  window    String   // e.g., '1h', '1d'
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([resetAt])
+}
+
+// User Transaction Limits (MED Compliance)
+model UserLimit {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Daily limits
+  dailyDepositLimit     Float    @default(500.00)   // R$ 500 first day default
+  dailyWithdrawLimit    Float    @default(500.00)   
+  dailyTransferLimit    Float    @default(500.00)   
+  
+  // Per transaction limits  
+  maxDepositPerTx       Float    @default(5000.00)  // R$ 5000 per transaction default
+  maxWithdrawPerTx      Float    @default(5000.00)  
+  maxTransferPerTx      Float    @default(5000.00)  
+  
+  // Monthly limits
+  monthlyDepositLimit   Float    @default(50000.00) // R$ 50k monthly default
+  monthlyWithdrawLimit  Float    @default(50000.00) 
+  monthlyTransferLimit  Float    @default(50000.00) 
+  
+  // Special flags for compliance
+  isFirstDay            Boolean  @default(true)     // Special R$500 limit for first day
+  isKycVerified         Boolean  @default(false)    // KYC status affects limits
+  isHighRiskUser        Boolean  @default(false)    // Admin can mark high risk users
+  
+  // Metadata
+  lastLimitUpdate       DateTime @default(now())
+  updatedByAdminId      String?  // Which admin updated the limits
+  notes                 String?  // Admin notes about limit changes
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isFirstDay])
+  @@index([isKycVerified])
+}
+
+// API Key Request model for approval workflow
+model ApiKeyRequest {
+  id                    String              @id @default(uuid())
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Request details
+  usageReason           String              // Why the user needs API access
+  serviceUrl            String              // URL of the service that will use the API
+  estimatedVolume       String              // Estimated payment volume (e.g., "100-500 transactions/month")
+  usageType             ApiKeyUsageType     @default(SINGLE_CPF) // Single CPF/CNPJ or multiple
+  
+  // Approval workflow
+  status                ApiKeyRequestStatus @default(PENDING)
+  approvedBy            String?             // Admin ID who approved/rejected
+  approvalNotes         String?             // Admin notes on approval/rejection
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  
+  // Generated API key info (after approval)
+  generatedApiKey       String?             @unique
+  apiKeyExpiresAt       DateTime?
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Payment Links for quick payment generation
+model PaymentLink {
+  id                    String              @id @default(uuid())
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Link configuration
+  shortCode             String              @unique // Short code for the link (e.g., "abc123")
+  amount                Float               // Amount to be paid
+  walletAddress         String              // Wallet to receive payment
+  description           String?             // Optional description
+  
+  // PIX QR Code management
+  currentQrCode         String?             // Current QR code data
+  qrCodeGeneratedAt     DateTime?           // When current QR was generated
+  lastPaymentId         String?             // Last successful payment transaction ID
+  
+  // Statistics
+  totalPayments         Int                 @default(0) // Total successful payments
+  totalAmount           Float               @default(0) // Total amount received
+  
+  isActive              Boolean             @default(true)
+  expiresAt             DateTime?           // Optional expiration date
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([shortCode])
+  @@index([userId])
+  @@index([isActive])
+}
+
+// User Reputation for tracking user trust level
+model UserReputation {
+  id                    String              @id @default(uuid())
+  userId                String              @unique
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Transaction metrics
+  totalApprovedVolume   Float               @default(0)      // Total value of approved transactions
+  totalApprovedCount    Int                 @default(0)      // Number of approved transactions
+  totalRejectedCount    Int                 @default(0)      // Number of rejected/failed transactions
+  
+  // Reputation score (0-100)
+  reputationScore       Float               @default(0)      // Calculated reputation score
+  
+  // Current limits based on reputation
+  currentDailyLimit     Float               @default(6000)   // Current daily limit
+  nextLimitThreshold    Float               @default(50000)  // Volume needed for next limit increase
+  limitTier             Int                 @default(1)      // Current tier (1=6k, 2=10k, 3=20k, etc)
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([userId])
+  @@index([reputationScore])
+}
+
+// System Settings for configuration
+model SystemSettings {
+  id                    String              @id @default(uuid())
+  key                   String              @unique
+  value                 String              // JSON stored as string
+  description           String?
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([key])
+}
+
+// Enums
+enum ApiKeyRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum ApiKeyUsageType {
+  SINGLE_CPF   // User will centralize payments in a single CPF/CNPJ
+  MULTIPLE_CPF // User will process payments from different CPF/CNPJ
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAW
+  TRANSFER
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PixKeyType {
+  CPF
+  CNPJ
+  EMAIL
+  PHONE
+  RANDOM_KEY
+}
+
+enum WebhookEventStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}

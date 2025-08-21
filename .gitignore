@@ -1,0 +1,51 @@
+# ===================================================================
+# Arquivo .gitignore para o Projeto Atlas DAO (API e Painel)
+# ===================================================================
+
+# --- Dependências ---
+# Nunca versionar a pasta de dependências. Ela é recriada com 'npm install'.
+node_modules/
+
+# --- Arquivos de Ambiente e Segredos (MUITO IMPORTANTE) ---
+# Contêm senhas, chaves de API e segredos. NUNCA devem ir para o GitHub.
+.env
+.env.*
+*.env
+.env.local
+.env.production
+.env.development
+
+# --- Pastas de Build e Cache ---
+# São geradas durante o processo de compilação e não são código-fonte.
+/api-main/Atlas-API/dist/
+/api-main/Atlas-Panel/.next/
+/api-main/Atlas-Panel/.turbo/
+
+# --- Logs ---
+# Arquivos de log podem conter informações sensíveis.
+*.log
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+
+# --- Arquivos do PM2 ---
+# Logs e dumps do gerenciador de processos.
+/root/.pm2/logs/
+/root/.pm2/pids/
+/root/.pm2/dump.pm2
+
+# --- Arquivos de Banco de Dados Locais (Precaução) ---
+*.db
+*.sqlite
+dev.db
+
+# --- Cache do Compilador TypeScript ---
+*.tsbuildinfo
+
+# --- Arquivos de Sistema Operacional ---
+.DS_Store
+Thumbs.db
+
+# --- Pasta de Configuração de Editor (Opcional) ---
+.vscode/
+.idea/
