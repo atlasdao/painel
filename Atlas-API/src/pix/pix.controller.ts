@@ -56,7 +56,7 @@ export class PixController {
     @Req() req: any,
     @Body() depositDto: DepositDto,
   ): Promise<TransactionResponseDto> {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.createDeposit(userId, depositDto);
   }
 
@@ -71,7 +71,7 @@ export class PixController {
     @Req() req: any,
     @Body() withdrawDto: WithdrawDto,
   ): Promise<TransactionResponseDto> {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.createWithdraw(userId, withdrawDto);
   }
 
@@ -86,7 +86,7 @@ export class PixController {
     @Req() req: any,
     @Body() transferDto: TransferDto,
   ): Promise<TransactionResponseDto> {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.createTransfer(userId, transferDto);
   }
 
@@ -104,7 +104,7 @@ export class PixController {
     @Req() req: any,
     @Query() filters: TransactionFilterDto,
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     // Use limit/offset as aliases for take/skip
     if (filters.limit !== undefined && filters.take === undefined) {
       filters.take = filters.limit;
@@ -125,7 +125,7 @@ export class PixController {
     @Req() req: any,
     @Param('id') transactionId: string,
   ): Promise<TransactionResponseDto> {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.getTransactionStatus(userId, transactionId);
   }
 
@@ -139,7 +139,7 @@ export class PixController {
     @Req() req: any,
     @Param('id') transactionId: string,
   ): Promise<TransactionResponseDto> {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.getTransactionStatus(userId, transactionId);
   }
 
@@ -158,7 +158,7 @@ export class PixController {
       expirationMinutes?: number;
     },
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.generatePixQRCode(userId, data);
   }
 
@@ -179,7 +179,7 @@ export class PixController {
   @ApiResponse({ status: 200, description: 'Balance retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getBalance(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.getBalance(userId);
   }
 
@@ -193,7 +193,7 @@ export class PixController {
     @Req() req: any,
     @Param('transactionId') transactionId: string,
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.checkDepositStatus(userId, transactionId);
   }
 
@@ -221,7 +221,7 @@ export class PixController {
   @ApiResponse({ status: 200, description: 'User limits and usage retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getUserLimits(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.pixService.getUserLimits(userId);
   }
 }

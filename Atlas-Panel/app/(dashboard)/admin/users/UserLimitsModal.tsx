@@ -230,7 +230,7 @@ export default function UserLimitsModal({
                   onChange={(e) => setLimits({ ...limits, isKycVerified: e.target.checked })}
                   className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-white">KYC Verificado</span>
+                <span className="text-white">Conta Validada</span>
               </label>
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input

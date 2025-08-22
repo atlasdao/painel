@@ -14,7 +14,27 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axios$2f$lib
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/js-cookie/dist/js.cookie.mjs [app-client] (ecmascript)");
 ;
 ;
-const API_URL = ("TURBOPACK compile-time value", "https://atlas2.orion.moe/api/v1") || 'http://localhost:20000/api/v1';
+// Determine API URL based on environment
+let API_URL = ("TURBOPACK compile-time value", "https://atlas2.orion.moe/api/v1") || 'http://localhost:19997/api/v1';
+// Auto-detect HTTPS and adjust API URL if needed
+if ("TURBOPACK compile-time truthy", 1) {
+    const isHttps = window.location.protocol === 'https:';
+    const isLocalhost = window.location.hostname === 'localhost';
+    console.log('🔍 Frontend URL info:', {
+        protocol: window.location.protocol,
+        hostname: window.location.hostname,
+        href: window.location.href,
+        isHttps,
+        isLocalhost
+    });
+    // If frontend is on HTTPS but API URL is HTTP, and not localhost, update to HTTPS
+    if (isHttps && API_URL.startsWith('http://') && !isLocalhost) {
+        API_URL = API_URL.replace('http://', 'https://');
+        console.warn('🔄 Auto-updated API URL to HTTPS for mixed content compatibility:', API_URL);
+    }
+    console.log('🔍 Final API_URL:', API_URL);
+    console.log('🔍 NEXT_PUBLIC_API_URL env var:', ("TURBOPACK compile-time value", "https://atlas2.orion.moe/api/v1"));
+}
 const api = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axios$2f$lib$2f$axios$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].create({
     baseURL: API_URL,
     headers: {
@@ -23,17 +43,46 @@ const api = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axio
 });
 // Request interceptor to add auth token
 api.interceptors.request.use((config)=>{
-    const token = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].get('access_token');
-    if (token) {
-        config.headers.Authorization = "Bearer ".concat(token);
+    console.log('🚀 Making request to:', config.url, 'with baseURL:', config.baseURL);
+    // Check if we're in the browser
+    if ("TURBOPACK compile-time truthy", 1) {
+        const token = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].get('access_token');
+        console.log('Token in interceptor:', token ? 'EXISTS' : 'NOT FOUND');
+        console.log('All cookies:', document.cookie);
+        if (token) {
+            config.headers.Authorization = "Bearer ".concat(token);
+            console.log('Authorization header set:', config.headers.Authorization);
+        } else {
+            console.log('No token found, headers:', config.headers);
+        }
     }
+    console.log('📤 Final request config:', {
+        url: config.url,
+        baseURL: config.baseURL,
+        method: config.method,
+        headers: config.headers
+    });
     return config;
 }, (error)=>{
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
 });
-// Response interceptor to handle token refresh
+// Response interceptor to handle token refresh and CORS errors
 api.interceptors.response.use((response)=>response, async (error)=>{
     var _error_response;
+    // Handle CORS and network errors
+    if (!error.response) {
+        console.error('❌ Network error (possibly CORS):', error.message);
+        // If it's a CORS error and we're on HTTPS, try to suggest HTTPS API URL
+        if ("object" !== 'undefined' && window.location.protocol === 'https:' && API_URL.startsWith('http://')) {
+            console.error('🔐 Mixed content detected - HTTPS frontend trying to access HTTP API');
+            console.error('💡 Consider setting NEXT_PUBLIC_API_URL to an HTTPS endpoint');
+        }
+        return Promise.reject({
+            ...error,
+            message: 'Network error. Check if the API server is running and CORS is configured correctly.'
+        });
+    }
     const originalRequest = error.config;
     if (((_error_response = error.response) === null || _error_response === void 0 ? void 0 : _error_response.status) === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
@@ -83,9 +132,22 @@ const authService = {
             password
         });
         const { accessToken, user } = response.data;
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('access_token', accessToken);
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('refresh_token', ''); // API não retorna refresh token no login
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('user', JSON.stringify(user));
+        if (!accessToken) {
+            throw new Error('Token não recebido do servidor');
+        }
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('access_token', accessToken, {
+            path: '/',
+            sameSite: 'lax',
+            secure: false
+        });
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('refresh_token', '', {
+            path: '/'
+        }); // API não retorna refresh token no login
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('user', JSON.stringify(user), {
+            path: '/',
+            sameSite: 'lax',
+            secure: false
+        });
         return {
             access_token: accessToken,
             refresh_token: '',
@@ -99,9 +161,22 @@ const authService = {
             password
         });
         const { accessToken, user } = response.data;
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('access_token', accessToken);
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('refresh_token', ''); // API não retorna refresh token no register
-        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('user', JSON.stringify(user));
+        if (!accessToken) {
+            throw new Error('Token não recebido do servidor');
+        }
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('access_token', accessToken, {
+            path: '/',
+            sameSite: 'lax',
+            secure: false
+        });
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('refresh_token', '', {
+            path: '/'
+        }); // API não retorna refresh token no register
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$js$2d$cookie$2f$dist$2f$js$2e$cookie$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].set('user', JSON.stringify(user), {
+            path: '/',
+            sameSite: 'lax',
+            secure: false
+        });
         return {
             access_token: accessToken,
             refresh_token: '',
@@ -205,6 +280,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$auth$2e$ts__$5
 var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$types$2f$user$2d$role$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/types/user-role.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$house$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Home$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/house.js [app-client] (ecmascript) <export default as Home>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$down$2d$left$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowDownLeft$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/arrow-down-left.js [app-client] (ecmascript) <export default as ArrowDownLeft>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$up$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowUpRight$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/arrow-up-right.js [app-client] (ecmascript) <export default as ArrowUpRight>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$history$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__History$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/history.js [app-client] (ecmascript) <export default as History>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$settings$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Settings$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/settings.js [app-client] (ecmascript) <export default as Settings>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/users.js [app-client] (ecmascript) <export default as Users>");
@@ -260,9 +336,14 @@ function DashboardLayout(param) {
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$house$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Home$3e$__["Home"]
         },
         {
-            name: 'Depósitos',
+            name: 'Adquirir DePix',
             href: '/deposit',
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$down$2d$left$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowDownLeft$3e$__["ArrowDownLeft"]
+        },
+        {
+            name: 'Saques',
+            href: '/withdrawals',
+            icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$up$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowUpRight$3e$__["ArrowUpRight"]
         },
         {
             name: 'Transações',
@@ -290,6 +371,11 @@ function DashboardLayout(param) {
             name: 'Usuários',
             href: '/admin/users',
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__["Users"]
+        },
+        {
+            name: 'Saques',
+            href: '/admin/withdrawals',
+            icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$up$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowUpRight$3e$__["ArrowUpRight"]
         },
         {
             name: 'Solicitações API',
@@ -320,12 +406,12 @@ function DashboardLayout(param) {
                 className: "w-12 h-12 border-4 border-blue-800 border-t-transparent rounded-full animate-spin"
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                lineNumber: 74,
+                lineNumber: 77,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/app/(dashboard)/layout.tsx",
-            lineNumber: 73,
+            lineNumber: 76,
             columnNumber: 7
         }, this);
     }
@@ -337,7 +423,7 @@ function DashboardLayout(param) {
                 onClick: ()=>setSidebarOpen(false)
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                lineNumber: 83,
+                lineNumber: 86,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -357,7 +443,7 @@ function DashboardLayout(param) {
                                         className: "rounded-lg"
                                     }, void 0, false, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 97,
+                                        lineNumber: 100,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -365,13 +451,13 @@ function DashboardLayout(param) {
                                         children: "Atlas Panel"
                                     }, void 0, false, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 104,
+                                        lineNumber: 107,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                lineNumber: 96,
+                                lineNumber: 99,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -381,18 +467,18 @@ function DashboardLayout(param) {
                                     className: "w-6 h-6 text-gray-400"
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                    lineNumber: 110,
+                                    lineNumber: 113,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                lineNumber: 106,
+                                lineNumber: 109,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                        lineNumber: 95,
+                        lineNumber: 98,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
@@ -408,7 +494,7 @@ function DashboardLayout(param) {
                                                 className: "w-5 h-5"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                lineNumber: 126,
+                                                lineNumber: 129,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -416,18 +502,18 @@ function DashboardLayout(param) {
                                                 children: item.name
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                lineNumber: 127,
+                                                lineNumber: 130,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, item.name, true, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 117,
+                                        lineNumber: 120,
                                         columnNumber: 15
                                     }, this))
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                lineNumber: 115,
+                                lineNumber: 118,
                                 columnNumber: 11
                             }, this),
                             (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$types$2f$user$2d$role$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isAdmin"])(user.role) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -439,12 +525,12 @@ function DashboardLayout(param) {
                                             children: "Administração"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/layout.tsx",
-                                            lineNumber: 135,
+                                            lineNumber: 138,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 134,
+                                        lineNumber: 137,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -457,7 +543,7 @@ function DashboardLayout(param) {
                                                         className: "w-5 h-5"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                        lineNumber: 150,
+                                                        lineNumber: 153,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -465,18 +551,18 @@ function DashboardLayout(param) {
                                                         children: item.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                        lineNumber: 151,
+                                                        lineNumber: 154,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, item.name, true, {
                                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                lineNumber: 141,
+                                                lineNumber: 144,
                                                 columnNumber: 19
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 139,
+                                        lineNumber: 142,
                                         columnNumber: 15
                                     }, this)
                                 ]
@@ -484,7 +570,7 @@ function DashboardLayout(param) {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                        lineNumber: 114,
+                        lineNumber: 117,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -502,12 +588,12 @@ function DashboardLayout(param) {
                                                 children: user.username[0].toUpperCase()
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                lineNumber: 164,
+                                                lineNumber: 167,
                                                 columnNumber: 17
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/layout.tsx",
-                                            lineNumber: 163,
+                                            lineNumber: 166,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -517,7 +603,7 @@ function DashboardLayout(param) {
                                                     children: user.username
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                    lineNumber: 169,
+                                                    lineNumber: 172,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -525,19 +611,19 @@ function DashboardLayout(param) {
                                                     children: user.role
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                                    lineNumber: 172,
+                                                    lineNumber: 175,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/(dashboard)/layout.tsx",
-                                            lineNumber: 168,
+                                            lineNumber: 171,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                    lineNumber: 162,
+                                    lineNumber: 165,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -547,29 +633,29 @@ function DashboardLayout(param) {
                                         className: "w-5 h-5"
                                     }, void 0, false, {
                                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                                        lineNumber: 179,
+                                        lineNumber: 182,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                    lineNumber: 175,
+                                    lineNumber: 178,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/(dashboard)/layout.tsx",
-                            lineNumber: 161,
+                            lineNumber: 164,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                        lineNumber: 160,
+                        lineNumber: 163,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                lineNumber: 90,
+                lineNumber: 93,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -585,12 +671,12 @@ function DashboardLayout(param) {
                                     className: "w-6 h-6 text-gray-300"
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/layout.tsx",
-                                    lineNumber: 193,
+                                    lineNumber: 196,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                lineNumber: 189,
+                                lineNumber: 192,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
@@ -598,13 +684,13 @@ function DashboardLayout(param) {
                                 children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$types$2f$user$2d$role$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isAdmin"])(user.role) ? 'Painel Administrativo' : 'Painel do Usuário'
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                                lineNumber: 195,
+                                lineNumber: 198,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                        lineNumber: 188,
+                        lineNumber: 191,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -612,19 +698,19 @@ function DashboardLayout(param) {
                         children: children
                     }, void 0, false, {
                         fileName: "[project]/app/(dashboard)/layout.tsx",
-                        lineNumber: 201,
+                        lineNumber: 204,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/(dashboard)/layout.tsx",
-                lineNumber: 186,
+                lineNumber: 189,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/(dashboard)/layout.tsx",
-        lineNumber: 80,
+        lineNumber: 83,
         columnNumber: 5
     }, this);
 }

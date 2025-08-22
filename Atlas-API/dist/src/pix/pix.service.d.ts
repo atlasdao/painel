@@ -1,16 +1,20 @@
 import { EulenClientService } from '../services/eulen-client.service';
 import { LimitValidationService } from '../services/limit-validation.service';
+import { LiquidValidationService } from '../services/liquid-validation.service';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { PrismaService } from '../prisma/prisma.service';
 import { DepositDto, WithdrawDto, TransferDto, TransactionResponseDto } from '../eulen/dto/eulen.dto';
 import { TransactionType, TransactionStatus } from '@prisma/client';
 export declare class PixService {
     private readonly eulenClient;
     private readonly limitValidationService;
+    private readonly liquidValidation;
     private readonly transactionRepository;
     private readonly auditLogRepository;
+    private readonly prisma;
     private readonly logger;
-    constructor(eulenClient: EulenClientService, limitValidationService: LimitValidationService, transactionRepository: TransactionRepository, auditLogRepository: AuditLogRepository);
+    constructor(eulenClient: EulenClientService, limitValidationService: LimitValidationService, liquidValidation: LiquidValidationService, transactionRepository: TransactionRepository, auditLogRepository: AuditLogRepository, prisma: PrismaService);
     createDeposit(userId: string, depositDto: DepositDto): Promise<TransactionResponseDto>;
     createWithdraw(userId: string, withdrawDto: WithdrawDto): Promise<TransactionResponseDto>;
     createTransfer(userId: string, transferDto: TransferDto): Promise<TransactionResponseDto>;
@@ -26,6 +30,7 @@ export declare class PixService {
         depixAddress: string;
         description?: string;
         expirationMinutes?: number;
+        payerCpfCnpj?: string;
     }): Promise<{
         qrCode: string;
         qrCodeImage: string;

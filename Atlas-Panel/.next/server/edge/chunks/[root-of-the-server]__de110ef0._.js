@@ -30,6 +30,9 @@ function middleware(request) {
     const { pathname } = request.nextUrl;
     const accessToken = request.cookies.get('access_token');
     const userCookie = request.cookies.get('user');
+    console.log('Middleware - pathname:', pathname);
+    console.log('Middleware - accessToken:', accessToken ? 'EXISTS' : 'NOT FOUND');
+    console.log('Middleware - userCookie:', userCookie ? 'EXISTS' : 'NOT FOUND');
     // Public routes that don't require authentication
     const publicRoutes = [
         '/',
@@ -49,8 +52,12 @@ function middleware(request) {
     const isAuthRoute = authRoutes.includes(pathname);
     // Admin-only routes
     const adminRoutes = pathname.startsWith('/admin');
+    console.log('Middleware - isPublicRoute:', isPublicRoute);
+    console.log('Middleware - isAuthRoute:', isAuthRoute);
+    console.log('Middleware - adminRoutes:', adminRoutes);
     // Check if user is authenticated
     if (!accessToken && !isPublicRoute) {
+        console.log('Middleware - Redirecting to login (no token)');
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$spec$2d$extension$2f$response$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].redirect(new URL('/login', request.url));
     }
     // Only redirect authenticated users away from auth routes (login, register, etc)

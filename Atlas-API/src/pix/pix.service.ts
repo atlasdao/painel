@@ -1,8 +1,10 @@
 import { Injectable, Logger, HttpException, HttpStatus, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { EulenClientService } from '../services/eulen-client.service';
 import { LimitValidationService } from '../services/limit-validation.service';
+import { LiquidValidationService } from '../services/liquid-validation.service';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { PrismaService } from '../prisma/prisma.service';
 import { DepositDto, WithdrawDto, TransferDto, TransactionResponseDto } from '../eulen/dto/eulen.dto';
 import { TransactionType, TransactionStatus } from '@prisma/client';
 import * as QRCode from 'qrcode';
@@ -15,8 +17,10 @@ export class PixService {
   constructor(
     private readonly eulenClient: EulenClientService,
     private readonly limitValidationService: LimitValidationService,
+    private readonly liquidValidation: LiquidValidationService,
     private readonly transactionRepository: TransactionRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async createDeposit(userId: string, depositDto: DepositDto): Promise<TransactionResponseDto> {
@@ -286,9 +290,43 @@ export class PixService {
       depixAddress: string; // DePix address from frontend - REQUIRED
       description?: string;
       expirationMinutes?: number;
+      payerCpfCnpj?: string; // CPF/CNPJ do pagador (para modo comércio)
     }
   ): Promise<{ qrCode: string; qrCodeImage: string; transactionId: string }> {
     try {
+      // Get user to check commerce mode
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { commerceMode: true },
+      });
+
+      // If commerce mode is enabled, allow multiple CPF/CNPJ
+      if (user?.commerceMode && data.payerCpfCnpj) {
+        // Validate CPF/CNPJ format
+        const cpfCnpjClean = data.payerCpfCnpj.replace(/\D/g, '');
+        if (cpfCnpjClean.length !== 11 && cpfCnpjClean.length !== 14) {
+          throw new HttpException(
+            'CPF/CNPJ inválido. Use 11 dígitos para CPF ou 14 para CNPJ.',
+            HttpStatus.BAD_REQUEST
+          );
+        }
+      }
+
+      // Validate Liquid address
+      if (!this.liquidValidation.validateLiquidAddress(data.depixAddress)) {
+        throw new HttpException(
+          'Endereço Liquid inválido. Por favor, verifique e tente novamente.',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Check if it's a mainnet address
+      if (!this.liquidValidation.isMainnetAddress(data.depixAddress)) {
+        throw new HttpException(
+          'Por favor, use um endereço da mainnet Liquid (deve começar com lq1, VJL, Q, G ou H)',
+          HttpStatus.BAD_REQUEST
+        );
+      }
       // Generate transaction for QR Code
       const transaction = await this.transactionRepository.create({
         user: { connect: { id: userId } },
@@ -300,7 +338,8 @@ export class PixService {
         metadata: JSON.stringify({
           isQrCodePayment: true,
           depixAddress: data.depixAddress, // Also store in metadata for reference
-          expirationMinutes: data.expirationMinutes || 30,
+          expirationMinutes: data.expirationMinutes || 18, // Changed to 18 minutes as requested
+          payerCpfCnpj: data.payerCpfCnpj, // Store payer CPF/CNPJ if provided
         }),
       });
 
@@ -403,6 +442,13 @@ export class PixService {
       if (!transaction) {
         throw new NotFoundException('Transaction not found');
       }
+
+      this.logger.log(`🔍 DEBUGGING TRANSACTION DATA:`);
+      this.logger.log(`  - Transaction ID: ${transaction.id}`);
+      this.logger.log(`  - External ID: ${transaction.externalId}`);
+      this.logger.log(`  - External ID length: ${transaction.externalId?.length || 'null'}`);
+      this.logger.log(`  - External ID type: ${typeof transaction.externalId}`);
+      this.logger.log(`  - Status: ${transaction.status}`);
 
       // Verify transaction belongs to user (unless admin)
       if (transaction.userId !== userId) {
@@ -559,6 +605,32 @@ export class PixService {
       };
     } catch (error) {
       this.logger.error(`Failed to check deposit status for transaction ${transactionId}:`, error);
+      
+      // If it's an external API error (like 503, 520 from Eulen), return graceful fallback
+      if (error.response?.status >= 500 || error.response?.status === 520 || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        this.logger.warn(`External API unavailable, returning last known status for transaction ${transactionId}`);
+        
+        // Try to get the transaction again to return current status
+        try {
+          const transaction = await this.transactionRepository.findById(transactionId);
+          if (transaction) {
+            return {
+              transactionId: transaction.id,
+              status: transaction.status,
+              amount: transaction.amount,
+              processedAt: transaction.processedAt,
+              message: this.getStatusMessage(transaction.status),
+              shouldStopPolling: false,
+              warning: 'External payment service temporarily unavailable. Status check will retry automatically.',
+              error: 'SERVICE_UNAVAILABLE'
+            };
+          }
+        } catch (dbError) {
+          this.logger.error('Database error while fetching fallback status:', dbError);
+        }
+      }
+      
+      // For other errors (like 404, 403, validation errors), throw them
       throw error;
     }
   }

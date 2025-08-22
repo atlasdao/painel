@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UserLimitRepository } from '../repositories/user-limit.repository';
+import { PrismaService } from '../prisma/prisma.service';
 import { TransactionType } from '@prisma/client';
 
 export interface LimitValidationResult {
@@ -20,6 +21,7 @@ export interface LimitValidationResult {
 export class LimitValidationService {
   constructor(
     private readonly userLimitRepository: UserLimitRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -30,6 +32,16 @@ export class LimitValidationService {
     transactionType: TransactionType,
     amount: number,
   ): Promise<LimitValidationResult> {
+    // FIRST: Check if account validation is required and if user is validated
+    const isValidationRequired = await this.isAccountValidationRequired(userId);
+    
+    if (isValidationRequired) {
+      return {
+        allowed: false,
+        reason: 'Conta não validada. Você precisa validar sua conta antes de realizar transações.',
+      };
+    }
+
     // Get or create user limits
     const userLimits = await this.userLimitRepository.getOrCreateUserLimits(userId);
     
@@ -264,5 +276,55 @@ export class LimitValidationService {
     if (userLimits.isFirstDay && transactionType === TransactionType.DEPOSIT) {
       await this.userLimitRepository.markUserAsNotFirstDay(userId);
     }
+  }
+
+  /**
+   * Validate withdrawal limits
+   */
+  async validateWithdrawLimit(userId: string, amount: number): Promise<void> {
+    const validation = await this.validateTransactionLimits(
+      userId,
+      TransactionType.WITHDRAW,
+      amount
+    );
+    
+    if (!validation.allowed) {
+      throw new ForbiddenException({
+        message: validation.reason,
+        currentUsage: validation.currentUsage,
+        limits: validation.limits,
+        code: 'WITHDRAWAL_LIMIT_EXCEEDED',
+      });
+    }
+  }
+
+  /**
+   * Check if account validation is required for this user
+   */
+  private async isAccountValidationRequired(userId: string): Promise<boolean> {
+    // Check if validation is globally enabled
+    const validationEnabledSetting = await this.prisma.systemSettings.findUnique({
+      where: { key: 'validation_enabled' }
+    });
+    
+    const validationEnabled = validationEnabledSetting ? JSON.parse(validationEnabledSetting.value) : true;
+    
+    // If validation is disabled globally, no validation required
+    if (!validationEnabled) {
+      return false;
+    }
+    
+    // Check if user is already validated
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAccountValidated: true }
+    });
+    
+    if (!user) {
+      return true; // If user not found, require validation as safety
+    }
+    
+    // If validation is enabled and user is not validated, validation is required
+    return !user.isAccountValidated;
   }
 }

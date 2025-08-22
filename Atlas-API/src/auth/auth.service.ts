@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserRepository } from '../repositories/user.repository';
 import { EmailService } from '../services/email.service';
+import { ApiKeyUtils } from '../common/utils/api-key.util';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { RegisterDto, LoginDto, AuthResponseDto, CreateApiKeyDto, ForgotPasswordDto, ResetPasswordDto, VerifyResetCodeDto } from '../common/dto/auth.dto';
@@ -110,7 +111,7 @@ export class AuthService {
     }
 
     // Generate unique API key with professional format
-    const apiKey = `atlas_${uuidv4().replace(/-/g, '')}`;
+    const apiKey = ApiKeyUtils.generateApiKey();
     
     // Calculate expiration
     let expiresAt: Date | undefined;

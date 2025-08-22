@@ -28,19 +28,19 @@ let PixController = class PixController {
         return this.pixService.pingEulenAPI();
     }
     async createDeposit(req, depositDto) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.createDeposit(userId, depositDto);
     }
     async createWithdraw(req, withdrawDto) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.createWithdraw(userId, withdrawDto);
     }
     async createTransfer(req, transferDto) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.createTransfer(userId, transferDto);
     }
     async getTransactions(req, filters) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         if (filters.limit !== undefined && filters.take === undefined) {
             filters.take = filters.limit;
         }
@@ -50,33 +50,33 @@ let PixController = class PixController {
         return this.pixService.getUserTransactions(userId, filters);
     }
     async getTransaction(req, transactionId) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.getTransactionStatus(userId, transactionId);
     }
     async getTransactionStatus(req, transactionId) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.getTransactionStatus(userId, transactionId);
     }
     async generateQRCode(req, data) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.generatePixQRCode(userId, data);
     }
     async validatePixKey(pixKey) {
         return this.pixService.validatePixKey(pixKey);
     }
     async getBalance(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.getBalance(userId);
     }
     async checkDepositStatus(req, transactionId) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.checkDepositStatus(userId, transactionId);
     }
     async ping() {
         return this.pixService.pingEulenAPI();
     }
     async getUserLimits(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.pixService.getUserLimits(userId);
     }
 };

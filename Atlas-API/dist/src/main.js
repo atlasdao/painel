@@ -16,10 +16,26 @@ async function bootstrap() {
     const port = configService.get('PORT', 19997);
     const nodeEnv = configService.get('NODE_ENV', 'development');
     app.enableCors({
-        origin: '*',
+        origin: true,
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+        methods: '*',
+        allowedHeaders: '*',
+        exposedHeaders: '*',
+        maxAge: 86400,
+        optionsSuccessStatus: 200,
+        preflightContinue: false,
+    });
+    app.use((req, res, next) => {
+        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Allow-Methods', '*');
+        res.header('Access-Control-Allow-Headers', '*');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Expose-Headers', '*');
+        if (req.method === 'OPTIONS') {
+            res.status(200).end();
+            return;
+        }
+        next();
     });
     app.enableVersioning({
         type: common_1.VersioningType.URI,

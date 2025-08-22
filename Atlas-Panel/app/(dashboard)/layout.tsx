@@ -10,6 +10,7 @@ import { UserRole, isAdmin } from '@/app/types/user-role';
 import {
   Home,
   ArrowDownLeft,
+  ArrowUpRight,
   History,
   Settings,
   Users,
@@ -51,7 +52,8 @@ export default function DashboardLayout({
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Depósitos', href: '/deposit', icon: ArrowDownLeft },
+    { name: 'Adquirir DePix', href: '/deposit', icon: ArrowDownLeft },
+    { name: 'Saques', href: '/withdrawals', icon: ArrowUpRight },
     { name: 'Transações', href: '/transactions', icon: History },
     { name: 'API', href: '/api', icon: Key },
     { name: 'Links de Pagamento', href: '/payment-links', icon: LinkIcon },
@@ -60,6 +62,7 @@ export default function DashboardLayout({
 
   const adminNavigation = [
     { name: 'Usuários', href: '/admin/users', icon: Users },
+    { name: 'Saques', href: '/admin/withdrawals', icon: ArrowUpRight },
     { name: 'Solicitações API', href: '/admin/api-requests', icon: Key },
     { name: 'Todas Transações', href: '/admin/transactions', icon: Activity },
     { name: 'Auditoria', href: '/admin/audit', icon: FileText },

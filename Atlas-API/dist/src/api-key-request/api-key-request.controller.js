@@ -27,15 +27,20 @@ let ApiKeyRequestController = class ApiKeyRequestController {
         this.apiKeyRequestService = apiKeyRequestService;
     }
     async createRequest(req, dto) {
-        const userId = req.user.sub || req.user.id;
+        console.log('Request user object:', req.user);
+        const userId = req.user?.id || req.user?.sub;
+        if (!userId) {
+            throw new common_1.HttpException('User ID not found in token', common_1.HttpStatus.UNAUTHORIZED);
+        }
+        console.log('Using userId:', userId);
         return await this.apiKeyRequestService.createRequest(userId, dto);
     }
     async getMyRequests(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return await this.apiKeyRequestService.getUserRequests(userId);
     }
     async getMyApiKeys(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return await this.apiKeyRequestService.getUserActiveApiKeys(userId);
     }
     async getAllRequests(filter) {
@@ -45,15 +50,15 @@ let ApiKeyRequestController = class ApiKeyRequestController {
         return await this.apiKeyRequestService.getRequestById(id);
     }
     async approveRequest(id, req, dto) {
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return await this.apiKeyRequestService.approveRequest(id, adminId, dto);
     }
     async rejectRequest(id, req, dto) {
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return await this.apiKeyRequestService.rejectRequest(id, adminId, dto);
     }
     async revokeApiKey(id, req, reason) {
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return await this.apiKeyRequestService.revokeApiKey(id, adminId, reason);
     }
 };

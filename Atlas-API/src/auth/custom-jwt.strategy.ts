@@ -1,35 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import * as jwt from 'jsonwebtoken';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CustomJwtStrategy extends PassportStrategy(Strategy, 'custom-jwt') {
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKeyProvider: (request, rawJwtToken, done) => {
-        // Decode token without verification
-        const decoded = jwt.decode(rawJwtToken, { complete: false });
-        // For external tokens, skip verification
-        done(null, 'dummy-secret');
-      },
-      passReqToCallback: false,
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'default-secret',
     });
   }
 
   async validate(payload: any) {
-    // Token has already been decoded, just validate the payload structure
-    if (!payload || !payload.sub || !payload.scope) {
-      return null;
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Invalid token payload');
     }
 
-    // Check expiration manually
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {
-      return null;
+      throw new UnauthorizedException('Token has expired');
     }
 
-    return payload;
+    // Return user object with consistent structure
+    return {
+      id: payload.sub,
+      sub: payload.sub,
+      email: payload.email,
+      username: payload.username,
+      roles: payload.roles || [],
+      role: payload.roles?.[0] || payload.role || 'USER',
+      scope: payload.scope || ['web']
+    };
   }
 }

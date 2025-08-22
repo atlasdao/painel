@@ -47,22 +47,28 @@ exports.PixService = void 0;
 const common_1 = require("@nestjs/common");
 const eulen_client_service_1 = require("../services/eulen-client.service");
 const limit_validation_service_1 = require("../services/limit-validation.service");
+const liquid_validation_service_1 = require("../services/liquid-validation.service");
 const transaction_repository_1 = require("../repositories/transaction.repository");
 const audit_log_repository_1 = require("../repositories/audit-log.repository");
+const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 const QRCode = __importStar(require("qrcode"));
 const uuid_1 = require("uuid");
 let PixService = PixService_1 = class PixService {
     eulenClient;
     limitValidationService;
+    liquidValidation;
     transactionRepository;
     auditLogRepository;
+    prisma;
     logger = new common_1.Logger(PixService_1.name);
-    constructor(eulenClient, limitValidationService, transactionRepository, auditLogRepository) {
+    constructor(eulenClient, limitValidationService, liquidValidation, transactionRepository, auditLogRepository, prisma) {
         this.eulenClient = eulenClient;
         this.limitValidationService = limitValidationService;
+        this.liquidValidation = liquidValidation;
         this.transactionRepository = transactionRepository;
         this.auditLogRepository = auditLogRepository;
+        this.prisma = prisma;
     }
     async createDeposit(userId, depositDto) {
         const transactionId = (0, uuid_1.v4)();
@@ -242,6 +248,22 @@ let PixService = PixService_1 = class PixService {
     }
     async generatePixQRCode(userId, data) {
         try {
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { commerceMode: true },
+            });
+            if (user?.commerceMode && data.payerCpfCnpj) {
+                const cpfCnpjClean = data.payerCpfCnpj.replace(/\D/g, '');
+                if (cpfCnpjClean.length !== 11 && cpfCnpjClean.length !== 14) {
+                    throw new common_1.HttpException('CPF/CNPJ inválido. Use 11 dígitos para CPF ou 14 para CNPJ.', common_1.HttpStatus.BAD_REQUEST);
+                }
+            }
+            if (!this.liquidValidation.validateLiquidAddress(data.depixAddress)) {
+                throw new common_1.HttpException('Endereço Liquid inválido. Por favor, verifique e tente novamente.', common_1.HttpStatus.BAD_REQUEST);
+            }
+            if (!this.liquidValidation.isMainnetAddress(data.depixAddress)) {
+                throw new common_1.HttpException('Por favor, use um endereço da mainnet Liquid (deve começar com lq1, VJL, Q, G ou H)', common_1.HttpStatus.BAD_REQUEST);
+            }
             const transaction = await this.transactionRepository.create({
                 user: { connect: { id: userId } },
                 type: client_1.TransactionType.DEPOSIT,
@@ -252,7 +274,8 @@ let PixService = PixService_1 = class PixService {
                 metadata: JSON.stringify({
                     isQrCodePayment: true,
                     depixAddress: data.depixAddress,
-                    expirationMinutes: data.expirationMinutes || 30,
+                    expirationMinutes: data.expirationMinutes || 18,
+                    payerCpfCnpj: data.payerCpfCnpj,
                 }),
             });
             this.logger.log(`Calling Eulen API to generate QR Code with data: ${JSON.stringify({
@@ -337,6 +360,12 @@ let PixService = PixService_1 = class PixService {
             if (!transaction) {
                 throw new common_1.NotFoundException('Transaction not found');
             }
+            this.logger.log(`🔍 DEBUGGING TRANSACTION DATA:`);
+            this.logger.log(`  - Transaction ID: ${transaction.id}`);
+            this.logger.log(`  - External ID: ${transaction.externalId}`);
+            this.logger.log(`  - External ID length: ${transaction.externalId?.length || 'null'}`);
+            this.logger.log(`  - External ID type: ${typeof transaction.externalId}`);
+            this.logger.log(`  - Status: ${transaction.status}`);
             if (transaction.userId !== userId) {
                 throw new common_1.ForbiddenException('Access denied to this transaction');
             }
@@ -464,6 +493,27 @@ let PixService = PixService_1 = class PixService {
         }
         catch (error) {
             this.logger.error(`Failed to check deposit status for transaction ${transactionId}:`, error);
+            if (error.response?.status >= 500 || error.response?.status === 520 || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+                this.logger.warn(`External API unavailable, returning last known status for transaction ${transactionId}`);
+                try {
+                    const transaction = await this.transactionRepository.findById(transactionId);
+                    if (transaction) {
+                        return {
+                            transactionId: transaction.id,
+                            status: transaction.status,
+                            amount: transaction.amount,
+                            processedAt: transaction.processedAt,
+                            message: this.getStatusMessage(transaction.status),
+                            shouldStopPolling: false,
+                            warning: 'External payment service temporarily unavailable. Status check will retry automatically.',
+                            error: 'SERVICE_UNAVAILABLE'
+                        };
+                    }
+                }
+                catch (dbError) {
+                    this.logger.error('Database error while fetching fallback status:', dbError);
+                }
+            }
             throw error;
         }
     }
@@ -544,7 +594,9 @@ exports.PixService = PixService = PixService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [eulen_client_service_1.EulenClientService,
         limit_validation_service_1.LimitValidationService,
+        liquid_validation_service_1.LiquidValidationService,
         transaction_repository_1.TransactionRepository,
-        audit_log_repository_1.AuditLogRepository])
+        audit_log_repository_1.AuditLogRepository,
+        prisma_service_1.PrismaService])
 ], PixService);
 //# sourceMappingURL=pix.service.js.map

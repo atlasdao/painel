@@ -114,7 +114,7 @@ let EulenClientService = EulenClientService_1 = class EulenClientService {
         else if (status === 429) {
             throw new common_1.HttpException('Eulen API rate limit exceeded', common_1.HttpStatus.TOO_MANY_REQUESTS);
         }
-        else if (status >= 500) {
+        else if (status >= 500 || status === 520) {
             throw new common_1.HttpException('Eulen API service unavailable', common_1.HttpStatus.SERVICE_UNAVAILABLE);
         }
         else {
@@ -168,11 +168,13 @@ let EulenClientService = EulenClientService_1 = class EulenClientService {
     async getDepositStatus(transactionId) {
         return this.rateLimiter.executeWithRateLimit('deposit-status', async () => {
             try {
+                const eulenId = transactionId.replace(/-/g, '');
                 this.logger.log(`🔍 CHECKING DEPOSIT STATUS`);
-                this.logger.log(`📋 Eulen Transaction ID: ${transactionId}`);
-                this.logger.log(`🌐 Full URL: ${this.client.defaults.baseURL}/deposit-status?id=${transactionId}`);
+                this.logger.log(`📋 Original Transaction ID: ${transactionId}`);
+                this.logger.log(`📋 Eulen API ID (32 chars): ${eulenId}`);
+                this.logger.log(`🌐 Full URL: ${this.client.defaults.baseURL}/deposit-status?id=${eulenId}`);
                 const response = await this.client.get('/deposit-status', {
-                    params: { id: transactionId },
+                    params: { id: eulenId },
                 });
                 this.logger.log(`📊 DEPOSIT STATUS RESPONSE`);
                 this.logger.log(`🎯 Status: ${response.data?.response?.status || 'unknown'}`);

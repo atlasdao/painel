@@ -21,6 +21,11 @@ export const accountValidationService = {
     const response = await api.get('/account-validation/limits');
     return response.data;
   },
+
+  async manualValidationCheck(): Promise<any> {
+    const response = await api.post('/account-validation/manual-check');
+    return response.data;
+  },
 };
 
 export const pixService = {

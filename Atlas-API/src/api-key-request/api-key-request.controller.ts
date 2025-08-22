@@ -9,7 +9,8 @@ import {
   Req, 
   Query,
   HttpCode,
-  HttpStatus 
+  HttpStatus,
+  HttpException 
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -51,7 +52,14 @@ export class ApiKeyRequestController {
     @Req() req: any,
     @Body() dto: CreateApiKeyRequestDto
   ) {
-    const userId = req.user.sub || req.user.id;
+    console.log('Request user object:', req.user);
+    const userId = req.user?.id || req.user?.sub;
+    
+    if (!userId) {
+      throw new HttpException('User ID not found in token', HttpStatus.UNAUTHORIZED);
+    }
+    
+    console.log('Using userId:', userId);
     return await this.apiKeyRequestService.createRequest(userId, dto);
   }
 
@@ -63,7 +71,7 @@ export class ApiKeyRequestController {
     type: [ApiKeyRequestResponseDto] 
   })
   async getMyRequests(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return await this.apiKeyRequestService.getUserRequests(userId);
   }
 
@@ -75,7 +83,7 @@ export class ApiKeyRequestController {
     type: [ApiKeyRequestResponseDto] 
   })
   async getMyApiKeys(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return await this.apiKeyRequestService.getUserActiveApiKeys(userId);
   }
 
@@ -132,7 +140,7 @@ export class ApiKeyRequestController {
     @Req() req: any,
     @Body() dto: ApproveApiKeyRequestDto
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return await this.apiKeyRequestService.approveRequest(id, adminId, dto);
   }
 
@@ -153,7 +161,7 @@ export class ApiKeyRequestController {
     @Req() req: any,
     @Body() dto: RejectApiKeyRequestDto
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return await this.apiKeyRequestService.rejectRequest(id, adminId, dto);
   }
 
@@ -174,7 +182,7 @@ export class ApiKeyRequestController {
     @Req() req: any,
     @Body('reason') reason: string
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return await this.apiKeyRequestService.revokeApiKey(id, adminId, reason);
   }
 }

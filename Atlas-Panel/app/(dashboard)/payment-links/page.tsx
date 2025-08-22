@@ -24,11 +24,17 @@ export default function PaymentLinksPage() {
     limits?: any;
     reputation?: any;
   } | null>(null);
+  const [validationRequirements, setValidationRequirements] = useState<{
+    amount: number;
+    description: string;
+    benefits: string[];
+  } | null>(null);
   const [loadingValidation, setLoadingValidation] = useState(true);
 
   useEffect(() => {
     checkValidationStatus();
     fetchPaymentLinks();
+    fetchValidationRequirements();
   }, []);
 
   const checkValidationStatus = async () => {
@@ -53,6 +59,15 @@ export default function PaymentLinksPage() {
       }
     } finally {
       setLoadingValidation(false);
+    }
+  };
+
+  const fetchValidationRequirements = async () => {
+    try {
+      const requirements = await accountValidationService.getValidationRequirements();
+      setValidationRequirements(requirements);
+    } catch (error) {
+      console.error('Error fetching validation requirements:', error);
     }
   };
 
@@ -185,7 +200,7 @@ export default function PaymentLinksPage() {
               <h3 className="text-yellow-400 font-semibold text-lg mb-2">Validação de Conta Necessária</h3>
               <p className="text-gray-300 mb-5 leading-relaxed">
                 Para criar links de pagamento, você precisa validar sua conta primeiro. 
-                O processo é simples e requer apenas um pagamento de <strong className="text-white">R$ 1,00</strong>.
+                O processo é simples e requer apenas um pagamento de <strong className="text-white">R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}</strong>.
               </p>
               
               <a 

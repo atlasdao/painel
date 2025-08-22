@@ -48,8 +48,8 @@ const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const user_repository_1 = require("../repositories/user.repository");
 const email_service_1 = require("../services/email.service");
+const api_key_util_1 = require("../common/utils/api-key.util");
 const bcrypt = __importStar(require("bcrypt"));
-const uuid_1 = require("uuid");
 const client_1 = require("@prisma/client");
 let AuthService = class AuthService {
     jwtService;
@@ -114,7 +114,7 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
-        const apiKey = `atlas_${(0, uuid_1.v4)().replace(/-/g, '')}`;
+        const apiKey = api_key_util_1.ApiKeyUtils.generateApiKey();
         let expiresAt;
         if (createApiKeyDto.expirationDays) {
             expiresAt = new Date();

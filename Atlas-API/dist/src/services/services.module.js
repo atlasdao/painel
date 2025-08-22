@@ -14,6 +14,7 @@ const rate_limiter_service_1 = require("./rate-limiter.service");
 const limit_validation_service_1 = require("./limit-validation.service");
 const email_service_1 = require("./email.service");
 const transaction_cleanup_service_1 = require("./transaction-cleanup.service");
+const liquid_validation_service_1 = require("./liquid-validation.service");
 const user_limit_repository_1 = require("../repositories/user-limit.repository");
 const prisma_module_1 = require("../prisma/prisma.module");
 let ServicesModule = class ServicesModule {
@@ -29,6 +30,7 @@ exports.ServicesModule = ServicesModule = __decorate([
             limit_validation_service_1.LimitValidationService,
             email_service_1.EmailService,
             transaction_cleanup_service_1.TransactionCleanupService,
+            liquid_validation_service_1.LiquidValidationService,
             user_limit_repository_1.UserLimitRepository,
         ],
         exports: [
@@ -37,6 +39,7 @@ exports.ServicesModule = ServicesModule = __decorate([
             limit_validation_service_1.LimitValidationService,
             email_service_1.EmailService,
             transaction_cleanup_service_1.TransactionCleanupService,
+            liquid_validation_service_1.LiquidValidationService,
             user_limit_repository_1.UserLimitRepository,
         ],
     })

@@ -33,6 +33,10 @@ const accountValidationService = {
     async getUserLimits () {
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].get('/account-validation/limits');
         return response.data;
+    },
+    async manualValidationCheck () {
+        const response = await __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].post('/account-validation/manual-check');
+        return response.data;
     }
 };
 const pixService = {

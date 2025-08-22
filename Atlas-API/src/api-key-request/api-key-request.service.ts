@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiKeyRequestStatus, User } from '@prisma/client';
 import { CreateApiKeyRequestDto, ApproveApiKeyRequestDto, RejectApiKeyRequestDto, FilterApiKeyRequestsDto } from '../common/dto/api-key-request.dto';
-import * as crypto from 'crypto';
+import { ApiKeyUtils } from '../common/utils/api-key.util';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class ApiKeyRequestService {
@@ -144,6 +145,9 @@ export class ApiKeyRequestService {
 
     // Generate a secure API key
     const apiKey = this.generateApiKey();
+    
+    // Hash the API key before storing it in the database
+    const hashedApiKey = await bcrypt.hash(apiKey, 10);
 
     // Update the request and user in a transaction
     const [updatedRequest, updatedUser] = await this.prisma.$transaction([
@@ -155,14 +159,14 @@ export class ApiKeyRequestService {
           approvedBy: adminId,
           approvalNotes: dto.approvalNotes,
           approvedAt: new Date(),
-          generatedApiKey: apiKey,
+          generatedApiKey: apiKey, // Store plain key for admin reference
           apiKeyExpiresAt: dto.apiKeyExpiresAt,
         },
       }),
-      // Update user with the API key
+      // Update user with the hashed API key
       this.prisma.user.update({
         where: { id: request.userId },
-        data: { apiKey },
+        data: { apiKey: hashedApiKey },
       }),
     ]);
 
@@ -229,9 +233,6 @@ export class ApiKeyRequestService {
   }
 
   private generateApiKey(): string {
-    // Generate a secure API key with prefix for identification
-    const prefix = 'atlas_';
-    const randomBytes = crypto.randomBytes(32).toString('hex');
-    return `${prefix}${randomBytes}`;
+    return ApiKeyUtils.generateApiKey();
   }
 }

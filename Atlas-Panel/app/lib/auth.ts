@@ -10,9 +10,21 @@ export const authService = {
     });
     const { accessToken, user } = response.data;
     
-    Cookies.set('access_token', accessToken);
-    Cookies.set('refresh_token', ''); // API não retorna refresh token no login
-    Cookies.set('user', JSON.stringify(user));
+    if (!accessToken) {
+      throw new Error('Token não recebido do servidor');
+    }
+    
+    Cookies.set('access_token', accessToken, { 
+      path: '/', 
+      sameSite: 'lax',
+      secure: false 
+    });
+    Cookies.set('refresh_token', '', { path: '/' }); // API não retorna refresh token no login
+    Cookies.set('user', JSON.stringify(user), { 
+      path: '/', 
+      sameSite: 'lax',
+      secure: false 
+    });
     
     return {
       access_token: accessToken,
@@ -29,9 +41,21 @@ export const authService = {
     });
     const { accessToken, user } = response.data;
     
-    Cookies.set('access_token', accessToken);
-    Cookies.set('refresh_token', ''); // API não retorna refresh token no register
-    Cookies.set('user', JSON.stringify(user));
+    if (!accessToken) {
+      throw new Error('Token não recebido do servidor');
+    }
+    
+    Cookies.set('access_token', accessToken, { 
+      path: '/', 
+      sameSite: 'lax',
+      secure: false 
+    });
+    Cookies.set('refresh_token', '', { path: '/' }); // API não retorna refresh token no register
+    Cookies.set('user', JSON.stringify(user), { 
+      path: '/', 
+      sameSite: 'lax',
+      secure: false 
+    });
     
     return {
       access_token: accessToken,

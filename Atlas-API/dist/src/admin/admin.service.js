@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -18,6 +51,8 @@ const transaction_repository_1 = require("../repositories/transaction.repository
 const audit_log_repository_1 = require("../repositories/audit-log.repository");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
+const api_key_util_1 = require("../common/utils/api-key.util");
+const bcrypt = __importStar(require("bcrypt"));
 let AdminService = class AdminService {
     userRepository;
     userLimitRepository;
@@ -46,6 +81,35 @@ let AdminService = class AdminService {
         }
         return user;
     }
+    async createUser(data) {
+        const existingUsername = await this.userRepository.findByUsername(data.username);
+        if (existingUsername) {
+            throw new common_1.ConflictException('Username already exists');
+        }
+        const existingEmail = await this.userRepository.findByEmail(data.email);
+        if (existingEmail) {
+            throw new common_1.ConflictException('Email already exists');
+        }
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+        const user = await this.userRepository.create({
+            username: data.username,
+            email: data.email,
+            password: hashedPassword,
+            role: data.role,
+            isActive: true,
+        });
+        await this.auditLogRepository.createLog({
+            action: 'CREATE_USER',
+            resource: 'user',
+            resourceId: user.id,
+            requestBody: {
+                username: data.username,
+                email: data.email,
+                role: data.role,
+            },
+        });
+        return user;
+    }
     async updateUserStatus(userId, isActive) {
         const user = await this.getUserById(userId);
         return this.userRepository.update(userId, { isActive });
@@ -59,8 +123,9 @@ let AdminService = class AdminService {
         if (user.apiKey) {
             throw new common_1.ConflictException('User already has an API key');
         }
-        const apiKey = `atlas_${Buffer.from(require('crypto').randomBytes(32)).toString('base64url')}`;
-        await this.userRepository.update(userId, { apiKey });
+        const apiKey = api_key_util_1.ApiKeyUtils.generateApiKey();
+        const hashedApiKey = await bcrypt.hash(apiKey, 10);
+        await this.userRepository.update(userId, { apiKey: hashedApiKey });
         await this.prisma.apiKeyRequest.create({
             data: {
                 userId,
@@ -175,6 +240,57 @@ let AdminService = class AdminService {
             throw new common_1.NotFoundException('Transaction not found');
         }
         return this.transactionRepository.updateStatus(transactionId, status, errorMessage);
+    }
+    async toggleCommerceMode(userId, enable) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (enable && !user.isAccountValidated) {
+            throw new common_1.BadRequestException('Account must be validated before enabling commerce mode');
+        }
+        const updateData = {
+            commerceMode: enable,
+        };
+        if (enable) {
+            updateData.commerceModeActivatedAt = new Date();
+            updateData.paymentLinksEnabled = true;
+        }
+        else {
+            updateData.paymentLinksEnabled = false;
+        }
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: updateData,
+            select: {
+                id: true,
+                email: true,
+                username: true,
+                commerceMode: true,
+                commerceModeActivatedAt: true,
+                paymentLinksEnabled: true,
+            },
+        });
+    }
+    async togglePaymentLinks(userId, enable) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (enable && !user.commerceMode) {
+            throw new common_1.BadRequestException('Commerce mode must be enabled before activating payment links');
+        }
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { paymentLinksEnabled: enable },
+            select: {
+                id: true,
+                email: true,
+                username: true,
+                commerceMode: true,
+                paymentLinksEnabled: true,
+            },
+        });
     }
     async getDashboardData(limit = 5) {
         const [stats, recentTransactions, recentUsers, auditStats] = await Promise.all([

@@ -18,12 +18,33 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 19997);
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
 
-  // Enable CORS - Allow all origins
+  // Enable CORS - Allow ALL origins, methods, and headers (no restrictions)
   app.enableCors({
-    origin: '*',
+    origin: true, // Allow all origins
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+    methods: '*', // Allow all methods
+    allowedHeaders: '*', // Allow all headers
+    exposedHeaders: '*', // Expose all headers
+    maxAge: 86400, // Cache preflight for 24 hours
+    optionsSuccessStatus: 200, // For legacy browser support
+    preflightContinue: false,
+  });
+
+  // Additional CORS middleware to handle any edge cases
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', '*');
+    res.header('Access-Control-Allow-Headers', '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Expose-Headers', '*');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+    
+    next();
   });
 
   // API Versioning

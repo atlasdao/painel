@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccountValidationController = void 0;
 const common_1 = require("@nestjs/common");
 const account_validation_service_1 = require("./account-validation.service");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
@@ -127,6 +128,7 @@ let AccountValidationController = class AccountValidationController {
 exports.AccountValidationController = AccountValidationController;
 __decorate([
     (0, common_1.Get)('status'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Check account validation status' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns validation status' }),
     __param(0, (0, common_1.Req)()),
@@ -144,6 +146,7 @@ __decorate([
 ], AccountValidationController.prototype, "getValidationRequirements", null);
 __decorate([
     (0, common_1.Post)('create-payment'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Create validation payment' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Validation payment created' }),
     __param(0, (0, common_1.Req)()),
@@ -154,6 +157,7 @@ __decorate([
 ], AccountValidationController.prototype, "createValidationPayment", null);
 __decorate([
     (0, common_1.Get)('limits'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Get user limits and reputation' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns user limits and reputation' }),
     __param(0, (0, common_1.Req)()),
@@ -163,6 +167,7 @@ __decorate([
 ], AccountValidationController.prototype, "getUserLimits", null);
 __decorate([
     (0, common_1.Get)('debug-status'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Debug validation status with detailed info' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns detailed validation debug info' }),
     __param(0, (0, common_1.Req)()),
@@ -172,6 +177,7 @@ __decorate([
 ], AccountValidationController.prototype, "getDebugValidationStatus", null);
 __decorate([
     (0, common_1.Post)('manual-check'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Manually trigger validation check' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Manual validation check triggered' }),
     __param(0, (0, common_1.Req)()),

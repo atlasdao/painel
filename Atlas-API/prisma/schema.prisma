@@ -36,6 +36,11 @@ model User {
   validationPaymentId   String?       // Transaction ID of validation payment
   validatedAt           DateTime?     // When account was validated
   
+  // Commerce mode settings
+  commerceMode          Boolean       @default(false) // Enable commerce features
+  commerceModeActivatedAt DateTime?   // When commerce mode was activated
+  paymentLinksEnabled   Boolean       @default(false) // Enable payment links creation
+  
   // API limits
   apiDailyLimit         Float         @default(6000) // Daily limit for API usage
   apiMonthlyLimit       Float         @default(180000) // Monthly limit for API usage
@@ -49,6 +54,7 @@ model User {
   reputation            UserReputation?
   apiKeyRequests        ApiKeyRequest[]
   paymentLinks          PaymentLink[]
+  withdrawalRequests    WithdrawalRequest[]
 
   @@index([email])
   @@index([username])
@@ -276,6 +282,55 @@ model UserReputation {
   @@index([reputationScore])
 }
 
+// Withdrawal Request for managing user withdrawals
+model WithdrawalRequest {
+  id                    String              @id @default(uuid())
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Withdrawal details
+  amount                Float               // Amount requested
+  method                WithdrawalMethod    // PIX or DEPIX
+  pixKey                String?             // PIX key for PIX withdrawals
+  pixKeyType            PixKeyType?         // Type of PIX key
+  liquidAddress         String?             // Liquid address for DePix withdrawals
+  
+  // Fee calculation
+  fee                   Float               // Calculated fee (1% for PIX, 3.50 for DePix)
+  netAmount             Float               // Amount after fee deduction
+  
+  // Status tracking
+  status                WithdrawalStatus    @default(PENDING)
+  statusReason          String?             // Reason for rejection/cancellation
+  
+  // D+1 Processing
+  requestedAt           DateTime            @default(now())
+  scheduledFor          DateTime            // D+1 date for processing
+  processedAt           DateTime?           // Actual processing date
+  
+  // Admin approval
+  approvedBy            String?             // Admin who approved
+  approvedAt            DateTime?
+  rejectedBy            String?             // Admin who rejected
+  rejectedAt            DateTime?
+  adminNotes            String?             // Admin notes on approval/rejection
+  
+  // Coldwallet info (for admin use)
+  coldwalletTxId        String?             // Transaction ID from coldwallet
+  
+  // Document verification (optional)
+  cpfCnpj               String?             // User's CPF/CNPJ for verification
+  fullName              String?             // Full name for verification
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([method])
+}
+
 // System Settings for configuration
 model SystemSettings {
   id                    String              @id @default(uuid())
@@ -331,4 +386,19 @@ enum WebhookEventStatus {
   SUCCESS
   FAILED
   CANCELLED
+}
+
+enum WithdrawalMethod {
+  PIX
+  DEPIX
+}
+
+enum WithdrawalStatus {
+  PENDING      // Aguardando aprovação
+  APPROVED     // Aprovado pelo admin
+  REJECTED     // Rejeitado pelo admin
+  PROCESSING   // Em processamento
+  COMPLETED    // Concluído
+  FAILED       // Falhou
+  CANCELLED    // Cancelado pelo usuário
 }

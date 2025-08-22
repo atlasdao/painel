@@ -34,11 +34,11 @@ let AuthController = class AuthController {
         return this.authService.refreshAccessToken(refreshTokenDto.refreshToken);
     }
     async getApiTokenStatus(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         return this.authService.getApiKeyStatus(userId);
     }
     async revokeApiToken(req) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id || req.user.sub;
         await this.authService.revokeApiKey(userId);
     }
     async getProfile(req) {

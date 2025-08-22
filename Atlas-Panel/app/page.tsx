@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { authService } from '@/app/lib/auth';
 import { 
   Shield, 
   Key, 
@@ -21,8 +23,16 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const donationAddress = 'VJLBCUaw6GL8AuyjsrwpwTYNCUfUxPVTfxxffNTEZMKEjSwamWL6YqUUWLvz89ts1scTDKYoTF8oruMX';
+
+  useEffect(() => {
+    // Redirect to dashboard if user is already logged in
+    if (authService.isAuthenticated()) {
+      router.push('/dashboard');
+    }
+  }, [router]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(donationAddress);

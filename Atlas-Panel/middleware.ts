@@ -6,6 +6,10 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token');
   const userCookie = request.cookies.get('user');
 
+  console.log('Middleware - pathname:', pathname);
+  console.log('Middleware - accessToken:', accessToken ? 'EXISTS' : 'NOT FOUND');
+  console.log('Middleware - userCookie:', userCookie ? 'EXISTS' : 'NOT FOUND');
+
   // Public routes that don't require authentication
   const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/');
@@ -17,8 +21,13 @@ export function middleware(request: NextRequest) {
   // Admin-only routes
   const adminRoutes = pathname.startsWith('/admin');
 
+  console.log('Middleware - isPublicRoute:', isPublicRoute);
+  console.log('Middleware - isAuthRoute:', isAuthRoute);
+  console.log('Middleware - adminRoutes:', adminRoutes);
+
   // Check if user is authenticated
   if (!accessToken && !isPublicRoute) {
+    console.log('Middleware - Redirecting to login (no token)');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

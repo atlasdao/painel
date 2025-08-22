@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { UserRepository } from '../repositories/user.repository';
 import { UserLimitRepository } from '../repositories/user-limit.repository';
 import { LimitValidationService } from '../services/limit-validation.service';
@@ -6,6 +6,8 @@ import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, TransactionStatus } from '@prisma/client';
+import { ApiKeyUtils } from '../common/utils/api-key.util';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
@@ -37,6 +39,51 @@ export class AdminService {
     return user;
   }
 
+  async createUser(data: {
+    username: string;
+    email: string;
+    password: string;
+    role: any;
+  }): Promise<User> {
+    // Check if username already exists
+    const existingUsername = await this.userRepository.findByUsername(data.username);
+    if (existingUsername) {
+      throw new ConflictException('Username already exists');
+    }
+
+    // Check if email already exists
+    const existingEmail = await this.userRepository.findByEmail(data.email);
+    if (existingEmail) {
+      throw new ConflictException('Email already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create user
+    const user = await this.userRepository.create({
+      username: data.username,
+      email: data.email,
+      password: hashedPassword,
+      role: data.role,
+      isActive: true,
+    });
+
+    // Create audit log
+    await this.auditLogRepository.createLog({
+      action: 'CREATE_USER',
+      resource: 'user',
+      resourceId: user.id,
+      requestBody: {
+        username: data.username,
+        email: data.email,
+        role: data.role,
+      },
+    });
+
+    return user;
+  }
+
   async updateUserStatus(userId: string, isActive: boolean): Promise<User> {
     const user = await this.getUserById(userId);
     return this.userRepository.update(userId, { isActive });
@@ -55,12 +102,15 @@ export class AdminService {
     }
     
     // Generate a new API key
-    const apiKey = `atlas_${Buffer.from(require('crypto').randomBytes(32)).toString('base64url')}`;
+    const apiKey = ApiKeyUtils.generateApiKey();
     
-    // Update user with the new API key
-    await this.userRepository.update(userId, { apiKey });
+    // Hash the API key before storing it in the database
+    const hashedApiKey = await bcrypt.hash(apiKey, 10);
     
-    // Create an API key request record for tracking
+    // Update user with the hashed API key
+    await this.userRepository.update(userId, { apiKey: hashedApiKey });
+    
+    // Create an API key request record for tracking (store the plain key for reference)
     await this.prisma.apiKeyRequest.create({
       data: {
         userId,
@@ -69,7 +119,7 @@ export class AdminService {
         estimatedVolume: 'N/A',
         usageType: 'SINGLE_CPF',
         status: 'APPROVED',
-        generatedApiKey: apiKey,
+        generatedApiKey: apiKey, // Store plain key for admin reference
         approvedAt: new Date(),
         approvedBy: 'Admin',
       },
@@ -243,6 +293,66 @@ export class AdminService {
     }
 
     return this.transactionRepository.updateStatus(transactionId, status, errorMessage);
+  }
+
+  async toggleCommerceMode(userId: string, enable: boolean) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Require account validation for commerce mode
+    if (enable && !user.isAccountValidated) {
+      throw new BadRequestException('Account must be validated before enabling commerce mode');
+    }
+
+    const updateData: any = {
+      commerceMode: enable,
+    };
+
+    if (enable) {
+      updateData.commerceModeActivatedAt = new Date();
+      updateData.paymentLinksEnabled = true; // Enable payment links when commerce mode is activated
+    } else {
+      updateData.paymentLinksEnabled = false; // Disable payment links when commerce mode is deactivated
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        commerceMode: true,
+        commerceModeActivatedAt: true,
+        paymentLinksEnabled: true,
+      },
+    });
+  }
+
+  async togglePaymentLinks(userId: string, enable: boolean) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Payment links require commerce mode
+    if (enable && !user.commerceMode) {
+      throw new BadRequestException('Commerce mode must be enabled before activating payment links');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { paymentLinksEnabled: enable },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        commerceMode: true,
+        paymentLinksEnabled: true,
+      },
+    });
   }
 
   async getDashboardData(limit: number = 5) {

@@ -12,13 +12,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LimitValidationService = void 0;
 const common_1 = require("@nestjs/common");
 const user_limit_repository_1 = require("../repositories/user-limit.repository");
+const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 let LimitValidationService = class LimitValidationService {
     userLimitRepository;
-    constructor(userLimitRepository) {
+    prisma;
+    constructor(userLimitRepository, prisma) {
         this.userLimitRepository = userLimitRepository;
+        this.prisma = prisma;
     }
     async validateTransactionLimits(userId, transactionType, amount) {
+        const isValidationRequired = await this.isAccountValidationRequired(userId);
+        if (isValidationRequired) {
+            return {
+                allowed: false,
+                reason: 'Conta não validada. Você precisa validar sua conta antes de realizar transações.',
+            };
+        }
         const userLimits = await this.userLimitRepository.getOrCreateUserLimits(userId);
         const dailyUsage = await this.userLimitRepository.getUserDailyUsage(userId);
         const monthlyUsage = await this.userLimitRepository.getUserMonthlyUsage(userId);
@@ -203,10 +213,39 @@ let LimitValidationService = class LimitValidationService {
             await this.userLimitRepository.markUserAsNotFirstDay(userId);
         }
     }
+    async validateWithdrawLimit(userId, amount) {
+        const validation = await this.validateTransactionLimits(userId, client_1.TransactionType.WITHDRAW, amount);
+        if (!validation.allowed) {
+            throw new common_1.ForbiddenException({
+                message: validation.reason,
+                currentUsage: validation.currentUsage,
+                limits: validation.limits,
+                code: 'WITHDRAWAL_LIMIT_EXCEEDED',
+            });
+        }
+    }
+    async isAccountValidationRequired(userId) {
+        const validationEnabledSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'validation_enabled' }
+        });
+        const validationEnabled = validationEnabledSetting ? JSON.parse(validationEnabledSetting.value) : true;
+        if (!validationEnabled) {
+            return false;
+        }
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { isAccountValidated: true }
+        });
+        if (!user) {
+            return true;
+        }
+        return !user.isAccountValidated;
+    }
 };
 exports.LimitValidationService = LimitValidationService;
 exports.LimitValidationService = LimitValidationService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [user_limit_repository_1.UserLimitRepository])
+    __metadata("design:paramtypes", [user_limit_repository_1.UserLimitRepository,
+        prisma_service_1.PrismaService])
 ], LimitValidationService);
 //# sourceMappingURL=limit-validation.service.js.map

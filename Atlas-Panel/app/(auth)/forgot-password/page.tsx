@@ -108,7 +108,7 @@ export default function ForgotPasswordPage() {
               Email
             </label>
             <div className="mt-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                 <Mail className="h-5 w-5 text-gray-400" />
               </div>
               <input
@@ -119,7 +119,7 @@ export default function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                className="input-field pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 relative"
                 placeholder="Digite seu email"
               />
             </div>

@@ -10,6 +10,8 @@ import { AdminModule } from './admin/admin.module';
 import { ApiKeyRequestModule } from './api-key-request/api-key-request.module';
 import { PaymentLinkModule } from './payment-link/payment-link.module';
 import { AccountValidationModule } from './account-validation/account-validation.module';
+import { WithdrawalsModule } from './withdrawals/withdrawals.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -34,6 +36,8 @@ import { AuditLogRepository } from './repositories/audit-log.repository';
     ApiKeyRequestModule,
     PaymentLinkModule,
     AccountValidationModule,
+    WithdrawalsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [

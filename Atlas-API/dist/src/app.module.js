@@ -19,6 +19,8 @@ const admin_module_1 = require("./admin/admin.module");
 const api_key_request_module_1 = require("./api-key-request/api-key-request.module");
 const payment_link_module_1 = require("./payment-link/payment-link.module");
 const account_validation_module_1 = require("./account-validation/account-validation.module");
+const withdrawals_module_1 = require("./withdrawals/withdrawals.module");
+const webhooks_module_1 = require("./webhooks/webhooks.module");
 const prisma_module_1 = require("./prisma/prisma.module");
 const services_module_1 = require("./services/services.module");
 const jwt_auth_guard_1 = require("./auth/guards/jwt-auth.guard");
@@ -46,6 +48,8 @@ exports.AppModule = AppModule = __decorate([
             api_key_request_module_1.ApiKeyRequestModule,
             payment_link_module_1.PaymentLinkModule,
             account_validation_module_1.AccountValidationModule,
+            withdrawals_module_1.WithdrawalsModule,
+            webhooks_module_1.WebhooksModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

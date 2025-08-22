@@ -79,6 +79,25 @@ export class AdminController {
     return this.adminService.getUserById(userId);
   }
 
+  @Post('users')
+  @ApiOperation({ summary: 'Create new user (Admin only)' })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid user data' })
+  @ApiResponse({ status: 403, description: 'Admin access required' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
+  async createUser(
+    @Req() req: any,
+    @Body() data: {
+      username: string;
+      email: string;
+      password: string;
+      role: UserRole;
+    },
+  ) {
+    this.checkAdminRole(req.user);
+    return this.adminService.createUser(data);
+  }
+
   @Put('users/:id/status')
   @ApiOperation({ summary: 'Update user status (Admin only)' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -380,7 +399,7 @@ export class AdminController {
     },
   ) {
     this.checkAdminRole(req.user);
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return this.adminService.updateUserLimits(userId, updateLimitsDto, adminId);
   }
 
@@ -396,7 +415,7 @@ export class AdminController {
     @Param('id') userId: string,
   ) {
     this.checkAdminRole(req.user);
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return this.adminService.resetUserFirstDay(userId, adminId);
   }
 
@@ -412,7 +431,7 @@ export class AdminController {
     @Param('id') userId: string,
   ) {
     this.checkAdminRole(req.user);
-    const adminId = req.user.sub || req.user.id;
+    const adminId = req.user.id || req.user.sub;
     return this.adminService.applyKycLimits(userId, adminId);
   }
 
@@ -463,5 +482,41 @@ export class AdminController {
       expiredCount,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // ===== COMMERCE MODE MANAGEMENT =====
+
+  @Put('users/:id/commerce-mode')
+  @ApiTags('Admin - Commerce Mode')
+  @ApiOperation({ summary: 'Toggle commerce mode for user (Admin only)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Commerce mode updated' })
+  @ApiResponse({ status: 400, description: 'Account must be validated' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 403, description: 'Admin access required' })
+  async toggleCommerceMode(
+    @Req() req: any,
+    @Param('id') userId: string,
+    @Body('enable') enable: boolean,
+  ) {
+    this.checkAdminRole(req.user);
+    return this.adminService.toggleCommerceMode(userId, enable);
+  }
+
+  @Put('users/:id/payment-links')
+  @ApiTags('Admin - Commerce Mode')
+  @ApiOperation({ summary: 'Toggle payment links for user (Admin only)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Payment links updated' })
+  @ApiResponse({ status: 400, description: 'Commerce mode must be enabled' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 403, description: 'Admin access required' })
+  async togglePaymentLinks(
+    @Req() req: any,
+    @Param('id') userId: string,
+    @Body('enable') enable: boolean,
+  ) {
+    this.checkAdminRole(req.user);
+    return this.adminService.togglePaymentLinks(userId, enable);
   }
 }

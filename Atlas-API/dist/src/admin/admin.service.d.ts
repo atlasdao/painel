@@ -19,6 +19,12 @@ export declare class AdminService {
         isActive?: boolean;
     }): Promise<User[]>;
     getUserById(userId: string): Promise<User>;
+    createUser(data: {
+        username: string;
+        email: string;
+        password: string;
+        role: any;
+    }): Promise<User>;
     updateUserStatus(userId: string, isActive: boolean): Promise<User>;
     updateUser(userId: string, data: any): Promise<User>;
     generateUserApiKey(userId: string): Promise<{
@@ -110,6 +116,21 @@ export declare class AdminService {
         processedAt: Date | null;
         userId: string;
     }>;
+    toggleCommerceMode(userId: string, enable: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
+    }>;
+    togglePaymentLinks(userId: string, enable: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        commerceMode: boolean;
+        paymentLinksEnabled: boolean;
+    }>;
     getDashboardData(limit?: number): Promise<{
         stats: {
             users: any;
@@ -147,6 +168,9 @@ export declare class AdminService {
             isAccountValidated: boolean;
             validationPaymentId: string | null;
             validatedAt: Date | null;
+            commerceMode: boolean;
+            commerceModeActivatedAt: Date | null;
+            paymentLinksEnabled: boolean;
             apiDailyLimit: number;
             apiMonthlyLimit: number;
             createdAt: Date;

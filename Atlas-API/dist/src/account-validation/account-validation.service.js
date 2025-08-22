@@ -15,24 +15,42 @@ const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_1 = require("../prisma/prisma.service");
 const pix_service_1 = require("../pix/pix.service");
+const liquid_validation_service_1 = require("../services/liquid-validation.service");
 const client_1 = require("@prisma/client");
 let AccountValidationService = AccountValidationService_1 = class AccountValidationService {
     prisma;
     pixService;
+    liquidValidation;
     logger = new common_1.Logger(AccountValidationService_1.name);
-    VALIDATION_AMOUNT = 1.00;
+    VALIDATION_AMOUNT = 2.00;
     INITIAL_DAILY_LIMIT = 6000;
     LIMIT_TIERS = [6000, 10000, 20000, 40000, 80000, 160000];
     THRESHOLD_TIERS = [50000, 150000, 400000, 1000000, 2500000, 5000000];
-    constructor(prisma, pixService) {
+    constructor(prisma, pixService, liquidValidation) {
         this.prisma = prisma;
         this.pixService = pixService;
+        this.liquidValidation = liquidValidation;
+    }
+    async getValidationAmount() {
+        try {
+            const validationAmountSetting = await this.prisma.systemSettings.findUnique({
+                where: { key: 'validation_amount' }
+            });
+            if (validationAmountSetting) {
+                return JSON.parse(validationAmountSetting.value);
+            }
+        }
+        catch (error) {
+            this.logger.warn('Failed to fetch validation amount from settings, using default', error);
+        }
+        return this.VALIDATION_AMOUNT;
     }
     async checkValidationStatus(userId) {
         console.log('AccountValidationService.checkValidationStatus called with userId:', userId, 'type:', typeof userId);
         if (!userId) {
             throw new Error('User ID is required for validation status check');
         }
+        const validationEnabled = await this.isValidationEnabled();
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: {
@@ -44,9 +62,18 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         if (!user) {
             throw new common_1.HttpException('User not found', common_1.HttpStatus.NOT_FOUND);
         }
+        if (!validationEnabled) {
+            return {
+                isValidated: true,
+                requiresValidation: false,
+                validationPaymentId: user.validationPaymentId || undefined,
+                validatedAt: user.validatedAt || undefined,
+            };
+        }
         if (user.isAccountValidated) {
             return {
                 isValidated: true,
+                requiresValidation: false,
                 validationPaymentId: user.validationPaymentId || undefined,
                 validatedAt: user.validatedAt || undefined,
             };
@@ -63,12 +90,20 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         });
         return {
             isValidated: false,
+            requiresValidation: true,
             validationQrCode: pendingValidation?.metadata
                 ? JSON.parse(pendingValidation.metadata).qrCode
                 : undefined,
         };
     }
     async createValidationPayment(userId, depixAddress) {
+        const validationAmount = await this.getValidationAmount();
+        if (!this.liquidValidation.validateLiquidAddress(depixAddress)) {
+            throw new common_1.HttpException('Endereço Liquid inválido. Por favor, verifique e tente novamente.', common_1.HttpStatus.BAD_REQUEST);
+        }
+        if (!this.liquidValidation.isMainnetAddress(depixAddress)) {
+            throw new common_1.HttpException('Por favor, use um endereço da mainnet Liquid (deve começar com lq1, VJL, Q, G ou H)', common_1.HttpStatus.BAD_REQUEST);
+        }
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
         });
@@ -82,7 +117,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
             where: {
                 userId,
                 type: client_1.TransactionType.DEPOSIT,
-                amount: this.VALIDATION_AMOUNT,
+                amount: validationAmount,
                 status: client_1.TransactionStatus.PENDING,
                 description: { contains: 'Validação de conta' },
             },
@@ -98,7 +133,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
                 return {
                     transactionId: existingValidation.id,
                     qrCode: storedQrCode,
-                    amount: this.VALIDATION_AMOUNT,
+                    amount: validationAmount,
                 };
             }
             else {
@@ -109,7 +144,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         try {
             this.logger.log(`Creating validation payment for user ${userId} with depixAddress: ${depixAddress}`);
             const qrCodeData = await this.pixService.generatePixQRCode(userId, {
-                amount: this.VALIDATION_AMOUNT,
+                amount: validationAmount,
                 depixAddress,
                 description: 'Validação de conta Atlas DAO',
             });
@@ -117,15 +152,20 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
             this.logger.log(`QR Code value: ${qrCodeData.qrCode}`);
             this.logger.log(`🔑 Eulen Transaction ID: ${qrCodeData.transactionId}`);
             if (qrCodeData.transactionId) {
+                const existingTransaction = await this.prisma.transaction.findUnique({
+                    where: { id: qrCodeData.transactionId },
+                });
+                this.logger.log(`📋 Transaction before validation update:`);
+                this.logger.log(`  - Our UUID: ${existingTransaction?.id}`);
+                this.logger.log(`  - Eulen ID (externalId): ${existingTransaction?.externalId}`);
                 await this.prisma.transaction.update({
                     where: { id: qrCodeData.transactionId },
                     data: {
-                        externalId: qrCodeData.transactionId,
                         metadata: JSON.stringify({
                             qrCode: qrCodeData.qrCode,
                             isValidation: true,
                             depixAddress,
-                            eulenTransactionId: qrCodeData.transactionId,
+                            eulenTransactionId: existingTransaction?.externalId,
                         }),
                     },
                 });
@@ -136,7 +176,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
                 return {
                     transactionId: qrCodeData.transactionId,
                     qrCode: qrCodeData.qrCode,
-                    amount: this.VALIDATION_AMOUNT,
+                    amount: validationAmount,
                 };
             }
             else {
@@ -286,10 +326,11 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
             throw new common_1.HttpException('User not found', common_1.HttpStatus.NOT_FOUND);
         }
         if (!user.isAccountValidated) {
+            const validationAmount = await this.getValidationAmount();
             return {
                 isValidated: false,
                 requiresValidation: true,
-                validationAmount: this.VALIDATION_AMOUNT,
+                validationAmount,
             };
         }
         const reputation = user.reputation || {
@@ -343,9 +384,10 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         this.logger.log(`User ${userId} limits adjusted by admin: ${JSON.stringify(updates)}`);
     }
     async getValidationRequirements() {
+        const validationAmount = await this.getValidationAmount();
         return {
-            amount: this.VALIDATION_AMOUNT,
-            description: 'Pagamento único de R$ 1,00 para validar sua conta',
+            amount: validationAmount,
+            description: `Pagamento único de R$ ${validationAmount.toFixed(2).replace('.', ',')} para validar sua conta`,
             benefits: [
                 'Gerar depósitos ilimitados',
                 'Acesso completo às funcionalidades',
@@ -355,12 +397,27 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         };
     }
     async getValidationSettings() {
+        const validationEnabledSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'validation_enabled' }
+        });
+        const validationAmountSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'validation_amount' }
+        });
+        const initialDailyLimitSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'initial_daily_limit' }
+        });
+        const limitTiersSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'limit_tiers' }
+        });
+        const thresholdTiersSetting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'threshold_tiers' }
+        });
         return {
-            validationEnabled: true,
-            validationAmount: this.VALIDATION_AMOUNT,
-            initialDailyLimit: this.INITIAL_DAILY_LIMIT,
-            limitTiers: this.LIMIT_TIERS,
-            thresholdTiers: this.THRESHOLD_TIERS,
+            validationEnabled: validationEnabledSetting ? JSON.parse(validationEnabledSetting.value) : true,
+            validationAmount: validationAmountSetting ? JSON.parse(validationAmountSetting.value) : this.VALIDATION_AMOUNT,
+            initialDailyLimit: initialDailyLimitSetting ? JSON.parse(initialDailyLimitSetting.value) : this.INITIAL_DAILY_LIMIT,
+            limitTiers: limitTiersSetting ? JSON.parse(limitTiersSetting.value) : this.LIMIT_TIERS,
+            thresholdTiers: thresholdTiersSetting ? JSON.parse(thresholdTiersSetting.value) : this.THRESHOLD_TIERS,
         };
     }
     async updateValidationSettings(settings) {
@@ -386,21 +443,88 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
         if (settings.initialDailyLimit !== undefined && settings.initialDailyLimit <= 0) {
             throw new common_1.HttpException('Initial daily limit must be positive', common_1.HttpStatus.BAD_REQUEST);
         }
-        if (settings.limitTiers) {
-            this.LIMIT_TIERS = [...settings.limitTiers];
-        }
-        if (settings.thresholdTiers) {
-            this.THRESHOLD_TIERS = [...settings.thresholdTiers];
+        const updatePromises = [];
+        if (settings.validationEnabled !== undefined) {
+            updatePromises.push(this.prisma.systemSettings.upsert({
+                where: { key: 'validation_enabled' },
+                update: {
+                    value: JSON.stringify(settings.validationEnabled),
+                    description: 'Whether account validation is required for new users'
+                },
+                create: {
+                    key: 'validation_enabled',
+                    value: JSON.stringify(settings.validationEnabled),
+                    description: 'Whether account validation is required for new users'
+                }
+            }));
         }
         if (settings.validationAmount !== undefined) {
-            this.VALIDATION_AMOUNT = settings.validationAmount;
+            updatePromises.push(this.prisma.systemSettings.upsert({
+                where: { key: 'validation_amount' },
+                update: {
+                    value: JSON.stringify(settings.validationAmount),
+                    description: 'Amount required for account validation (in BRL)'
+                },
+                create: {
+                    key: 'validation_amount',
+                    value: JSON.stringify(settings.validationAmount),
+                    description: 'Amount required for account validation (in BRL)'
+                }
+            }));
         }
         if (settings.initialDailyLimit !== undefined) {
-            this.INITIAL_DAILY_LIMIT = settings.initialDailyLimit;
+            updatePromises.push(this.prisma.systemSettings.upsert({
+                where: { key: 'initial_daily_limit' },
+                update: {
+                    value: JSON.stringify(settings.initialDailyLimit),
+                    description: 'Initial daily limit for new validated users (in BRL)'
+                },
+                create: {
+                    key: 'initial_daily_limit',
+                    value: JSON.stringify(settings.initialDailyLimit),
+                    description: 'Initial daily limit for new validated users (in BRL)'
+                }
+            }));
         }
-        this.logger.log('Validation settings updated successfully');
+        if (settings.limitTiers) {
+            updatePromises.push(this.prisma.systemSettings.upsert({
+                where: { key: 'limit_tiers' },
+                update: {
+                    value: JSON.stringify(settings.limitTiers),
+                    description: 'Progressive daily limit tiers (in BRL)'
+                },
+                create: {
+                    key: 'limit_tiers',
+                    value: JSON.stringify(settings.limitTiers),
+                    description: 'Progressive daily limit tiers (in BRL)'
+                }
+            }));
+        }
+        if (settings.thresholdTiers) {
+            updatePromises.push(this.prisma.systemSettings.upsert({
+                where: { key: 'threshold_tiers' },
+                update: {
+                    value: JSON.stringify(settings.thresholdTiers),
+                    description: 'Volume thresholds to unlock limit tiers (in BRL)'
+                },
+                create: {
+                    key: 'threshold_tiers',
+                    value: JSON.stringify(settings.thresholdTiers),
+                    description: 'Volume thresholds to unlock limit tiers (in BRL)'
+                }
+            }));
+        }
+        await Promise.all(updatePromises);
+        this.logger.log('Validation settings updated successfully in database');
+    }
+    async isValidationEnabled() {
+        const setting = await this.prisma.systemSettings.findUnique({
+            where: { key: 'validation_enabled' }
+        });
+        return setting ? JSON.parse(setting.value) : true;
     }
     async getDetailedValidationStatus(userId) {
+        const validationAmount = await this.getValidationAmount();
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
@@ -414,7 +538,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
             where: {
                 userId,
                 type: client_1.TransactionType.DEPOSIT,
-                amount: this.VALIDATION_AMOUNT,
+                amount: validationAmount,
                 description: { contains: 'Validação de conta' },
             },
             orderBy: { createdAt: 'desc' },
@@ -429,7 +553,7 @@ let AccountValidationService = AccountValidationService_1 = class AccountValidat
                 validationPaymentId: user.validationPaymentId,
                 validatedAt: user.validatedAt,
             },
-            validationAmount: this.VALIDATION_AMOUNT,
+            validationAmount,
             transactions: validationTransactions.map(t => ({
                 id: t.id,
                 status: t.status,
@@ -470,6 +594,7 @@ __decorate([
 exports.AccountValidationService = AccountValidationService = AccountValidationService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        pix_service_1.PixService])
+        pix_service_1.PixService,
+        liquid_validation_service_1.LiquidValidationService])
 ], AccountValidationService);
 //# sourceMappingURL=account-validation.service.js.map

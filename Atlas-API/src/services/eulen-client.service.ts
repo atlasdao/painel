@@ -141,7 +141,7 @@ export class EulenClientService {
       throw new HttpException('Eulen API access forbidden', HttpStatus.FORBIDDEN);
     } else if (status === 429) {
       throw new HttpException('Eulen API rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
-    } else if (status >= 500) {
+    } else if (status >= 500 || status === 520) {
       throw new HttpException('Eulen API service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     } else {
       throw new HttpException(message, status);
@@ -223,12 +223,16 @@ export class EulenClientService {
   async getDepositStatus(transactionId: string): Promise<any> {
     return this.rateLimiter.executeWithRateLimit('deposit-status', async () => {
       try {
+        // Convert UUID to 32-character format expected by Eulen API (remove hyphens)
+        const eulenId = transactionId.replace(/-/g, '');
+        
         this.logger.log(`🔍 CHECKING DEPOSIT STATUS`);
-        this.logger.log(`📋 Eulen Transaction ID: ${transactionId}`);
-        this.logger.log(`🌐 Full URL: ${this.client.defaults.baseURL}/deposit-status?id=${transactionId}`);
+        this.logger.log(`📋 Original Transaction ID: ${transactionId}`);
+        this.logger.log(`📋 Eulen API ID (32 chars): ${eulenId}`);
+        this.logger.log(`🌐 Full URL: ${this.client.defaults.baseURL}/deposit-status?id=${eulenId}`);
         
         const response = await this.client.get('/deposit-status', {
-          params: { id: transactionId },
+          params: { id: eulenId },
         });
         
         this.logger.log(`📊 DEPOSIT STATUS RESPONSE`);

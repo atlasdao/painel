@@ -22,6 +22,7 @@ export declare class AccountValidationController {
         validationPaymentId?: string;
         validatedAt?: Date;
         validationQrCode?: string;
+        requiresValidation?: boolean;
     }>;
     getValidationRequirements(): Promise<{
         amount: number;

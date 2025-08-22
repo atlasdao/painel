@@ -62,46 +62,8 @@ export class JwtAuthGuard extends AuthGuard('custom-jwt') {
       }
     }
     
-    // Check for JWT token
-    const authHeader = request.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-
-    const token = authHeader.substring(7);
-    
-    try {
-      // Decode without verification (for external RSA tokens)
-      const decoded = jwt.decode(token) as any;
-      
-      if (!decoded) {
-        throw new UnauthorizedException('Invalid token');
-      }
-
-      // Check expiration
-      const now = Math.floor(Date.now() / 1000);
-      if (decoded.exp && decoded.exp < now) {
-        throw new UnauthorizedException('Token has expired');
-      }
-
-      // Extract user ID with fallback logic
-      const userId = decoded.id || decoded.sub || decoded.userId;
-      
-      // Attach user to request with consistent structure
-      request.user = {
-        id: userId,
-        sub: decoded.sub || decoded.id,
-        email: decoded.email,
-        username: decoded.username,
-        roles: decoded.roles || [decoded.role] || ['user'],
-        scope: decoded.scope || ['web']
-      };
-      
-      return true;
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    // If no API key, use the Passport JWT strategy
+    return super.canActivate(context) as Promise<boolean>;
   }
 
   handleRequest(err: any, user: any, info: any) {

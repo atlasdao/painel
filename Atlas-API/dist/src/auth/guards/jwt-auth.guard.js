@@ -46,7 +46,6 @@ exports.JwtAuthGuard = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const core_1 = require("@nestjs/core");
-const jwt = __importStar(require("jsonwebtoken"));
 const bcrypt = __importStar(require("bcrypt"));
 const prisma_service_1 = require("../../prisma/prisma.service");
 let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('custom-jwt') {
@@ -95,34 +94,7 @@ let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('custom-
             catch (error) {
             }
         }
-        const authHeader = request.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new common_1.UnauthorizedException('No token provided');
-        }
-        const token = authHeader.substring(7);
-        try {
-            const decoded = jwt.decode(token);
-            if (!decoded) {
-                throw new common_1.UnauthorizedException('Invalid token');
-            }
-            const now = Math.floor(Date.now() / 1000);
-            if (decoded.exp && decoded.exp < now) {
-                throw new common_1.UnauthorizedException('Token has expired');
-            }
-            const userId = decoded.id || decoded.sub || decoded.userId;
-            request.user = {
-                id: userId,
-                sub: decoded.sub || decoded.id,
-                email: decoded.email,
-                username: decoded.username,
-                roles: decoded.roles || [decoded.role] || ['user'],
-                scope: decoded.scope || ['web']
-            };
-            return true;
-        }
-        catch (error) {
-            throw new common_1.UnauthorizedException('Invalid token');
-        }
+        return super.canActivate(context);
     }
     handleRequest(err, user, info) {
         if (err || !user) {

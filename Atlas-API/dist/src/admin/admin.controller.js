@@ -41,6 +41,10 @@ let AdminController = class AdminController {
         this.checkAdminRole(req.user);
         return this.adminService.getUserById(userId);
     }
+    async createUser(req, data) {
+        this.checkAdminRole(req.user);
+        return this.adminService.createUser(data);
+    }
     async updateUserStatus(req, userId, isActive) {
         this.checkAdminRole(req.user);
         return this.adminService.updateUserStatus(userId, isActive);
@@ -129,17 +133,17 @@ let AdminController = class AdminController {
     }
     async updateUserLimits(req, userId, updateLimitsDto) {
         this.checkAdminRole(req.user);
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return this.adminService.updateUserLimits(userId, updateLimitsDto, adminId);
     }
     async resetUserFirstDay(req, userId) {
         this.checkAdminRole(req.user);
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return this.adminService.resetUserFirstDay(userId, adminId);
     }
     async applyKycLimits(req, userId) {
         this.checkAdminRole(req.user);
-        const adminId = req.user.sub || req.user.id;
+        const adminId = req.user.id || req.user.sub;
         return this.adminService.applyKycLimits(userId, adminId);
     }
     async updateEulenToken(req, data) {
@@ -158,6 +162,14 @@ let AdminController = class AdminController {
             expiredCount,
             timestamp: new Date().toISOString(),
         };
+    }
+    async toggleCommerceMode(req, userId, enable) {
+        this.checkAdminRole(req.user);
+        return this.adminService.toggleCommerceMode(userId, enable);
+    }
+    async togglePaymentLinks(req, userId, enable) {
+        this.checkAdminRole(req.user);
+        return this.adminService.togglePaymentLinks(userId, enable);
     }
 };
 exports.AdminController = AdminController;
@@ -190,6 +202,19 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getUserById", null);
+__decorate([
+    (0, common_1.Post)('users'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create new user (Admin only)' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User created successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid user data' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Admin access required' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'User already exists' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createUser", null);
 __decorate([
     (0, common_1.Put)('users/:id/status'),
     (0, swagger_1.ApiOperation)({ summary: 'Update user status (Admin only)' }),
@@ -507,6 +532,38 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "manualTransactionCleanup", null);
+__decorate([
+    (0, common_1.Put)('users/:id/commerce-mode'),
+    (0, swagger_1.ApiTags)('Admin - Commerce Mode'),
+    (0, swagger_1.ApiOperation)({ summary: 'Toggle commerce mode for user (Admin only)' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'User ID' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Commerce mode updated' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Account must be validated' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Admin access required' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('enable')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Boolean]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "toggleCommerceMode", null);
+__decorate([
+    (0, common_1.Put)('users/:id/payment-links'),
+    (0, swagger_1.ApiTags)('Admin - Commerce Mode'),
+    (0, swagger_1.ApiOperation)({ summary: 'Toggle payment links for user (Admin only)' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'User ID' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Payment links updated' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Commerce mode must be enabled' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Admin access required' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('enable')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Boolean]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "togglePaymentLinks", null);
 exports.AdminController = AdminController = __decorate([
     (0, swagger_1.ApiTags)('Admin'),
     (0, common_1.Controller)('admin'),

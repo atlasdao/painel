@@ -1,4 +1,5 @@
 import { UserLimitRepository } from '../repositories/user-limit.repository';
+import { PrismaService } from '../prisma/prisma.service';
 import { TransactionType } from '@prisma/client';
 export interface LimitValidationResult {
     allowed: boolean;
@@ -15,7 +16,8 @@ export interface LimitValidationResult {
 }
 export declare class LimitValidationService {
     private readonly userLimitRepository;
-    constructor(userLimitRepository: UserLimitRepository);
+    private readonly prisma;
+    constructor(userLimitRepository: UserLimitRepository, prisma: PrismaService);
     validateTransactionLimits(userId: string, transactionType: TransactionType, amount: number): Promise<LimitValidationResult>;
     validateAndThrow(userId: string, transactionType: TransactionType, amount: number): Promise<void>;
     getUserLimitsSummary(userId: string): Promise<{
@@ -27,4 +29,6 @@ export declare class LimitValidationService {
         isHighRiskUser: boolean;
     }>;
     processSuccessfulTransaction(userId: string, transactionType: TransactionType): Promise<void>;
+    validateWithdrawLimit(userId: string, amount: number): Promise<void>;
+    private isAccountValidationRequired;
 }

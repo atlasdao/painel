@@ -29,6 +29,11 @@ export default function DepositPage() {
   const [loadingValidation, setLoadingValidation] = useState(true);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationDepixAddress, setValidationDepixAddress] = useState('');
+  const [validationRequirements, setValidationRequirements] = useState<{
+    amount: number;
+    description: string;
+    benefits: string[];
+  } | null>(null);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleDeposit = async (e: React.FormEvent) => {
@@ -120,6 +125,35 @@ export default function DepositPage() {
       return status;
     } catch (error) {
       console.error('Error checking payment status:', error);
+      
+      // Handle service unavailable errors gracefully
+      if (error.response?.status === 503 || error.response?.status >= 500) {
+        // Service temporarily unavailable - continue polling without user notification
+        console.log('Payment service temporarily unavailable, will retry...');
+        return { 
+          status: 'PENDING', 
+          message: 'Service temporarily unavailable, retrying...',
+          shouldStopPolling: false 
+        };
+      }
+      
+      // Handle network/connection errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR' || !error.response) {
+        console.log('Network error, will retry...');
+        return { 
+          status: 'PENDING', 
+          message: 'Connection issue, retrying...',
+          shouldStopPolling: false 
+        };
+      }
+      
+      // For other errors, show user-friendly message but continue polling
+      console.log('Payment status check failed, will retry...');
+      return { 
+        status: 'PENDING', 
+        message: 'Status check failed, retrying...',
+        shouldStopPolling: false 
+      };
     }
   };
 
@@ -144,7 +178,25 @@ export default function DepositPage() {
         console.log('Error checking validation status:', error);
       }
 
-      // Se ainda não está validada, verificar status na Eulen API
+      // Se ainda não está validada, tentar manual check primeiro
+      try {
+        await accountValidationService.manualValidationCheck();
+        // Se o manual check foi bem-sucedido, verificar novamente o status
+        const updatedValidationStatus = await accountValidationService.getValidationStatus();
+        if (updatedValidationStatus.isValidated) {
+          setPaymentStatus('completed');
+          stopPolling();
+          toast.success('Conta validada com sucesso!');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+          return;
+        }
+      } catch (error) {
+        console.log('Manual validation check failed, trying direct deposit status check...');
+      }
+
+      // Se manual check não funcionou, verificar status na Eulen API
       const status = await pixService.checkDepositStatus(transactionId);
       
       if (status.status === 'COMPLETED') {
@@ -176,6 +228,35 @@ export default function DepositPage() {
       return status;
     } catch (error) {
       console.error('Error checking validation payment status:', error);
+      
+      // Handle service unavailable errors gracefully
+      if (error.response?.status === 503 || error.response?.status >= 500) {
+        // Service temporarily unavailable - continue polling without user notification
+        console.log('Payment service temporarily unavailable, will retry...');
+        return { 
+          status: 'PENDING', 
+          message: 'Service temporarily unavailable, retrying...',
+          shouldStopPolling: false 
+        };
+      }
+      
+      // Handle network/connection errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR' || !error.response) {
+        console.log('Network error, will retry...');
+        return { 
+          status: 'PENDING', 
+          message: 'Connection issue, retrying...',
+          shouldStopPolling: false 
+        };
+      }
+      
+      // For other errors, show user-friendly message but continue polling
+      console.log('Payment status check failed, will retry...');
+      return { 
+        status: 'PENDING', 
+        message: 'Status check failed, retrying...',
+        shouldStopPolling: false 
+      };
     }
   };
 
@@ -218,9 +299,19 @@ export default function DepositPage() {
     stopPolling();
   };
 
+  const fetchValidationRequirements = async () => {
+    try {
+      const requirements = await accountValidationService.getValidationRequirements();
+      setValidationRequirements(requirements);
+    } catch (error) {
+      console.error('Error fetching validation requirements:', error);
+    }
+  };
+
   // Check validation status on mount
   useEffect(() => {
     checkValidationStatus();
+    fetchValidationRequirements();
     return () => {
       stopPolling();
     };
@@ -332,7 +423,7 @@ export default function DepositPage() {
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
       
-      <h1 className="text-3xl font-bold mb-8 text-white">Realizar Depósito PIX</h1>
+      <h1 className="text-3xl font-bold mb-8 text-white">Adquirir DePix</h1>
 
       {/* Show loading state */}
       {loadingValidation ? (
@@ -351,7 +442,7 @@ export default function DepositPage() {
                 </div>
                 
                 <p className="text-gray-300 mb-6">
-                  Para começar a realizar depósitos, você precisa validar sua conta com um pagamento único de <strong>R$ 1,00</strong>.
+                  Para começar a adquirir DePix, você precisa validar sua conta com um pagamento único de <strong>R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}</strong>.
                 </p>
                 
                 <div className="flex justify-center">
@@ -361,7 +452,7 @@ export default function DepositPage() {
                     className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
                     <Shield className="mr-2" size={20} />
-                    Validar Conta por R$ 1,00
+                    Validar Conta por R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}
                   </button>
                 </div>
               </div>
@@ -423,7 +514,7 @@ export default function DepositPage() {
                   </div>
                   
                   <div className="text-center text-sm text-gray-400 mt-4">
-                    <p className="font-semibold text-white">Valor: R$ 1,00</p>
+                    <p className="font-semibold text-white">Valor: R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}</p>
                   </div>
                 </div>
               )}
@@ -645,7 +736,7 @@ export default function DepositPage() {
                     : 'bg-gray-600 text-white hover:bg-gray-700'
                 }`}
               >
-                {paymentStatus === 'completed' ? 'Fazer Novo Depósito' : 'Cancelar e Fazer Novo Depósito'}
+                {paymentStatus === 'completed' ? 'Adquirir Mais DePix' : 'Cancelar e Adquirir DePix'}
               </button>
             </div>
           ) : (
@@ -662,7 +753,7 @@ export default function DepositPage() {
 
       {/* Recent Deposits */}
       <div className="mt-8 bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-white">Depósitos Recentes</h2>
+        <h2 className="text-xl font-semibold mb-4 text-white">Aquisições Recentes</h2>
         <div className="text-sm text-gray-400">
           <p>Seus depósitos recentes aparecerão aqui</p>
         </div>
@@ -701,7 +792,7 @@ export default function DepositPage() {
             
             <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3 mb-4">
               <p className="text-yellow-300 text-sm">
-                <strong>Valor da validação:</strong> R$ 1,00<br/>
+                <strong>Valor da validação:</strong> R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}<br/>
                 Após o pagamento, sua conta será validada automaticamente.
               </p>
             </div>

@@ -46,7 +46,8 @@ exports.ApiKeyRequestService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
-const crypto = __importStar(require("crypto"));
+const api_key_util_1 = require("../common/utils/api-key.util");
+const bcrypt = __importStar(require("bcrypt"));
 let ApiKeyRequestService = class ApiKeyRequestService {
     prisma;
     constructor(prisma) {
@@ -170,6 +171,7 @@ let ApiKeyRequestService = class ApiKeyRequestService {
             throw new common_1.BadRequestException(`Request is already ${request.status.toLowerCase()}`);
         }
         const apiKey = this.generateApiKey();
+        const hashedApiKey = await bcrypt.hash(apiKey, 10);
         const [updatedRequest, updatedUser] = await this.prisma.$transaction([
             this.prisma.apiKeyRequest.update({
                 where: { id: requestId },
@@ -184,7 +186,7 @@ let ApiKeyRequestService = class ApiKeyRequestService {
             }),
             this.prisma.user.update({
                 where: { id: request.userId },
-                data: { apiKey },
+                data: { apiKey: hashedApiKey },
             }),
         ]);
         return {
@@ -239,9 +241,7 @@ let ApiKeyRequestService = class ApiKeyRequestService {
         return updatedRequest;
     }
     generateApiKey() {
-        const prefix = 'atlas_';
-        const randomBytes = crypto.randomBytes(32).toString('hex');
-        return `${prefix}${randomBytes}`;
+        return api_key_util_1.ApiKeyUtils.generateApiKey();
     }
 };
 exports.ApiKeyRequestService = ApiKeyRequestService;

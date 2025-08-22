@@ -31,6 +31,10 @@ const accountValidationService = {
     async getUserLimits () {
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"].get('/account-validation/limits');
         return response.data;
+    },
+    async manualValidationCheck () {
+        const response = await __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"].post('/account-validation/manual-check');
+        return response.data;
     }
 };
 const pixService = {
@@ -299,10 +303,12 @@ function PaymentLinksPage() {
     });
     const [isLoading, setIsLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [validationStatus, setValidationStatus] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [validationRequirements, setValidationRequirements] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     const [loadingValidation, setLoadingValidation] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(true);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         checkValidationStatus();
         fetchPaymentLinks();
+        fetchValidationRequirements();
     }, []);
     const checkValidationStatus = async ()=>{
         setLoadingValidation(true);
@@ -325,6 +331,14 @@ function PaymentLinksPage() {
             }
         } finally{
             setLoadingValidation(false);
+        }
+    };
+    const fetchValidationRequirements = async ()=>{
+        try {
+            const requirements = await __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$lib$2f$services$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["accountValidationService"].getValidationRequirements();
+            setValidationRequirements(requirements);
+        } catch (error) {
+            console.error('Error fetching validation requirements:', error);
         }
     };
     const fetchPaymentLinks = async ()=>{
@@ -415,7 +429,7 @@ function PaymentLinksPage() {
                 position: "top-right"
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 147,
+                lineNumber: 162,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -426,7 +440,7 @@ function PaymentLinksPage() {
                         children: "Links de Pagamento"
                     }, void 0, false, {
                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                        lineNumber: 150,
+                        lineNumber: 165,
                         columnNumber: 9
                     }, this),
                     validationStatus?.isValidated ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -437,14 +451,14 @@ function PaymentLinksPage() {
                                 size: 20
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                lineNumber: 156,
+                                lineNumber: 171,
                                 columnNumber: 13
                             }, this),
                             "Novo Link"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                        lineNumber: 152,
+                        lineNumber: 167,
                         columnNumber: 11
                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                         disabled: true,
@@ -454,20 +468,20 @@ function PaymentLinksPage() {
                                 size: 20
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                lineNumber: 164,
+                                lineNumber: 179,
                                 columnNumber: 13
                             }, this),
                             "Validação Necessária"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                        lineNumber: 160,
+                        lineNumber: 175,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 149,
+                lineNumber: 164,
                 columnNumber: 7
             }, this),
             loadingValidation ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -480,7 +494,7 @@ function PaymentLinksPage() {
                             size: 20
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 174,
+                            lineNumber: 189,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -488,18 +502,18 @@ function PaymentLinksPage() {
                             children: "Verificando status de validação..."
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 175,
+                            lineNumber: 190,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                    lineNumber: 173,
+                    lineNumber: 188,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 172,
+                lineNumber: 187,
                 columnNumber: 9
             }, this) : !validationStatus?.isValidated ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "mb-6 p-6 bg-yellow-900/10 border border-yellow-500/30 rounded-lg",
@@ -513,12 +527,12 @@ function PaymentLinksPage() {
                                 size: 24
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                lineNumber: 182,
+                                lineNumber: 197,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 181,
+                            lineNumber: 196,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -529,7 +543,7 @@ function PaymentLinksPage() {
                                     children: "Validação de Conta Necessária"
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 185,
+                                    lineNumber: 200,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -538,17 +552,23 @@ function PaymentLinksPage() {
                                         "Para criar links de pagamento, você precisa validar sua conta primeiro. O processo é simples e requer apenas um pagamento de ",
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
                                             className: "text-white",
-                                            children: "R$ 1,00"
-                                        }, void 0, false, {
+                                            children: [
+                                                "R$ ",
+                                                validationRequirements?.amount ? validationRequirements.amount.toLocaleString('pt-BR', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                }) : '2,00'
+                                            ]
+                                        }, void 0, true, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 188,
+                                            lineNumber: 203,
                                             columnNumber: 70
                                         }, this),
                                         "."
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 186,
+                                    lineNumber: 201,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
@@ -559,31 +579,31 @@ function PaymentLinksPage() {
                                             size: 18
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 195,
+                                            lineNumber: 210,
                                             columnNumber: 17
                                         }, this),
                                         "Validar Conta Agora"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 191,
+                                    lineNumber: 206,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 184,
+                            lineNumber: 199,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                    lineNumber: 180,
+                    lineNumber: 195,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 179,
+                lineNumber: 194,
                 columnNumber: 9
             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg",
@@ -595,7 +615,7 @@ function PaymentLinksPage() {
                             size: 20
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 204,
+                            lineNumber: 219,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -609,7 +629,7 @@ function PaymentLinksPage() {
                                             children: "Links de Pagamento Rápido"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 207,
+                                            lineNumber: 222,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -619,7 +639,7 @@ function PaymentLinksPage() {
                                                     size: 16
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                    lineNumber: 209,
+                                                    lineNumber: 224,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -627,19 +647,19 @@ function PaymentLinksPage() {
                                                     children: "Conta Validada"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                    lineNumber: 210,
+                                                    lineNumber: 225,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 208,
+                                            lineNumber: 223,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 206,
+                                    lineNumber: 221,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -647,7 +667,7 @@ function PaymentLinksPage() {
                                     children: "Crie links personalizados para receber pagamentos. Cada link gera um QR Code PIX que é renovado automaticamente a cada 28 minutos ou após cada pagamento."
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 213,
+                                    lineNumber: 228,
                                     columnNumber: 15
                                 }, this),
                                 validationStatus?.limits && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -658,7 +678,7 @@ function PaymentLinksPage() {
                                             children: "Seus Limites Atuais:"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 219,
+                                            lineNumber: 234,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -672,7 +692,7 @@ function PaymentLinksPage() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                    lineNumber: 221,
+                                                    lineNumber: 236,
                                                     columnNumber: 36
                                                 }, this),
                                                 "(Tier ",
@@ -681,7 +701,7 @@ function PaymentLinksPage() {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 220,
+                                            lineNumber: 235,
                                             columnNumber: 19
                                         }, this),
                                         validationStatus.reputation && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -692,7 +712,7 @@ function PaymentLinksPage() {
                                                     children: validationStatus.reputation.reputationScore.toFixed(1)
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                    lineNumber: 226,
+                                                    lineNumber: 241,
                                                     columnNumber: 34
                                                 }, this),
                                                 "(",
@@ -701,30 +721,30 @@ function PaymentLinksPage() {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 225,
+                                            lineNumber: 240,
                                             columnNumber: 21
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 218,
+                                    lineNumber: 233,
                                     columnNumber: 17
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 205,
+                            lineNumber: 220,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                    lineNumber: 203,
+                    lineNumber: 218,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 202,
+                lineNumber: 217,
                 columnNumber: 9
             }, this),
             showCreateForm && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -737,7 +757,7 @@ function PaymentLinksPage() {
                             children: "Criar Link de Pagamento"
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 241,
+                            lineNumber: 256,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -751,7 +771,7 @@ function PaymentLinksPage() {
                                             children: "Valor (R$)"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 244,
+                                            lineNumber: 259,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -768,13 +788,13 @@ function PaymentLinksPage() {
                                             placeholder: "100.00"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 247,
+                                            lineNumber: 262,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 243,
+                                    lineNumber: 258,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -784,7 +804,7 @@ function PaymentLinksPage() {
                                             children: "Carteira de Destino"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 260,
+                                            lineNumber: 275,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -799,13 +819,13 @@ function PaymentLinksPage() {
                                             placeholder: "Endereço da carteira"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 263,
+                                            lineNumber: 278,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 259,
+                                    lineNumber: 274,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -815,7 +835,7 @@ function PaymentLinksPage() {
                                             children: "Descrição (Opcional)"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 274,
+                                            lineNumber: 289,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -829,13 +849,13 @@ function PaymentLinksPage() {
                                             placeholder: "Ex: Pagamento do produto X"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 277,
+                                            lineNumber: 292,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 273,
+                                    lineNumber: 288,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -849,7 +869,7 @@ function PaymentLinksPage() {
                                             children: "Cancelar"
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 287,
+                                            lineNumber: 302,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -859,30 +879,30 @@ function PaymentLinksPage() {
                                             children: isLoading ? 'Criando...' : 'Criar Link'
                                         }, void 0, false, {
                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                            lineNumber: 295,
+                                            lineNumber: 310,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 286,
+                                    lineNumber: 301,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 242,
+                            lineNumber: 257,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                    lineNumber: 240,
+                    lineNumber: 255,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 239,
+                lineNumber: 254,
                 columnNumber: 9
             }, this),
             validationStatus?.isValidated ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -894,7 +914,7 @@ function PaymentLinksPage() {
                             className: "mx-auto h-12 w-12 text-gray-500 mb-4"
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 313,
+                            lineNumber: 328,
                             columnNumber: 15
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -902,7 +922,7 @@ function PaymentLinksPage() {
                             children: "Nenhum link de pagamento criado"
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 314,
+                            lineNumber: 329,
                             columnNumber: 15
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -910,13 +930,13 @@ function PaymentLinksPage() {
                             children: 'Clique em "Novo Link" para criar seu primeiro link de pagamento'
                         }, void 0, false, {
                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                            lineNumber: 315,
+                            lineNumber: 330,
                             columnNumber: 15
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                    lineNumber: 312,
+                    lineNumber: 327,
                     columnNumber: 13
                 }, this) : paymentLinks.map((link)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "bg-gray-800 border border-gray-700 rounded-lg p-6",
@@ -929,12 +949,12 @@ function PaymentLinksPage() {
                                     className: "w-32 h-32 bg-white p-2 rounded-lg"
                                 }, void 0, false, {
                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                    lineNumber: 325,
+                                    lineNumber: 340,
                                     columnNumber: 19
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                lineNumber: 323,
+                                lineNumber: 338,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -947,7 +967,7 @@ function PaymentLinksPage() {
                                                 children: "Valor"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 336,
+                                                lineNumber: 351,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -955,13 +975,13 @@ function PaymentLinksPage() {
                                                 children: formatCurrency(link.amount)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 337,
+                                                lineNumber: 352,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 335,
+                                        lineNumber: 350,
                                         columnNumber: 17
                                     }, this),
                                     link.description && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -971,7 +991,7 @@ function PaymentLinksPage() {
                                                 children: "Descrição"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 342,
+                                                lineNumber: 357,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -979,13 +999,13 @@ function PaymentLinksPage() {
                                                 children: link.description
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 343,
+                                                lineNumber: 358,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 341,
+                                        lineNumber: 356,
                                         columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -995,7 +1015,7 @@ function PaymentLinksPage() {
                                                 children: "Link"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 348,
+                                                lineNumber: 363,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1010,7 +1030,7 @@ function PaymentLinksPage() {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 350,
+                                                        lineNumber: 365,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1021,12 +1041,12 @@ function PaymentLinksPage() {
                                                             size: 16
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                            lineNumber: 358,
+                                                            lineNumber: 373,
                                                             columnNumber: 23
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 353,
+                                                        lineNumber: 368,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
@@ -1039,24 +1059,24 @@ function PaymentLinksPage() {
                                                             size: 16
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                            lineNumber: 367,
+                                                            lineNumber: 382,
                                                             columnNumber: 23
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 360,
+                                                        lineNumber: 375,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 349,
+                                                lineNumber: 364,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 347,
+                                        lineNumber: 362,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1069,7 +1089,7 @@ function PaymentLinksPage() {
                                                         children: "Pagamentos"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 375,
+                                                        lineNumber: 390,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1077,13 +1097,13 @@ function PaymentLinksPage() {
                                                         children: link.totalPayments || 0
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 376,
+                                                        lineNumber: 391,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 374,
+                                                lineNumber: 389,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1093,7 +1113,7 @@ function PaymentLinksPage() {
                                                         children: "Total Recebido"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 379,
+                                                        lineNumber: 394,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1101,19 +1121,19 @@ function PaymentLinksPage() {
                                                         children: formatCurrency(link.totalAmount || 0)
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 380,
+                                                        lineNumber: 395,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 378,
+                                                lineNumber: 393,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 373,
+                                        lineNumber: 388,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1127,14 +1147,14 @@ function PaymentLinksPage() {
                                                         size: 16
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 392,
+                                                        lineNumber: 407,
                                                         columnNumber: 21
                                                     }, this),
                                                     "QR Code"
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 388,
+                                                lineNumber: 403,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1144,18 +1164,18 @@ function PaymentLinksPage() {
                                                     size: 16
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                    lineNumber: 399,
+                                                    lineNumber: 414,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 395,
+                                                lineNumber: 410,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 387,
+                                        lineNumber: 402,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1168,14 +1188,14 @@ function PaymentLinksPage() {
                                                         className: `w-2 h-2 rounded-full ${link.isActive ? 'bg-green-400' : 'bg-gray-400'}`
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 408,
+                                                        lineNumber: 423,
                                                         columnNumber: 21
                                                     }, this),
                                                     link.isActive ? 'Ativo' : 'Inativo'
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 405,
+                                                lineNumber: 420,
                                                 columnNumber: 19
                                             }, this),
                                             link.qrCodeGeneratedAt && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1185,7 +1205,7 @@ function PaymentLinksPage() {
                                                         size: 12
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                        lineNumber: 415,
+                                                        lineNumber: 430,
                                                         columnNumber: 23
                                                     }, this),
                                                     "QR atualizado ",
@@ -1193,36 +1213,36 @@ function PaymentLinksPage() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                                lineNumber: 414,
+                                                lineNumber: 429,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                        lineNumber: 404,
+                                        lineNumber: 419,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                                lineNumber: 334,
+                                lineNumber: 349,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, link.id, true, {
                         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                        lineNumber: 321,
+                        lineNumber: 336,
                         columnNumber: 13
                     }, this))
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-                lineNumber: 310,
+                lineNumber: 325,
                 columnNumber: 9
             }, this) : null
         ]
     }, void 0, true, {
         fileName: "[project]/app/(dashboard)/payment-links/page.tsx",
-        lineNumber: 146,
+        lineNumber: 161,
         columnNumber: 5
     }, this);
 }

@@ -75,7 +75,7 @@ export default function UserActionsDropdown({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="fixed bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-[9999] w-56"
+          className="fixed bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-[9999] w-56 max-h-96 overflow-y-auto"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,

@@ -161,6 +161,28 @@ export default function TransactionsPage() {
     }
   };
 
+  const checkTransactionStatus = async (transactionId: string) => {
+    try {
+      toast.loading('Verificando status da transação...', { id: transactionId });
+      
+      const updatedStatus = await pixService.checkDepositStatus(transactionId);
+      
+      // Atualizar a transação local
+      setTransactions(prev => 
+        prev.map(tx => 
+          tx.id === transactionId 
+            ? { ...tx, ...updatedStatus }
+            : tx
+        )
+      );
+      
+      toast.success('Status da transação atualizado!', { id: transactionId });
+    } catch (error) {
+      console.error('Error checking transaction status:', error);
+      toast.error('Erro ao verificar status da transação', { id: transactionId });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
@@ -305,14 +327,27 @@ export default function TransactionsPage() {
                       {transaction.id.slice(0, 8)}...
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <button
-                        onClick={() => handleViewDetails(transaction)}
-                        className="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-                        title="Ver detalhes"
-                      >
-                        <Eye size={16} />
-                        <span className="ml-1">Detalhes</span>
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleViewDetails(transaction)}
+                          className="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
+                          title="Ver detalhes"
+                        >
+                          <Eye size={16} />
+                          <span className="ml-1">Detalhes</span>
+                        </button>
+                        
+                        {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING') && (
+                          <button
+                            onClick={() => checkTransactionStatus(transaction.id)}
+                            className="text-green-400 hover:text-green-300 transition-colors flex items-center ml-2"
+                            title="Verificar status atual"
+                          >
+                            <RefreshCw size={16} />
+                            <span className="ml-1">Verificar</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -635,7 +670,28 @@ export default function TransactionsPage() {
               })()}
             </div>
 
-            <div className="flex justify-end p-6 border-t border-gray-700">
+            <div className="flex justify-between p-6 border-t border-gray-700">
+              <div>
+                {(selectedTransaction.status === 'PENDING' || selectedTransaction.status === 'PROCESSING') && (
+                  <button
+                    onClick={() => {
+                      checkTransactionStatus(selectedTransaction.id);
+                      // Update selected transaction when status is checked
+                      setTimeout(() => {
+                        const updatedTransaction = transactions.find(tx => tx.id === selectedTransaction.id);
+                        if (updatedTransaction) {
+                          setSelectedTransaction(updatedTransaction);
+                        }
+                      }, 1000);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center"
+                  >
+                    <RefreshCw size={16} className="mr-2" />
+                    Verificar Status
+                  </button>
+                )}
+              </div>
+              
               <button
                 onClick={handleCloseModal}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"

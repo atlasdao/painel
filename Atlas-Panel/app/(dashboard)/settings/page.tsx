@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { authService } from '@/app/lib/auth';
 import { userService } from '@/app/lib/services';
 import api from '@/app/lib/api';
-import { User, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar } from 'lucide-react';
+import { User, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Store, Link } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'limits' | 'api'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'limits' | 'api' | 'commerce'>('profile');
   const [loading, setLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -33,9 +33,17 @@ export default function SettingsPage() {
   // Limits State
   const [userLimits, setUserLimits] = useState<any>(null);
 
+  // Commerce State
+  const [commerceSettings, setCommerceSettings] = useState({
+    commerceMode: false,
+    paymentLinksEnabled: false,
+    commerceModeActivatedAt: null,
+  });
+
   useEffect(() => {
     loadUserProfile();
     loadUserLimits();
+    loadCommerceSettings();
   }, []);
 
   const loadUserProfile = async () => {
@@ -78,6 +86,21 @@ export default function SettingsPage() {
       });
       
       toast.error('Erro ao carregar limites. Dados padrão carregados.');
+    }
+  };
+
+  const loadCommerceSettings = async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        setCommerceSettings({
+          commerceMode: user.commerceMode || false,
+          paymentLinksEnabled: user.paymentLinksEnabled || false,
+          commerceModeActivatedAt: user.commerceModeActivatedAt || null,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading commerce settings:', error);
     }
   };
 
@@ -180,6 +203,18 @@ export default function SettingsPage() {
           >
             <AlertTriangle className="inline mr-2" size={16} />
             Meus Limites
+          </button>
+
+          <button
+            onClick={() => setActiveTab('commerce')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'commerce'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+            }`}
+          >
+            <Store className="inline mr-2" size={16} />
+            Modo Comércio
           </button>
         </nav>
       </div>
@@ -378,10 +413,10 @@ export default function SettingsPage() {
                       <span className={`text-xs font-semibold ${
                         userLimits.isKycVerified ? 'text-blue-400' : 'text-gray-400'
                       }`}>
-                        {userLimits.isKycVerified ? 'KYC VERIFICADO' : 'KYC PENDENTE'}
+                        {userLimits.isKycVerified ? 'CONTA VALIDADA' : 'VALIDAÇÃO PENDENTE'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-300 mt-2">Status KYC</p>
+                    <p className="text-sm text-gray-300 mt-2">Status da Validação</p>
                   </div>
 
                   <div className={`p-4 rounded-lg border ${
@@ -569,6 +604,157 @@ export default function SettingsPage() {
             )}
 
 
+          </div>
+        )}
+
+        {/* Commerce Tab */}
+        {activeTab === 'commerce' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Store className="mr-2" size={20} />
+                Configurações do Modo Comércio
+              </h3>
+
+              {/* Commerce Mode Status */}
+              <div className="bg-gray-700 rounded-lg p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="text-md font-semibold text-white">Status do Modo Comércio</h4>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {commerceSettings.commerceMode 
+                        ? 'Modo comércio ativo - você pode aceitar múltiplos CPF/CNPJ'
+                        : 'Modo comércio desativado'}
+                    </p>
+                    {commerceSettings.commerceModeActivatedAt && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Ativado em: {formatDate(commerceSettings.commerceModeActivatedAt)}
+                      </p>
+                    )}
+                  </div>
+                  <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                    commerceSettings.commerceMode 
+                      ? 'bg-green-500/20 text-green-400 border border-green-500'
+                      : 'bg-gray-600 text-gray-400 border border-gray-500'
+                  }`}>
+                    {commerceSettings.commerceMode ? 'ATIVO' : 'INATIVO'}
+                  </div>
+                </div>
+
+                {!commerceSettings.commerceMode && (
+                  <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-4 mt-4">
+                    <div className="flex items-start gap-3">
+                      <Store className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h5 className="font-semibold text-blue-300 mb-2">Solicitar Modo Comércio</h5>
+                        <p className="text-sm text-blue-200 mb-3">
+                          O modo comércio permite que você aceite pagamentos de múltiplos CPF/CNPJ, 
+                          ideal para lojas e prestadores de serviço.
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Para ativar o modo comércio, entre em contato com o suporte através do Telegram.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Links */}
+              <div className="bg-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="text-md font-semibold text-white flex items-center">
+                      <Link className="mr-2" size={18} />
+                      Links de Pagamento
+                    </h4>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {commerceSettings.paymentLinksEnabled 
+                        ? 'Links de pagamento ativos - você pode criar links personalizados'
+                        : 'Links de pagamento desativados'}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-gray-400">
+                      {commerceSettings.paymentLinksEnabled ? 'Ativado' : 'Desativado'}
+                    </span>
+                    <button
+                      disabled={!commerceSettings.commerceMode}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        commerceSettings.paymentLinksEnabled
+                          ? 'bg-blue-600'
+                          : 'bg-gray-600'
+                      } ${!commerceSettings.commerceMode && 'opacity-50 cursor-not-allowed'}`}
+                      onClick={async () => {
+                        if (commerceSettings.commerceMode) {
+                          toast.info('Entre em contato com o admin para alterar esta configuração');
+                        }
+                      }}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          commerceSettings.paymentLinksEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {!commerceSettings.commerceMode && (
+                  <p className="text-xs text-yellow-400 mt-2">
+                    ⚠️ Links de pagamento requerem modo comércio ativo
+                  </p>
+                )}
+
+                {commerceSettings.paymentLinksEnabled && (
+                  <div className="mt-4 pt-4 border-t border-gray-600">
+                    <p className="text-sm text-gray-300">
+                      Você pode criar e gerenciar seus links de pagamento na seção 
+                      <a href="/payment-links" className="text-blue-400 hover:text-blue-300 ml-1">
+                        Links de Pagamento
+                      </a>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Commerce Features */}
+              {commerceSettings.commerceMode && (
+                <div className="bg-gray-700 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-white mb-4">Recursos do Modo Comércio</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5"></div>
+                      <div>
+                        <p className="text-sm text-white">Aceitar múltiplos CPF/CNPJ</p>
+                        <p className="text-xs text-gray-400">Receba pagamentos de diferentes clientes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5"></div>
+                      <div>
+                        <p className="text-sm text-white">Links de pagamento personalizados</p>
+                        <p className="text-xs text-gray-400">Crie links únicos para seus produtos/serviços</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5"></div>
+                      <div>
+                        <p className="text-sm text-white">QR Code com expiração de 18 minutos</p>
+                        <p className="text-xs text-gray-400">Tempo otimizado para transações comerciais</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5"></div>
+                      <div>
+                        <p className="text-sm text-white">Relatórios detalhados</p>
+                        <p className="text-xs text-gray-400">Acompanhe todas as suas transações</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

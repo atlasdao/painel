@@ -1,6 +1,6 @@
 import { AdminService } from './admin.service';
 import { TransactionCleanupService } from '../services/transaction-cleanup.service';
-import { TransactionStatus, TransactionType } from '@prisma/client';
+import { TransactionStatus, TransactionType, UserRole } from '@prisma/client';
 export declare class AdminController {
     private readonly adminService;
     private readonly transactionCleanupService;
@@ -20,6 +20,9 @@ export declare class AdminController {
         isAccountValidated: boolean;
         validationPaymentId: string | null;
         validatedAt: Date | null;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
         apiDailyLimit: number;
         apiMonthlyLimit: number;
         createdAt: Date;
@@ -40,6 +43,37 @@ export declare class AdminController {
         isAccountValidated: boolean;
         validationPaymentId: string | null;
         validatedAt: Date | null;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
+        apiDailyLimit: number;
+        apiMonthlyLimit: number;
+        createdAt: Date;
+        updatedAt: Date;
+        lastLoginAt: Date | null;
+    }>;
+    createUser(req: any, data: {
+        username: string;
+        email: string;
+        password: string;
+        role: UserRole;
+    }): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        password: string;
+        apiKey: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        isActive: boolean;
+        passwordResetCode: string | null;
+        passwordResetExpires: Date | null;
+        passwordResetAttempts: number;
+        isAccountValidated: boolean;
+        validationPaymentId: string | null;
+        validatedAt: Date | null;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
         apiDailyLimit: number;
         apiMonthlyLimit: number;
         createdAt: Date;
@@ -60,6 +94,9 @@ export declare class AdminController {
         isAccountValidated: boolean;
         validationPaymentId: string | null;
         validatedAt: Date | null;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
         apiDailyLimit: number;
         apiMonthlyLimit: number;
         createdAt: Date;
@@ -80,6 +117,9 @@ export declare class AdminController {
         isAccountValidated: boolean;
         validationPaymentId: string | null;
         validatedAt: Date | null;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
         apiDailyLimit: number;
         apiMonthlyLimit: number;
         createdAt: Date;
@@ -202,6 +242,9 @@ export declare class AdminController {
             isAccountValidated: boolean;
             validationPaymentId: string | null;
             validatedAt: Date | null;
+            commerceMode: boolean;
+            commerceModeActivatedAt: Date | null;
+            paymentLinksEnabled: boolean;
             apiDailyLimit: number;
             apiMonthlyLimit: number;
             createdAt: Date;
@@ -326,5 +369,20 @@ export declare class AdminController {
         message: string;
         expiredCount: number;
         timestamp: string;
+    }>;
+    toggleCommerceMode(req: any, userId: string, enable: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        commerceMode: boolean;
+        commerceModeActivatedAt: Date | null;
+        paymentLinksEnabled: boolean;
+    }>;
+    togglePaymentLinks(req: any, userId: string, enable: boolean): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        commerceMode: boolean;
+        paymentLinksEnabled: boolean;
     }>;
 }

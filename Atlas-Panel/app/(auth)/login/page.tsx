@@ -21,9 +21,14 @@ export default function LoginPage() {
     setErrors([]);
 
     try {
-      await authService.login(email, password);
+      const response = await authService.login(email, password);
+      console.log('Login response:', response);
       toast.success('Login realizado com sucesso!');
-      router.push('/dashboard');
+      
+      // Add a small delay to ensure cookies are set
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 100);
     } catch (error: any) {
       const message = error.response?.data?.message || 'Erro ao fazer login';
       const apiErrors = error.response?.data?.errors;

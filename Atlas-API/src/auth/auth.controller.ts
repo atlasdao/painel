@@ -53,7 +53,7 @@ export class AuthController {
   //   @Req() req: any,
   //   @Body() createApiKeyDto: CreateApiKeyDto,
   // ) {
-  //   const userId = req.user.sub || req.user.id;
+  //   const userId = req.user.id || req.user.sub;
   //   return this.authService.generateApiToken(userId, createApiKeyDto);
   // }
 
@@ -64,7 +64,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'API token status' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getApiTokenStatus(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     return this.authService.getApiKeyStatus(userId);
   }
 
@@ -76,7 +76,7 @@ export class AuthController {
   @ApiResponse({ status: 204, description: 'API token revoked' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async revokeApiToken(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id || req.user.sub;
     await this.authService.revokeApiKey(userId);
   }
 

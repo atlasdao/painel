@@ -63,6 +63,7 @@ export class AccountValidationController {
   ) {}
 
   @Get('status')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Check account validation status' })
   @ApiResponse({ status: 200, description: 'Returns validation status' })
   async getValidationStatus(@Req() req: any) {
@@ -81,6 +82,7 @@ export class AccountValidationController {
   }
 
   @Post('create-payment')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create validation payment' })
   @ApiResponse({ status: 201, description: 'Validation payment created' })
   async createValidationPayment(
@@ -98,6 +100,7 @@ export class AccountValidationController {
   }
 
   @Get('limits')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get user limits and reputation' })
   @ApiResponse({ status: 200, description: 'Returns user limits and reputation' })
   async getUserLimits(@Req() req: any) {
@@ -109,6 +112,7 @@ export class AccountValidationController {
   }
 
   @Get('debug-status')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Debug validation status with detailed info' })
   @ApiResponse({ status: 200, description: 'Returns detailed validation debug info' })
   async getDebugValidationStatus(@Req() req: any) {
@@ -120,6 +124,7 @@ export class AccountValidationController {
   }
 
   @Post('manual-check')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Manually trigger validation check' })
   @ApiResponse({ status: 200, description: 'Manual validation check triggered' })
   async manualValidationCheck(@Req() req: any) {

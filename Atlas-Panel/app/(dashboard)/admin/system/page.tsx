@@ -55,13 +55,8 @@ export default function AdminSystemPage() {
     setLoading(true);
     try {
       // Get real system information
-      const [statsResponse, healthResponse] = await Promise.all([
-        api.get('/admin/system/stats'),
-        api.get('/health'),
-      ]);
-
+      const statsResponse = await api.get('/admin/stats');
       const stats = statsResponse.data;
-      const health = healthResponse.data;
 
       // Calculate real uptime
       const uptimeSeconds = process.uptime ? process.uptime() : 0;
@@ -72,7 +67,7 @@ export default function AdminSystemPage() {
       setSystemInfo({
         ...stats,
         server: {
-          status: health.status || 'online',
+          status: 'online',
           uptime: `${days}d ${hours}h ${minutes}m`,
           version: process.env.npm_package_version || '1.0.0',
           nodeVersion: process.version || 'unknown',
@@ -460,7 +455,7 @@ export default function AdminSystemPage() {
                     onChange={(e) => setMedLimits({ ...medLimits, requiresKyc: e.target.checked })}
                     className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                   />
-                  <span className="text-white">Exigir KYC para limites aumentados</span>
+                  <span className="text-white">Exigir validação de conta para limites aumentados</span>
                 </label>
               </div>
             </div>
