@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, XCircle, Clock, DollarSign, TrendingUp, Filter, Eye, Check, X, FileText } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import api from '@/app/lib/api';
 
 enum WithdrawalMethod {
   PIX = 'PIX',
@@ -70,19 +71,8 @@ export default function AdminWithdrawalsPage() {
       if (statusFilter) params.append('status', statusFilter);
       if (methodFilter) params.append('method', methodFilter);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/withdrawals/admin/all?${params}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setWithdrawals(data);
-      }
+      const response = await api.get(`/withdrawals/admin/all?${params}`);
+      setWithdrawals(response.data);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
     }
@@ -90,19 +80,8 @@ export default function AdminWithdrawalsPage() {
 
   const fetchPendingWithdrawals = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/withdrawals/admin/pending`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setPendingWithdrawals(data);
-      }
+      const response = await api.get('/withdrawals/admin/pending');
+      setPendingWithdrawals(response.data);
     } catch (error) {
       console.error('Error fetching pending withdrawals:', error);
     }
@@ -110,19 +89,8 @@ export default function AdminWithdrawalsPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/withdrawals/admin/stats`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const response = await api.get('/withdrawals/admin/stats');
+      setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -156,29 +124,13 @@ export default function AdminWithdrawalsPage() {
     }
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/withdrawals/admin/${selectedWithdrawal.id}/approve`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (response.ok) {
-        setShowApprovalModal(false);
-        fetchWithdrawals();
-        fetchPendingWithdrawals();
-        fetchStats();
-      } else {
-        const data = await response.json();
-        alert(data.message || 'Erro ao processar aprovação');
-      }
-    } catch (error) {
-      alert('Erro ao processar aprovação');
+      await api.put(`/withdrawals/admin/${selectedWithdrawal.id}/approve`, payload);
+      setShowApprovalModal(false);
+      fetchWithdrawals();
+      fetchPendingWithdrawals();
+      fetchStats();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erro ao processar aprovação');
     } finally {
       setLoading(false);
     }
@@ -188,21 +140,10 @@ export default function AdminWithdrawalsPage() {
     if (!confirm('Iniciar processamento de saques aprovados?')) return;
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/withdrawals/admin/process`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        alert('Processamento iniciado');
-        fetchWithdrawals();
-        fetchStats();
-      }
+      await api.post('/withdrawals/admin/process');
+      alert('Processamento iniciado');
+      fetchWithdrawals();
+      fetchStats();
     } catch (error) {
       alert('Erro ao iniciar processamento');
     }

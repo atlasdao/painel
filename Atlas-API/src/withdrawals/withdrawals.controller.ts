@@ -82,10 +82,16 @@ export class WithdrawalsController {
     @Query('status') status?: WithdrawalStatus,
     @Query('method') method?: WithdrawalMethod
   ) {
+    console.log(`🔍 Admin getAllWithdrawals called by user: ${req.user.id}, role: ${req.user.role}`);
+    
     if (req.user.role !== UserRole.ADMIN) {
+      console.log(`❌ Access denied for user ${req.user.id} with role ${req.user.role}`);
       throw new HttpException('Acesso negado', HttpStatus.FORBIDDEN);
     }
-    return this.withdrawalsService.getAllWithdrawals(status, method);
+    
+    const result = await this.withdrawalsService.getAllWithdrawals(status, method);
+    console.log(`📊 Found ${result.length} withdrawals`);
+    return result;
   }
 
   @Get('admin/pending')
@@ -93,10 +99,16 @@ export class WithdrawalsController {
   @ApiResponse({ status: 200, description: 'Returns pending withdrawals' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async getPendingWithdrawals(@Request() req) {
+    console.log(`🔍 Admin getPendingWithdrawals called by user: ${req.user.id}, role: ${req.user.role}`);
+    
     if (req.user.role !== UserRole.ADMIN) {
+      console.log(`❌ Access denied for user ${req.user.id} with role ${req.user.role}`);
       throw new HttpException('Acesso negado', HttpStatus.FORBIDDEN);
     }
-    return this.withdrawalsService.getPendingWithdrawals();
+    
+    const result = await this.withdrawalsService.getPendingWithdrawals();
+    console.log(`📊 Found ${result.length} pending withdrawals`);
+    return result;
   }
 
   @Get('admin/stats')
@@ -104,10 +116,16 @@ export class WithdrawalsController {
   @ApiResponse({ status: 200, description: 'Returns system withdrawal statistics' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async getSystemWithdrawalStats(@Request() req) {
+    console.log(`🔍 Admin getSystemWithdrawalStats called by user: ${req.user.id}, role: ${req.user.role}`);
+    
     if (req.user.role !== UserRole.ADMIN) {
+      console.log(`❌ Access denied for user ${req.user.id} with role ${req.user.role}`);
       throw new HttpException('Acesso negado', HttpStatus.FORBIDDEN);
     }
-    return this.withdrawalsService.getWithdrawalStats();
+    
+    const result = await this.withdrawalsService.getWithdrawalStats();
+    console.log(`📊 Withdrawal stats:`, result);
+    return result;
   }
 
   @Put('admin/:id/approve')
