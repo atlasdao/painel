@@ -1,10 +1,6 @@
 # ===================================================================
-# Arquivo .gitignore para o Projeto Atlas DAO (API e Painel)
+# .gitignore Definitivo para o Projeto Atlas DAO (API e Painel)
 # ===================================================================
-
-# --- Dependências ---
-# Nunca versionar a pasta de dependências. Ela é recriada com 'npm install'.
-node_modules/
 
 # --- Arquivos de Ambiente e Segredos (MUITO IMPORTANTE) ---
 # Contêm senhas, chaves de API e segredos. NUNCA devem ir para o GitHub.
@@ -15,11 +11,24 @@ node_modules/
 .env.production
 .env.development
 
+# --- Configurações do Docker com Senhas ---
+# Contêm senhas do banco de dados.
+/Atlas-API/docker/postgresql/docker-compose.yml
+/Atlas-API/docker/postgresql/init-scripts/
+
+# --- Dependências ---
+# Nunca versionar a pasta de dependências.
+node_modules/
+/Atlas-API/node_modules/
+/Atlas-Panel/node_modules/
+
 # --- Pastas de Build e Cache ---
-# São geradas durante o processo de compilação e não são código-fonte.
-/api-main/Atlas-API/dist/
-/api-main/Atlas-Panel/.next/
-/api-main/Atlas-Panel/.turbo/
+# Geradas durante a compilação, não são código-fonte.
+dist/
+.next/
+/Atlas-API/dist/
+/Atlas-Panel/.next/
+/Atlas-Panel/.turbo/
 
 # --- Logs ---
 # Arquivos de log podem conter informações sensíveis.
@@ -29,10 +38,8 @@ yarn-error.log*
 yarn-debug.log*
 
 # --- Arquivos do PM2 ---
-# Logs e dumps do gerenciador de processos.
-/root/.pm2/logs/
-/root/.pm2/pids/
-/root/.pm2/dump.pm2
+# Não devem ser versionados.
+ecosystem.config.js*
 
 # --- Arquivos de Banco de Dados Locais (Precaução) ---
 *.db
@@ -42,6 +49,10 @@ dev.db
 # --- Cache do Compilador TypeScript ---
 *.tsbuildinfo
 
+# --- Arquivos gerados por IA ou ferramentas --- 
+CLAUDE.md
+.claude
+
 # --- Arquivos de Sistema Operacional ---
 .DS_Store
 Thumbs.db
@@ -49,9 +60,3 @@ Thumbs.db
 # --- Pasta de Configuração de Editor (Opcional) ---
 .vscode/
 .idea/
-
-
-CLAUDE.md
-.claude
-.next
-dist

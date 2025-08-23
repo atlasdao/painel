@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const [commerceSettings, setCommerceSettings] = useState({
     commerceMode: false,
     paymentLinksEnabled: false,
-    commerceModeActivatedAt: null,
+    commerceModeActivatedAt: null as string | null,
   });
 
   useEffect(() => {
@@ -687,7 +687,7 @@ export default function SettingsPage() {
                       } ${!commerceSettings.commerceMode && 'opacity-50 cursor-not-allowed'}`}
                       onClick={async () => {
                         if (commerceSettings.commerceMode) {
-                          toast.info('Entre em contato com o admin para alterar esta configuração');
+                          toast('Entre em contato com o admin para alterar esta configuração');
                         }
                       }}
                     >

@@ -8,6 +8,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
+  commerceMode?: boolean;
+  paymentLinksEnabled?: boolean;
+  commerceModeActivatedAt?: string | null;
 }
 
 export interface AuthResponse {

@@ -123,7 +123,7 @@ export default function DepositPage() {
       }
       
       return status;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking payment status:', error);
       
       // Handle service unavailable errors gracefully
@@ -226,7 +226,7 @@ export default function DepositPage() {
       }
       
       return status;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking validation payment status:', error);
       
       // Handle service unavailable errors gracefully
