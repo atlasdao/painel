@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Client Hydration</title>
+</head>
+<body>
+    <h1>Testing Dashboard Access</h1>
+    <p>This page will attempt to access the dashboard with authentication cookies.</p>
+
+    <button onclick="testDashboard()">Test Dashboard</button>
+    <button onclick="testSettings()">Test Settings</button>
+
+    <div id="result"></div>
+
+    <script>
+        // Set fake auth cookies for testing
+        document.cookie = "access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test; path=/";
+        document.cookie = 'user={"id":"1","username":"testuser","email":"test@test.com","role":"USER"}; path=/';
+
+        function testDashboard() {
+            window.location.href = 'http://localhost:11337/dashboard';
+        }
+
+        function testSettings() {
+            window.location.href = 'http://localhost:11337/settings';
+        }
+
+        document.getElementById('result').innerHTML = '<p>Cookies set: ' + document.cookie + '</p>';
+    </script>
+</body>
+</html>
