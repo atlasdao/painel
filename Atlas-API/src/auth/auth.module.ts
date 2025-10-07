@@ -9,31 +9,33 @@ import { ExternalJwtStrategy } from './external-jwt.strategy';
 import { RsaJwtStrategy } from './rsa-jwt.strategy';
 import { CustomJwtStrategy } from './custom-jwt.strategy';
 import { UserRepository } from '../repositories/user.repository';
+import { EncryptionUtil } from '../common/utils/encryption.util';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'custom-jwt' }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '24h'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
-    ConfigModule,
-  ],
-  controllers: [AuthController],
-  providers: [
-    AuthService, 
-    JwtStrategy, 
-    ExternalJwtStrategy, 
-    RsaJwtStrategy, 
-    CustomJwtStrategy, 
-    UserRepository,
-  ],
-  exports: [AuthService, PassportModule],
+	imports: [
+		PassportModule.register({ defaultStrategy: 'custom-jwt' }),
+		JwtModule.registerAsync({
+			imports: [ConfigModule],
+			useFactory: async (configService: ConfigService) => ({
+				secret: configService.get<string>('JWT_SECRET'),
+				signOptions: {
+					expiresIn: configService.get<string>('JWT_EXPIRATION', '24h'),
+				},
+			}),
+			inject: [ConfigService],
+		}),
+		ConfigModule,
+	],
+	controllers: [AuthController],
+	providers: [
+		AuthService,
+		JwtStrategy,
+		ExternalJwtStrategy,
+		RsaJwtStrategy,
+		CustomJwtStrategy,
+		UserRepository,
+		EncryptionUtil,
+	],
+	exports: [AuthService, PassportModule],
 })
 export class AuthModule {}

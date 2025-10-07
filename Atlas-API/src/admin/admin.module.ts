@@ -11,15 +11,15 @@ import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule],
-  controllers: [AdminController, MedLimitsController],
-  providers: [
-    AdminService,
-    UserRepository,
-    TransactionRepository,
-    AuditLogRepository,
-    UserLimitRepository,
-    LimitValidationService,
-  ],
+	imports: [AuthModule, PrismaModule],
+	controllers: [AdminController, MedLimitsController],
+	providers: [
+		AdminService,
+		UserRepository,
+		TransactionRepository,
+		AuditLogRepository,
+		UserLimitRepository,
+		LimitValidationService,
+	],
 })
 export class AdminModule {}

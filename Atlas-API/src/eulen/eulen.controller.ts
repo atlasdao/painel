@@ -9,25 +9,27 @@ import { DepositDto, TransactionResponseDto } from './dto/eulen.dto';
 @Controller()
 @UseGuards(JwtAuthGuard, ScopeGuard)
 export class EulenController {
-  constructor(private readonly eulenService: EulenService) {}
+	constructor(private readonly eulenService: EulenService) {}
 
-  @Get('ping')
-  @Public()
-  async ping() {
-    return this.eulenService.ping();
-  }
+	@Get('ping')
+	@Public()
+	async ping() {
+		return this.eulenService.ping();
+	}
 
-  @Post('deposit')
-  @RequireScope('deposit')
-  async deposit(@Body() depositDto: DepositDto): Promise<TransactionResponseDto> {
-    return this.eulenService.deposit(depositDto);
-  }
+	@Post('deposit')
+	@RequireScope('deposit')
+	async deposit(
+		@Body() depositDto: DepositDto,
+	): Promise<TransactionResponseDto> {
+		return this.eulenService.deposit(depositDto);
+	}
 
-  @Get('deposit-status')
-  @RequireScope('deposit')
-  async getDepositStatus(
-    @Query('transactionId') transactionId: string,
-  ): Promise<TransactionResponseDto> {
-    return this.eulenService.getDepositStatus(transactionId);
-  }
+	@Get('deposit-status')
+	@RequireScope('deposit')
+	async getDepositStatus(
+		@Query('transactionId') transactionId: string,
+	): Promise<TransactionResponseDto> {
+		return this.eulenService.getDepositStatus(transactionId);
+	}
 }

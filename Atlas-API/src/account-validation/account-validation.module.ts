@@ -5,9 +5,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PixModule } from '../pix/pix.module';
 
 @Module({
-  imports: [PrismaModule, PixModule],
-  controllers: [AccountValidationController],
-  providers: [AccountValidationService],
-  exports: [AccountValidationService],
+	imports: [PrismaModule, PixModule],
+	controllers: [AccountValidationController],
+	providers: [AccountValidationService],
+	exports: [AccountValidationService],
 })
 export class AccountValidationModule {}

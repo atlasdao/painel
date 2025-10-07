@@ -4,44 +4,47 @@ import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+	private transporter: nodemailer.Transporter;
 
-  constructor(private readonly configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.me.com', // iCloud SMTP
-      port: 587,
-      secure: false, // Use TLS
-      auth: {
-        user: this.configService.get<string>('SMTP_LOGIN_EMAIL'),
-        pass: this.configService.get<string>('SMTP_LOGIN_PASSWORD'),
-      },
-      tls: {
-        rejectUnauthorized: this.configService.get<boolean>('SMTP_TLS', true),
-      },
-    });
-  }
+	constructor(private readonly configService: ConfigService) {
+		this.transporter = nodemailer.createTransport({
+			host: 'smtp.me.com', // iCloud SMTP
+			port: 587,
+			secure: false, // Use TLS
+			auth: {
+				user: this.configService.get<string>('SMTP_LOGIN_EMAIL'),
+				pass: this.configService.get<string>('SMTP_LOGIN_PASSWORD'),
+			},
+			tls: {
+				rejectUnauthorized: this.configService.get<boolean>('SMTP_TLS', true),
+			},
+		});
+	}
 
-  async sendPasswordResetEmail(email: string, resetCode: string): Promise<void> {
-    const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER');
-    
-    const mailOptions = {
-      from: `"Atlas DAO" <${senderEmail}>`,
-      to: email,
-      subject: 'Recuperação de Senha - Atlas DAO',
-      html: this.getPasswordResetEmailTemplate(resetCode),
-      text: `Seu código de recuperação de senha é: ${resetCode}\n\nEste código expira em 15 minutos.\n\nSe você não solicitou esta recuperação, ignore este email.`,
-    };
+	async sendPasswordResetEmail(
+		email: string,
+		resetCode: string,
+	): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER');
 
-    try {
-      await this.transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Error sending password reset email:', error);
-      throw new Error('Failed to send password reset email');
-    }
-  }
+		const mailOptions = {
+			from: `"Atlas DAO" <${senderEmail}>`,
+			to: email,
+			subject: 'Recuperação de Senha - Atlas DAO',
+			html: this.getPasswordResetEmailTemplate(resetCode),
+			text: `Seu código de recuperação de senha é: ${resetCode}\n\nEste código expira em 15 minutos.\n\nSe você não solicitou esta recuperação, ignore este email.`,
+		};
 
-  private getPasswordResetEmailTemplate(resetCode: string): string {
-    return `
+		try {
+			await this.transporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending password reset email:', error);
+			throw new Error('Failed to send password reset email');
+		}
+	}
+
+	private getPasswordResetEmailTemplate(resetCode: string): string {
+		return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -104,29 +107,29 @@ export class EmailService {
       </body>
       </html>
     `;
-  }
+	}
 
-  async sendWelcomeEmail(email: string, username: string): Promise<void> {
-    const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER');
-    
-    const mailOptions = {
-      from: `"Atlas DAO" <${senderEmail}>`,
-      to: email,
-      subject: 'Bem-vindo à Atlas DAO!',
-      html: this.getWelcomeEmailTemplate(username),
-      text: `Bem-vindo à Atlas DAO, ${username}!\n\nSua conta foi criada com sucesso. Agora você pode começar a usar nossos serviços de PIX e DePix.\n\nObrigado por escolher a Atlas DAO!`,
-    };
+	async sendWelcomeEmail(email: string, username: string): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER');
 
-    try {
-      await this.transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Error sending welcome email:', error);
-      // Don't throw error for welcome email - it's not critical
-    }
-  }
+		const mailOptions = {
+			from: `"Atlas DAO" <${senderEmail}>`,
+			to: email,
+			subject: 'Bem-vindo à Atlas DAO!',
+			html: this.getWelcomeEmailTemplate(username),
+			text: `Bem-vindo à Atlas DAO, ${username}!\n\nSua conta foi criada com sucesso. Agora você pode começar a usar nossos serviços de PIX e DePix.\n\nObrigado por escolher a Atlas DAO!`,
+		};
 
-  private getWelcomeEmailTemplate(username: string): string {
-    return `
+		try {
+			await this.transporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending welcome email:', error);
+			// Don't throw error for welcome email - it's not critical
+		}
+	}
+
+	private getWelcomeEmailTemplate(username: string): string {
+		return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -197,5 +200,5 @@ export class EmailService {
       </body>
       </html>
     `;
-  }
+	}
 }

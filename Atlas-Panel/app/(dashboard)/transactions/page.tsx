@@ -1,706 +1,530 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { pixService } from '@/app/lib/services';
 import { Transaction } from '@/app/types';
-import { 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  RefreshCw, 
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  RefreshCw,
   Filter,
-  Download,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
   Eye,
-  X,
-  Copy
+  TrendingUp,
+  CreditCard,
+  DollarSign,
+  Calendar,
+  ChevronDown,
+  Loader,
+  Search
 } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import { toast, Toaster } from 'sonner';
 import { translateStatus } from '@/app/lib/translations';
+import TransactionDetailModal from '@/app/components/TransactionDetailModal';
+import { DropdownPortal } from '@/components/DropdownPortal';
+
+// Transaction type definitions
+interface PeriodOption {
+  id: string;
+  label: string;
+  value: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+// Status and type styling functions
+const getStatusBadge = (status: string) => {
+  const statusStyles = {
+    'COMPLETED': 'bg-green-500/20 text-green-400 border-green-500/30',
+    'PENDING': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    'PROCESSING': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    'FAILED': 'bg-red-500/20 text-red-400 border-red-500/30',
+    'EXPIRED': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    'CANCELLED': 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+  };
+  return statusStyles[status as keyof typeof statusStyles] || statusStyles['EXPIRED'];
+};
+
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'DEPOSIT':
+      return <ArrowDownLeft className="w-4 h-4 text-green-400" />;
+    case 'WITHDRAW':
+      return <ArrowUpRight className="w-4 h-4 text-red-400" />;
+    case 'TRANSFER':
+      // Legacy support for existing transfer transactions in database
+      return <CreditCard className="w-4 h-4 text-blue-400" />;
+    default:
+      return <DollarSign className="w-4 h-4 text-gray-400" />;
+  }
+};
+
+const getAmountClass = (type: string) => {
+  switch (type) {
+    case 'DEPOSIT':
+      return 'text-green-400';
+    case 'WITHDRAW':
+      return 'text-red-400';
+    case 'TRANSFER':
+      return 'text-blue-400';
+    default:
+      return 'text-gray-400';
+  }
+};
 
 export default function TransactionsPage() {
+  // State management
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'COMPLETED' | 'FAILED'>('all');
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
-
-  const loadTransactions = async () => {
-    setLoading(true);
-    try {
-      const data = await pixService.getTransactions({ limit: 100 });
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-      toast.error('Erro ao carregar transações');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(amount);
-  };
-
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle className="text-green-500" size={20} />;
-      case 'PENDING':
-        return <Clock className="text-yellow-500" size={20} />;
-      case 'PROCESSING':
-        return <RefreshCw className="text-blue-500 animate-spin" size={20} />;
-      case 'FAILED':
-        return <XCircle className="text-red-500" size={20} />;
-      case 'EXPIRED':
-        return <Clock className="text-orange-500" size={20} />;
-      case 'CANCELLED':
-        return <XCircle className="text-gray-500" size={20} />;
-      default:
-        return <AlertCircle className="text-gray-400" size={20} />;
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    return translateStatus(status);
-  };
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'DEPOSIT':
-        return <ArrowDownLeft className="text-green-600" size={20} />;
-      case 'WITHDRAW':
-        return <ArrowUpRight className="text-red-600" size={20} />;
-      case 'TRANSFER':
-        return <RefreshCw className="text-blue-600" size={20} />;
-      default:
-        return <AlertCircle className="text-gray-600" size={20} />;
-    }
-  };
-
-  const getTransactionLabel = (type: string) => {
-    switch (type) {
-      case 'DEPOSIT':
-        return 'Depósito';
-      case 'WITHDRAW':
-        return 'Saque';
-      case 'TRANSFER':
-        return 'Transferência';
-      default:
-        return type;
-    }
-  };
-
-  const filteredTransactions = transactions.filter(tx => {
-    if (filter !== 'all' && tx.type !== filter) return false;
-    if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
-    return true;
+  // Filter states
+  const [typeFilter, setTypeFilter] = useState<'all' | 'DEPOSIT' | 'WITHDRAW'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'COMPLETED' | 'FAILED' | 'PROCESSING' | 'EXPIRED' | 'CANCELLED'>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>({
+    id: '7d',
+    label: 'Últimos 7 dias',
+    value: '7d',
+    startDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+    endDate: new Date()
   });
 
-  const exportToCSV = () => {
-    const headers = ['Data', 'Tipo', 'Status', 'Valor', 'Descrição'];
-    const rows = filteredTransactions.map(tx => [
-      formatDate(tx.createdAt),
-      getTransactionLabel(tx.type),
-      getStatusLabel(tx.status),
-      formatCurrency(tx.amount),
-      tx.description || '-'
-    ]);
+  // Modal and UI states
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `transacoes_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    toast.success('Transações exportadas com sucesso!');
+  // Refs for preventing memory leaks
+  const isUnmountedRef = useRef(false);
+  const filterRef = useRef<HTMLElement>(null);
+
+  // Period options (calculated fresh each time to avoid stale dates)
+  const getPeriodOptions = (): PeriodOption[] => [
+    {
+      id: '24h',
+      label: 'Últimas 24h',
+      value: '24h',
+      startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    },
+    {
+      id: '7d',
+      label: 'Últimos 7 dias',
+      value: '7d',
+      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    },
+    {
+      id: '30d',
+      label: 'Últimos 30 dias',
+      value: '30d',
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    },
+    {
+      id: '90d',
+      label: 'Últimos 90 dias',
+      value: '90d',
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    }
+  ];
+
+  const periodOptions = getPeriodOptions();
+
+  // Load transactions function
+  const loadTransactions = useCallback(async (isLoadMore = false, refresh = false) => {
+    if (isUnmountedRef.current) return;
+
+    if (!isLoadMore) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const offset = isLoadMore ? transactions.length : 0;
+
+      const params: any = {
+        limit: itemsPerPage,
+        offset,
+        startDate: selectedPeriod.startDate,
+        endDate: selectedPeriod.endDate
+      };
+
+      // Add filters if not 'all'
+      if (typeFilter !== 'all') {
+        params.type = typeFilter;
+      }
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      const newTransactions = await pixService.getTransactions(params);
+
+      if (!isUnmountedRef.current) {
+        if (isLoadMore) {
+          setTransactions(prev => [...prev, ...newTransactions]);
+        } else {
+          setTransactions(newTransactions);
+        }
+
+        // Check if there are more transactions to load
+        setHasMore(newTransactions.length === itemsPerPage);
+
+        if (!isLoadMore) {
+          setCurrentPage(1);
+        } else {
+          setCurrentPage(prev => prev + 1);
+        }
+      }
+    } catch (error) {
+      if (!isUnmountedRef.current) {
+        console.error('Error loading transactions:', error);
+        toast.error('Erro ao carregar transações');
+      }
+    } finally {
+      if (!isUnmountedRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [selectedPeriod, typeFilter, statusFilter, itemsPerPage]);
+
+  // Initial load
+  useEffect(() => {
+    loadTransactions();
+
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+
+  // Reload when filters change
+  useEffect(() => {
+    loadTransactions();
+  }, [selectedPeriod, typeFilter, statusFilter, loadTransactions]);
+
+  // Handle filter changes
+  const handlePeriodChange = (period: PeriodOption) => {
+    // Get fresh dates for the selected period
+    const freshPeriods = getPeriodOptions();
+    const freshPeriod = freshPeriods.find(p => p.id === period.id) || period;
+    setSelectedPeriod(freshPeriod);
+    setShowFilters(false);
   };
 
-  const handleViewDetails = (transaction: Transaction) => {
+  const handleTypeFilterChange = (type: typeof typeFilter) => {
+    setTypeFilter(type);
+  };
+
+  const handleStatusFilterChange = (status: typeof statusFilter) => {
+    setStatusFilter(status);
+  };
+
+  // Handle transaction detail view
+  const handleTransactionClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setShowModal(true);
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedTransaction(null);
-  };
-
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(`${label} copiado para a área de transferência!`);
-    } catch (error) {
-      toast.error('Erro ao copiar para a área de transferência');
+  // Handle load more
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      loadTransactions(true);
     }
   };
 
-  const checkTransactionStatus = async (transactionId: string) => {
-    try {
-      toast.loading('Verificando status da transação...', { id: transactionId });
-      
-      const updatedStatus = await pixService.checkDepositStatus(transactionId);
-      
-      // Atualizar a transação local
-      setTransactions(prev => 
-        prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, ...updatedStatus }
-            : tx
-        )
-      );
-      
-      toast.success('Status da transação atualizado!', { id: transactionId });
-    } catch (error) {
-      console.error('Error checking transaction status:', error);
-      toast.error('Erro ao verificar status da transação', { id: transactionId });
-    }
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(amount);
   };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Skeleton loading component
+  const TransactionSkeleton = () => (
+    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="p-2 bg-gray-700/50 rounded-lg w-10 h-10"></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-2">
+            <div className="h-4 bg-gray-700 rounded w-20"></div>
+            <div className="h-4 bg-gray-700 rounded w-24"></div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="h-3 bg-gray-700 rounded w-16"></div>
+            <div className="h-3 bg-gray-700 rounded w-32"></div>
+          </div>
+          <div className="h-3 bg-gray-700 rounded w-40 mt-1"></div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-[calc(100vh-6rem)] bg-gray-900 text-white pb-12 overflow-x-hidden -m-6">
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       <Toaster position="top-right" />
-      
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Minhas Transações</h1>
-        
-        <div className="flex space-x-2">
+
+      {/* Header Section */}
+      <div className="mb-4 px-4 pt-4 animate-fade-in-down">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="relative">
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300">
+              <TrendingUp className="w-8 h-8 text-white" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+          </div>
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-1">
+              Transações
+            </h1>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1 text-green-400 font-medium">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                Atualizado
+              </div>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-400">{transactions.length} transações</span>
+            </div>
+          </div>
           <button
-            onClick={loadTransactions}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200 flex items-center"
+            onClick={() => loadTransactions()}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            disabled={loading}
           >
-            <RefreshCw className="mr-2" size={16} />
-            Atualizar
-          </button>
-          
-          <button
-            onClick={exportToCSV}
-            disabled={filteredTransactions.length === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="mr-2" size={16} />
-            Exportar CSV
+            <RefreshCw className={`w-5 h-5 text-gray-400 hover:text-white ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-4 mb-6">
-        <div className="flex items-center space-x-4">
-          <Filter className="text-gray-400" size={20} />
-          
-          <div>
-            <label className="text-sm text-gray-300 mr-2">Tipo:</label>
+      {/* Filters Section */}
+      <div className="mb-4 px-4 animate-slide-in-up animate-stagger-1">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3">
+          <div className="flex gap-1 w-full">
+            {/* Period Filter */}
+            <div className="relative flex-[1.5] min-w-0">
+              <button
+                ref={filterRef as React.RefObject<HTMLButtonElement>}
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-1 px-2 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors border border-gray-600/50 text-sm min-h-[44px] w-full"
+              >
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span className="text-xs flex-1 min-w-0 text-left" title={selectedPeriod.label}>
+                  {selectedPeriod.id === '24h' ? '24h' :
+                   selectedPeriod.id === '7d' ? '7 dias' :
+                   selectedPeriod.id === '30d' ? '30 dias' :
+                   selectedPeriod.id === '90d' ? '90 dias' : selectedPeriod.label}
+                </span>
+                <ChevronDown className="w-3 h-3 flex-shrink-0" />
+              </button>
+
+              <DropdownPortal
+                isOpen={showFilters}
+                onClose={() => setShowFilters(false)}
+                targetRef={filterRef}
+              >
+                <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-48">
+                  {periodOptions.map((period) => (
+                    <button
+                      key={period.id}
+                      onClick={() => handlePeriodChange(period)}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                        selectedPeriod.id === period.id ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300'
+                      }`}
+                    >
+                      {period.label}
+                    </button>
+                  ))}
+                </div>
+              </DropdownPortal>
+            </div>
+
+            {/* Type Filter */}
             <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              className="px-3 py-1 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={typeFilter}
+              onChange={(e) => handleTypeFilterChange(e.target.value as typeof typeFilter)}
+              className="px-2 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent min-h-[44px] flex-1 min-w-0"
             >
-              <option value="all">Todos</option>
+              <option value="all">Tipos</option>
               <option value="DEPOSIT">Depósitos</option>
               <option value="WITHDRAW">Saques</option>
-              <option value="TRANSFER">Transferências</option>
             </select>
-          </div>
 
-          <div>
-            <label className="text-sm text-gray-300 mr-2">Status:</label>
+            {/* Status Filter */}
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-1 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => handleStatusFilterChange(e.target.value as typeof statusFilter)}
+              className="px-2 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent min-h-[44px] flex-1 min-w-0"
             >
-              <option value="all">Todos</option>
+              <option value="all">Status</option>
+              <option value="COMPLETED">Completado</option>
               <option value="PENDING">Pendente</option>
-              <option value="COMPLETED">Concluído</option>
+              <option value="PROCESSING">Processando</option>
               <option value="FAILED">Falhou</option>
+              <option value="EXPIRED">Expirado</option>
+              <option value="CANCELLED">Cancelado</option>
             </select>
           </div>
-
-          <div className="ml-auto text-sm text-gray-400">
-            {filteredTransactions.length} transações encontradas
-          </div>
         </div>
       </div>
 
-      {/* Transactions Table */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+      {/* Transactions List */}
+      <div className="px-4 animate-slide-in-up animate-stagger-2">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <RefreshCw className="animate-spin text-blue-600" size={32} />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <TransactionSkeleton key={i} />
+            ))}
           </div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <AlertCircle size={48} className="mx-auto mb-4" />
-            <p>Nenhuma transação encontrada</p>
+        ) : transactions.length === 0 ? (
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-8 text-center">
+            <div className="p-4 bg-gray-700/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <Search className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">Nenhuma transação encontrada</h3>
+            <p className="text-gray-400">Tente ajustar os filtros ou período selecionado.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Data/Hora
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Descrição
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-700/50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getTransactionIcon(transaction.type)}
-                        <span className="ml-2 text-sm font-medium text-white">
-                          {getTransactionLabel(transaction.type)}
+          <div className="space-y-3">
+            {transactions.map((transaction) => (
+              <div
+                key={transaction.id}
+                onClick={() => handleTransactionClick(transaction)}
+                className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-200 cursor-pointer hover:border-purple-500/30 w-full overflow-hidden"
+              >
+                {/* Mobile Layout */}
+                <div className="block md:hidden">
+                  <div className="flex items-start gap-3 w-full overflow-hidden">
+                    <div className="p-2 bg-gray-700/50 rounded-lg flex-shrink-0">
+                      {getTypeIcon(transaction.type)}
+                    </div>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <h4 className="font-medium text-white truncate flex-1 min-w-0">
+                          {transaction.type === 'DEPOSIT' ? 'Depósito' :
+                           transaction.type === 'WITHDRAW' ? 'Saque' : 'Transferência'}
+                        </h4>
+                        <span className={`font-semibold flex-shrink-0 text-right ${getAmountClass(transaction.type)}`}>
+                          {transaction.type === 'WITHDRAW' ? '-' : '+'}
+                          {formatCurrency(transaction.amount)}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      <div className="flex items-center justify-between text-sm gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs border flex-shrink-0 ${getStatusBadge(transaction.status)}`}>
+                          {translateStatus(transaction.status)}
+                        </span>
+                        <span className="text-gray-400 text-xs flex-shrink-0 text-right">
+                          {formatDate(transaction.createdAt)}
+                        </span>
+                      </div>
+                      {transaction.description && (
+                        <p className="text-xs text-gray-500 mt-1 truncate w-full">
+                          {transaction.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Layout */}
+                <div className="hidden md:flex items-center gap-4">
+                  <div className="p-2 bg-gray-700/50 rounded-lg">
+                    {getTypeIcon(transaction.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-white">
+                      {transaction.type === 'DEPOSIT' ? 'Depósito' :
+                       transaction.type === 'WITHDRAW' ? 'Saque' : 'Transferência'}
+                    </h4>
+                    {transaction.description && (
+                      <p className="text-sm text-gray-400 truncate">
+                        {transaction.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <span className={`px-3 py-1 rounded-full text-sm border ${getStatusBadge(transaction.status)}`}>
+                      {translateStatus(transaction.status)}
+                    </span>
+                  </div>
+                  <div className="text-right min-w-[120px]">
+                    <div className={`font-semibold ${getAmountClass(transaction.type)}`}>
+                      {transaction.type === 'WITHDRAW' ? '-' : '+'}
+                      {formatCurrency(transaction.amount)}
+                    </div>
+                    <div className="text-sm text-gray-400">
                       {formatDate(transaction.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getStatusIcon(transaction.status)}
-                        <span className="ml-2 text-sm text-white">
-                          {getStatusLabel(transaction.status)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-semibold ${
-                        transaction.type === 'DEPOSIT' ? 'text-green-600' : 
-                        transaction.type === 'WITHDRAW' ? 'text-red-600' : 
-                        'text-white'
-                      }`}>
-                        {transaction.type === 'DEPOSIT' ? '+' : '-'}
-                        {formatCurrency(transaction.amount)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {transaction.description || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">
-                      {transaction.id.slice(0, 8)}...
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewDetails(transaction)}
-                          className="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-                          title="Ver detalhes"
-                        >
-                          <Eye size={16} />
-                          <span className="ml-1">Detalhes</span>
-                        </button>
-                        
-                        {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING') && (
-                          <button
-                            onClick={() => checkTransactionStatus(transaction.id)}
-                            className="text-green-400 hover:text-green-300 transition-colors flex items-center ml-2"
-                            title="Verificar status atual"
-                          >
-                            <RefreshCw size={16} />
-                            <span className="ml-1">Verificar</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                  <div className="text-gray-400">
+                    <Eye className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
+        {/* Load More Button or Loading Skeletons */}
+        {loadingMore ? (
+          <div className="space-y-3 mt-6">
+            {[1, 2, 3].map((i) => (
+              <TransactionSkeleton key={`loading-${i}`} />
+            ))}
+          </div>
+        ) : hasMore && transactions.length > 0 ? (
+          <div className="mt-8 text-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {`Carregar mais (${itemsPerPage} transações)`}
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {/* Transaction Details Modal */}
+      {/* Transaction Detail Modal */}
       {showModal && selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-white flex items-center">
-                {getTransactionIcon(selectedTransaction.type)}
-                <span className="ml-2">Detalhes da Transação</span>
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Status and Type */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Tipo de Transação</h3>
-                  <div className="flex items-center">
-                    {getTransactionIcon(selectedTransaction.type)}
-                    <span className="ml-2 text-lg font-medium text-white">
-                      {getTransactionLabel(selectedTransaction.type)}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Status</h3>
-                  <div className="flex items-center">
-                    {getStatusIcon(selectedTransaction.status)}
-                    <span className="ml-2 text-lg font-medium text-white">
-                      {getStatusLabel(selectedTransaction.status)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Amount */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Valor</h3>
-                <div className={`text-2xl font-bold ${
-                  selectedTransaction.type === 'DEPOSIT' ? 'text-green-500' : 
-                  selectedTransaction.type === 'WITHDRAW' ? 'text-red-500' : 
-                  'text-white'
-                }`}>
-                  {selectedTransaction.type === 'DEPOSIT' ? '+' : '-'}
-                  {formatCurrency(selectedTransaction.amount)}
-                </div>
-              </div>
-
-              {/* Transaction ID */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">ID da Transação</h3>
-                <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                  <code className="text-sm font-mono text-white">{selectedTransaction.id}</code>
-                  <button
-                    onClick={() => copyToClipboard(selectedTransaction.id, 'ID da transação')}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
-                    title="Copiar ID"
-                  >
-                    <Copy size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* External ID */}
-              {selectedTransaction.externalId && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">ID Externo</h3>
-                  <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                    <code className="text-sm font-mono text-white">{selectedTransaction.externalId}</code>
-                    <button
-                      onClick={() => copyToClipboard(selectedTransaction.externalId!, 'ID externo')}
-                      className="text-blue-400 hover:text-blue-300 transition-colors"
-                      title="Copiar ID externo"
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* PIX Key */}
-              {selectedTransaction.pixKey && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Chave PIX</h3>
-                  <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                    <code className="text-sm font-mono text-white">{selectedTransaction.pixKey}</code>
-                    <button
-                      onClick={() => copyToClipboard(selectedTransaction.pixKey!, 'Chave PIX')}
-                      className="text-blue-400 hover:text-blue-300 transition-colors"
-                      title="Copiar chave PIX"
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Description */}
-              {selectedTransaction.description && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Descrição</h3>
-                  <p className="text-white bg-gray-700 p-3 rounded-lg">{selectedTransaction.description}</p>
-                </div>
-              )}
-
-              {/* Error Message */}
-              {selectedTransaction.errorMessage && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Mensagem de Erro</h3>
-                  <p className="text-red-400 bg-red-900/20 border border-red-600 p-3 rounded-lg">
-                    {selectedTransaction.errorMessage}
-                  </p>
-                </div>
-              )}
-
-              {/* Timestamps */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Criação</h3>
-                  <p className="text-white">{formatDate(selectedTransaction.createdAt)}</p>
-                </div>
-
-                {selectedTransaction.processedAt && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Processamento</h3>
-                    <p className="text-white">{formatDate(selectedTransaction.processedAt)}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* DePix Address and Metadata */}
-              {(selectedTransaction.metadata || selectedTransaction.pixKey) && (() => {
-                try {
-                  const metadata = selectedTransaction.metadata ? JSON.parse(selectedTransaction.metadata) : {};
-                  const eulenResponse = metadata.eulenResponse || metadata;
-                  // DePix address can be in multiple places depending on transaction type
-                  const depixAddress = metadata.depixAddress || 
-                                      eulenResponse?.depixAddress || 
-                                      selectedTransaction.pixKey || 
-                                      eulenResponse?.response?.depixAddress;
-                  
-                  return (
-                    <>
-                      {/* DePix Destination Address */}
-                      {depixAddress && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-400 mb-2">
-                            {selectedTransaction.type === 'DEPOSIT' 
-                              ? '🔹 Carteira DePix de Destino (Depósito)' 
-                              : '🔸 Endereço DePix'}
-                          </h3>
-                          <div className="flex items-center justify-between bg-gradient-to-r from-green-900/30 to-green-800/20 border border-green-600 p-3 rounded-lg">
-                            <code className="text-sm font-mono text-green-400 break-all">{depixAddress}</code>
-                            <button
-                              onClick={() => copyToClipboard(depixAddress, 'Endereço DePix')}
-                              className="text-blue-400 hover:text-blue-300 transition-colors ml-2 flex-shrink-0"
-                              title="Copiar endereço DePix"
-                            >
-                              <Copy size={16} />
-                            </button>
-                          </div>
-                          {selectedTransaction.type === 'DEPOSIT' && (
-                            <p className="text-xs text-gray-400 mt-2">
-                              Este é o endereço Liquid Network para onde os DePix foram enviados após conversão do PIX
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* QR Code Information */}
-                      {(eulenResponse?.qrCopyPaste || eulenResponse?.response?.qrCopyPaste) && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-400 mb-2">QR Code PIX</h3>
-                          <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                            <code className="text-xs font-mono text-blue-400 break-all">
-                              {(eulenResponse.qrCopyPaste || eulenResponse.response.qrCopyPaste).substring(0, 100)}...
-                            </code>
-                            <button
-                              onClick={() => copyToClipboard(
-                                eulenResponse.qrCopyPaste || eulenResponse.response.qrCopyPaste, 
-                                'QR Code PIX'
-                              )}
-                              className="text-blue-400 hover:text-blue-300 transition-colors ml-2 flex-shrink-0"
-                              title="Copiar QR Code"
-                            >
-                              <Copy size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Currency Information */}
-                      {selectedTransaction.currency && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-400 mb-2">Moeda</h3>
-                          <p className="text-white bg-gray-700 p-3 rounded-lg font-mono">
-                            {selectedTransaction.currency}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* PIX Key Type */}
-                      {selectedTransaction.pixKeyType && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-400 mb-2">Tipo da Chave PIX</h3>
-                          <p className="text-white bg-gray-700 p-3 rounded-lg">
-                            {selectedTransaction.pixKeyType}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Eulen API Response Details */}
-                      {eulenResponse && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes da API Eulen</h3>
-                          <div className="bg-gray-700 p-4 rounded-lg space-y-3">
-                            {/* Transaction ID from Eulen */}
-                            {(eulenResponse.response?.id || eulenResponse.id) && (
-                              <div>
-                                <h4 className="text-xs font-medium text-gray-400 mb-1">ID Eulen</h4>
-                                <div className="flex items-center justify-between">
-                                  <code className="text-sm font-mono text-yellow-400">
-                                    {eulenResponse.response?.id || eulenResponse.id}
-                                  </code>
-                                  <button
-                                    onClick={() => copyToClipboard(
-                                      eulenResponse.response?.id || eulenResponse.id, 
-                                      'ID Eulen'
-                                    )}
-                                    className="text-blue-400 hover:text-blue-300 transition-colors"
-                                    title="Copiar ID Eulen"
-                                  >
-                                    <Copy size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Status from Eulen */}
-                            {(eulenResponse.response?.status || eulenResponse.status) && (
-                              <div>
-                                <h4 className="text-xs font-medium text-gray-400 mb-1">Status Eulen</h4>
-                                <span className="text-sm text-orange-400 font-medium">
-                                  {eulenResponse.response?.status || eulenResponse.status}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Async flag */}
-                            {eulenResponse.async !== undefined && (
-                              <div>
-                                <h4 className="text-xs font-medium text-gray-400 mb-1">Processamento</h4>
-                                <span className="text-sm text-purple-400">
-                                  {eulenResponse.async ? 'Assíncrono' : 'Síncrono'}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* QR Image URL */}
-                            {(eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl) && (
-                              <div>
-                                <h4 className="text-xs font-medium text-gray-400 mb-1">URL da Imagem QR</h4>
-                                <div className="flex items-center justify-between">
-                                  <code className="text-xs font-mono text-cyan-400 break-all">
-                                    {(eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl).substring(0, 50)}...
-                                  </code>
-                                  <button
-                                    onClick={() => copyToClipboard(
-                                      eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl, 
-                                      'URL da imagem QR'
-                                    )}
-                                    className="text-blue-400 hover:text-blue-300 transition-colors ml-2"
-                                    title="Copiar URL da imagem"
-                                  >
-                                    <Copy size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Raw Metadata (collapsible) */}
-                      <details className="group">
-                        <summary className="text-sm font-medium text-gray-400 mb-2 cursor-pointer hover:text-gray-300 transition-colors">
-                          📋 Metadados Brutos (clique para expandir)
-                        </summary>
-                        <pre className="text-xs text-gray-300 bg-gray-900 p-3 rounded-lg overflow-x-auto mt-2 border border-gray-600">
-                          {JSON.stringify(metadata, null, 2)}
-                        </pre>
-                      </details>
-                    </>
-                  );
-                } catch (error) {
-                  return (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Metadados</h3>
-                      <pre className="text-sm text-white bg-gray-700 p-3 rounded-lg overflow-x-auto">
-                        {selectedTransaction.metadata}
-                      </pre>
-                    </div>
-                  );
-                }
-              })()}
-            </div>
-
-            <div className="flex justify-between p-6 border-t border-gray-700">
-              <div>
-                {(selectedTransaction.status === 'PENDING' || selectedTransaction.status === 'PROCESSING') && (
-                  <button
-                    onClick={() => {
-                      checkTransactionStatus(selectedTransaction.id);
-                      // Update selected transaction when status is checked
-                      setTimeout(() => {
-                        const updatedTransaction = transactions.find(tx => tx.id === selectedTransaction.id);
-                        if (updatedTransaction) {
-                          setSelectedTransaction(updatedTransaction);
-                        }
-                      }, 1000);
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center"
-                  >
-                    <RefreshCw size={16} className="mr-2" />
-                    Verificar Status
-                  </button>
-                )}
-              </div>
-              
-              <button
-                onClick={handleCloseModal}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
+        <TransactionDetailModal
+          transaction={selectedTransaction}
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedTransaction(null);
+          }}
+        />
       )}
     </div>
   );

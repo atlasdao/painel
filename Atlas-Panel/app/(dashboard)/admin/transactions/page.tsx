@@ -197,7 +197,7 @@ export default function AdminTransactionsPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold gradient-text">
               Todas as Transações
             </h1>
             <p className="text-gray-400 mt-2">
@@ -383,7 +383,7 @@ export default function AdminTransactionsPage() {
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
+        <div className="glass-card shadow-lg border border-gray-700 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -395,7 +395,7 @@ export default function AdminTransactionsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="table-modern">
                 <thead className="bg-gray-700">
                   <tr>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
@@ -493,8 +493,8 @@ export default function AdminTransactionsPage() {
 
         {/* Transaction Details Modal */}
         {showModal && selectedTransaction && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="glass-card shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b border-gray-700">
                 <h2 className="text-xl font-bold text-white flex items-center">
                   {getTypeIcon(selectedTransaction.type)}
@@ -590,7 +590,7 @@ export default function AdminTransactionsPage() {
                 {/* External ID */}
                 {selectedTransaction.externalId && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">ID Externo (Eulen)</h3>
+                    <h3 className="text-sm font-medium text-gray-400 mb-2">ID Externo (Depix)</h3>
                     <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
                       <code className="text-sm font-mono text-yellow-400">{selectedTransaction.externalId}</code>
                       <button
@@ -634,10 +634,10 @@ export default function AdminTransactionsPage() {
                     
                     return (
                       <>
-                        {/* Eulen API Details */}
+                        {/* Depix API Details */}
                         {eulenResponse && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes da API Eulen</h3>
+                            <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes</h3>
                             <div className="bg-gray-700 p-4 rounded-lg space-y-3">
                               {eulenResponse.qrCode && (
                                 <div>
@@ -710,7 +710,7 @@ export default function AdminTransactionsPage() {
               <div className="flex justify-end p-6 border-t border-gray-700">
                 <button
                   onClick={handleCloseModal}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
+                  className="btn-outline transition duration-200"
                 >
                   Fechar
                 </button>

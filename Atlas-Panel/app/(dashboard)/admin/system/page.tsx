@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/app/lib/api';
+import { adminService } from '@/app/lib/services';
 import {
   Activity,
   AlertTriangle,
@@ -16,6 +17,16 @@ import {
   Shield,
   Plus,
   Trash2,
+  FileText,
+  Search,
+  Filter,
+  Download,
+  Calendar,
+  User,
+  Eye,
+  X,
+  Copy,
+  Clock,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import os from 'os';
@@ -45,11 +56,38 @@ export default function AdminSystemPage() {
   });
   const [savingValidation, setSavingValidation] = useState(false);
 
+  // Audit Log State
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditFilters, setAuditFilters] = useState({
+    userId: '',
+    action: '',
+    resource: '',
+    startDate: '',
+    endDate: '',
+    search: '',
+  });
+  const [auditStats, setAuditStats] = useState({
+    total: 0,
+    todayCount: 0,
+    weekCount: 0,
+    monthCount: 0,
+  });
+
   useEffect(() => {
     loadSystemInfo();
     loadMedLimits();
     loadValidationSettings();
   }, []);
+
+  // Load audit logs when switching to audit tab
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      loadAuditLogs();
+    }
+  }, [activeTab, auditFilters]);
 
   const loadSystemInfo = async () => {
     setLoading(true);
@@ -187,20 +225,106 @@ export default function AdminSystemPage() {
     setSavingToken(true);
     try {
       await api.put('/admin/system/eulen-token', { token: eulenToken });
-      toast.success('Token Eulen atualizado com sucesso!');
+      toast.success('Token Depix atualizado com sucesso!');
       setEulenToken('');
     } catch (error) {
       console.error('Error saving Eulen token:', error);
-      toast.error('Erro ao salvar token Eulen');
+      toast.error('Erro ao salvar token Depix');
     } finally {
       setSavingToken(false);
     }
+  };
+
+  const loadAuditLogs = async () => {
+    setAuditLoading(true);
+    try {
+      const data = await adminService.getAuditLogs({
+        userId: auditFilters.userId || undefined,
+        action: auditFilters.action || undefined,
+        resource: auditFilters.resource || undefined,
+        startDate: auditFilters.startDate ? new Date(auditFilters.startDate) : undefined,
+        endDate: auditFilters.endDate ? new Date(auditFilters.endDate) : undefined,
+        take: 100,
+      });
+      setAuditLogs(data);
+      calculateAuditStats(data);
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      toast.error('Erro ao carregar logs de auditoria');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const calculateAuditStats = (data: any[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const stats = data.reduce(
+      (acc, log) => {
+        const logDate = new Date(log.createdAt);
+        acc.total++;
+        if (logDate >= today) acc.todayCount++;
+        if (logDate >= weekAgo) acc.weekCount++;
+        if (logDate >= monthAgo) acc.monthCount++;
+        return acc;
+      },
+      { total: 0, todayCount: 0, weekCount: 0, monthCount: 0 }
+    );
+    setAuditStats(stats);
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado!`);
+    } catch (error) {
+      toast.error('Erro ao copiar');
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date(date));
+  };
+
+  const getActionIcon = (action: string) => {
+    if (action.includes('LOGIN') || action.includes('LOGOUT')) {
+      return <User className="w-4 h-4 text-blue-400" />;
+    }
+    if (action.includes('CREATE') || action.includes('POST')) {
+      return <div className="w-4 h-4 bg-green-400 rounded-full" />;
+    }
+    if (action.includes('UPDATE') || action.includes('PUT') || action.includes('PATCH')) {
+      return <div className="w-4 h-4 bg-yellow-400 rounded-full" />;
+    }
+    if (action.includes('DELETE')) {
+      return <div className="w-4 h-4 bg-red-400 rounded-full" />;
+    }
+    return <Activity className="w-4 h-4 text-gray-400" />;
+  };
+
+  const getStatusColor = (statusCode?: number) => {
+    if (!statusCode) return 'text-gray-400';
+    if (statusCode >= 200 && statusCode < 300) return 'text-green-400';
+    if (statusCode >= 400 && statusCode < 500) return 'text-yellow-400';
+    if (statusCode >= 500) return 'text-red-400';
+    return 'text-gray-400';
   };
 
   const tabs = [
     { id: 'overview', name: 'Visão Geral', icon: Activity },
     { id: 'limits', name: 'Limites MED', icon: AlertTriangle },
     { id: 'validation', name: 'Validação', icon: CheckCircle },
+    { id: 'audit', name: 'Auditoria', icon: FileText },
     { id: 'settings', name: 'Configurações', icon: Settings },
   ];
 
@@ -216,7 +340,7 @@ export default function AdminSystemPage() {
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
       
-      <h1 className="text-3xl font-bold mb-8">Sistema</h1>
+      <h1 className="text-3xl font-bold mb-8 text-white">Sistema</h1>
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-700 mb-8">
@@ -246,54 +370,54 @@ export default function AdminSystemPage() {
         <div className="space-y-6">
           {/* System Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <CheckCircle className="text-green-400" size={24} />
                 <span className="text-xs bg-green-900/20 text-green-400 px-2 py-1 rounded-full">
                   Online
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">Status do Sistema</h3>
+              <h3 className="text-lg font-semibold mb-1 text-white">Status do Sistema</h3>
               <p className="text-gray-400 text-sm">Todos os serviços operando</p>
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <Activity className="text-blue-400" size={24} />
                 <span className="text-2xl font-bold text-white">
                   {systemInfo?.server?.uptime || '0d 0h 0m'}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">Uptime</h3>
+              <h3 className="text-lg font-semibold mb-1 text-white">Uptime</h3>
               <p className="text-gray-400 text-sm">Tempo ativo do sistema</p>
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <Users className="text-purple-400" size={24} />
                 <span className="text-2xl font-bold text-white">
                   {systemInfo?.totalUsers || 0}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">Usuários</h3>
+              <h3 className="text-lg font-semibold mb-1 text-white">Usuários</h3>
               <p className="text-gray-400 text-sm">Total de usuários cadastrados</p>
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <DollarSign className="text-yellow-400" size={24} />
                 <span className="text-2xl font-bold text-white">
                   {systemInfo?.totalTransactions || 0}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">Transações</h3>
+              <h3 className="text-lg font-semibold mb-1 text-white">Transações</h3>
               <p className="text-gray-400 text-sm">Total de transações processadas</p>
             </div>
           </div>
 
           {/* System Information */}
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Informações do Sistema</h2>
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-4 text-white">Informações do Sistema</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div className="flex justify-between">
@@ -327,8 +451,8 @@ export default function AdminSystemPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Ações Rápidas</h2>
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-4 text-white">Ações Rápidas</h2>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => loadSystemInfo()}
@@ -339,7 +463,7 @@ export default function AdminSystemPage() {
               </button>
               <button
                 onClick={() => toast.success('Cache limpo com sucesso!')}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="btn-outline transition-colors"
               >
                 Limpar Cache
               </button>
@@ -357,9 +481,9 @@ export default function AdminSystemPage() {
       {/* MED Limits Tab */}
       {activeTab === 'limits' && (
         <div className="space-y-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <div className="glass-card p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Configuração de Limites MED</h2>
+              <h2 className="text-xl font-semibold text-white">Configuração de Limites MED</h2>
               <button
                 onClick={handleSaveMedLimits}
                 disabled={savingLimits}
@@ -480,9 +604,9 @@ export default function AdminSystemPage() {
       {activeTab === 'validation' && (
         <div className="space-y-6">
           {/* Validation Settings */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+          <div className="glass-card shadow-lg p-6 border border-gray-700">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold flex items-center">
+              <h2 className="text-xl font-semibold flex items-center text-white">
                 <Shield className="mr-2 text-yellow-400" />
                 Configurações de Validação de Conta
               </h2>
@@ -563,16 +687,16 @@ export default function AdminSystemPage() {
           </div>
 
           {/* Progressive Tiers */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+          <div className="glass-card shadow-lg p-6 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold flex items-center">
+              <h2 className="text-xl font-semibold flex items-center text-white">
                 <TrendingUp className="mr-2 text-blue-400" />
                 Níveis Progressivos
               </h2>
               
               <button
                 onClick={addTier}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 text-sm flex items-center gap-2"
+                className="btn-gradient transition duration-200 text-sm flex items-center gap-2"
               >
                 <Plus size={16} />
                 Adicionar Nível
@@ -580,7 +704,7 @@ export default function AdminSystemPage() {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
+              <table className="table-modern divide-y divide-gray-700">
                 <thead className="bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -670,18 +794,18 @@ export default function AdminSystemPage() {
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6">Configurações do Sistema</h2>
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-6 text-white">Configurações do Sistema</h2>
 
             {/* Eulen Token Update */}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   <Key className="inline mr-2" size={16} />
-                  Token JWT Eulen
+                  Token JWT Depix
                 </label>
                 <p className="text-sm text-gray-400 mb-3">
-                  Atualize o token de autenticação da API Eulen/Plebank
+                  Atualize o token de autenticação da API Depix/Plebank
                 </p>
                 <div className="flex gap-3">
                   <input
@@ -721,6 +845,329 @@ export default function AdminSystemPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Tab */}
+      {activeTab === 'audit' && (
+        <div className="space-y-6">
+          {/* Audit Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Total de Logs</p>
+                  <p className="text-2xl font-bold text-white">{auditStats.total}</p>
+                </div>
+                <FileText className="text-purple-400" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Hoje</p>
+                  <p className="text-2xl font-bold text-white">{auditStats.todayCount}</p>
+                </div>
+                <Calendar className="text-blue-400" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Última Semana</p>
+                  <p className="text-2xl font-bold text-white">{auditStats.weekCount}</p>
+                </div>
+                <TrendingUp className="text-green-400" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Último Mês</p>
+                  <p className="text-2xl font-bold text-white">{auditStats.monthCount}</p>
+                </div>
+                <Activity className="text-orange-400" size={24} />
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-semibold mb-4 text-white">Filtros</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="ID do Usuário"
+                value={auditFilters.userId}
+                onChange={(e) => setAuditFilters({ ...auditFilters, userId: e.target.value })}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+              />
+              <input
+                type="text"
+                placeholder="Ação"
+                value={auditFilters.action}
+                onChange={(e) => setAuditFilters({ ...auditFilters, action: e.target.value })}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+              />
+              <input
+                type="text"
+                placeholder="Recurso"
+                value={auditFilters.resource}
+                onChange={(e) => setAuditFilters({ ...auditFilters, resource: e.target.value })}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+              />
+              <input
+                type="date"
+                value={auditFilters.startDate}
+                onChange={(e) => setAuditFilters({ ...auditFilters, startDate: e.target.value })}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+              />
+              <input
+                type="date"
+                value={auditFilters.endDate}
+                onChange={(e) => setAuditFilters({ ...auditFilters, endDate: e.target.value })}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+              />
+              <button
+                onClick={() => setAuditFilters({
+                  userId: '',
+                  action: '',
+                  resource: '',
+                  startDate: '',
+                  endDate: '',
+                  search: '',
+                })}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
+              >
+                Limpar Filtros
+              </button>
+            </div>
+          </div>
+
+          {/* Audit Logs Table */}
+          <div className="glass-card overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Logs de Auditoria</h3>
+            </div>
+
+            {auditLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
+                <span className="ml-3 text-gray-400">Carregando logs...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table-modern">
+                  <thead className="bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Data/Hora
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Usuário
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Ação
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Recurso
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        IP
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {auditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                          Nenhum log encontrado
+                        </td>
+                      </tr>
+                    ) : (
+                      auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-gray-700/50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-white">
+                              {formatDate(log.createdAt)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                {log.user?.username || 'Sistema'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {log.user?.email || log.userId || '-'}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {getActionIcon(log.action)}
+                              <span className="text-sm text-white">{log.action}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-white">{log.resource}</span>
+                            {log.resourceId && (
+                              <p className="text-xs text-gray-400">{log.resourceId}</p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`text-sm font-medium ${getStatusColor(log.statusCode)}`}>
+                              {log.statusCode || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-300">
+                              {log.ipAddress || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setSelectedLog(log);
+                                setShowAuditModal(true);
+                              }}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              <Eye size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Audit Details Modal */}
+      {showAuditModal && selectedLog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-white">Detalhes do Log</h2>
+              <button
+                onClick={() => {
+                  setShowAuditModal(false);
+                  setSelectedLog(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400">ID</label>
+                <div className="flex items-center gap-2">
+                  <p className="text-white">{selectedLog.id}</p>
+                  <button
+                    onClick={() => copyToClipboard(selectedLog.id, 'ID')}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-400">Usuário</label>
+                  <p className="text-white">
+                    {selectedLog.user?.username || 'Sistema'}
+                    {selectedLog.user?.email && (
+                      <span className="text-gray-400 ml-2">({selectedLog.user.email})</span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Data/Hora</label>
+                  <p className="text-white">{formatDate(selectedLog.createdAt)}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Ação</label>
+                  <p className="text-white">{selectedLog.action}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Recurso</label>
+                  <p className="text-white">{selectedLog.resource}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Status Code</label>
+                  <p className={getStatusColor(selectedLog.statusCode)}>
+                    {selectedLog.statusCode || '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Duração</label>
+                  <p className="text-white">
+                    {selectedLog.duration ? `${selectedLog.duration}ms` : '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">IP Address</label>
+                  <p className="text-white">{selectedLog.ipAddress || '-'}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">User Agent</label>
+                  <p className="text-white text-xs">{selectedLog.userAgent || '-'}</p>
+                </div>
+              </div>
+
+              {selectedLog.requestBody && (
+                <div>
+                  <label className="text-sm text-gray-400">Request Body</label>
+                  <pre className="bg-gray-800 p-3 rounded-lg text-xs text-gray-300 overflow-x-auto">
+                    {JSON.stringify(JSON.parse(selectedLog.requestBody), null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {selectedLog.responseBody && (
+                <div>
+                  <label className="text-sm text-gray-400">Response Body</label>
+                  <pre className="bg-gray-800 p-3 rounded-lg text-xs text-gray-300 overflow-x-auto">
+                    {JSON.stringify(JSON.parse(selectedLog.responseBody), null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowAuditModal(false);
+                  setSelectedLog(null);
+                }}
+                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>

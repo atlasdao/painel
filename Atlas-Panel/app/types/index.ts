@@ -10,7 +10,10 @@ export interface User {
   lastLoginAt?: string;
   commerceMode?: boolean;
   paymentLinksEnabled?: boolean;
-  commerceModeActivatedAt?: string | null;
+  commerceModeActivatedAt?: Date | null;
+  profilePicture?: string | null;
+  isAccountValidated?: boolean;
+  defaultWalletAddress?: string;
 }
 
 export interface AuthResponse {

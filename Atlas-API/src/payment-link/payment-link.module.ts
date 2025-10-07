@@ -6,9 +6,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PixModule } from '../pix/pix.module';
 
 @Module({
-  imports: [PrismaModule, PixModule],
-  controllers: [PaymentLinkController, PublicPaymentLinkController],
-  providers: [PaymentLinkService],
-  exports: [PaymentLinkService],
+	imports: [PrismaModule, PixModule],
+	controllers: [PaymentLinkController, PublicPaymentLinkController],
+	providers: [PaymentLinkService],
+	exports: [PaymentLinkService],
 })
 export class PaymentLinkModule {}

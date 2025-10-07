@@ -185,7 +185,7 @@ export default function AdminWithdrawalsPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Gerenciar Saques</h1>
+          <h1 className="text-3xl font-bold mb-2 text-white">Gerenciar Saques</h1>
           <p className="text-gray-400">Aprovar e processar solicitações de saque</p>
         </div>
         <button
@@ -199,15 +199,15 @@ export default function AdminWithdrawalsPage() {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Total</span>
               <DollarSign size={20} className="text-green-400" />
             </div>
-            <p className="text-2xl font-bold">{stats.total}</p>
+            <p className="text-2xl font-bold text-white">{stats.total}</p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Pendentes</span>
               <Clock size={20} className="text-yellow-400" />
@@ -215,7 +215,7 @@ export default function AdminWithdrawalsPage() {
             <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Aprovados</span>
               <CheckCircle size={20} className="text-blue-400" />
@@ -223,7 +223,7 @@ export default function AdminWithdrawalsPage() {
             <p className="text-2xl font-bold text-blue-400">{stats.approved}</p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Concluídos</span>
               <CheckCircle size={20} className="text-green-400" />
@@ -231,7 +231,7 @@ export default function AdminWithdrawalsPage() {
             <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Volume Total</span>
               <TrendingUp size={20} className="text-purple-400" />
@@ -282,9 +282,9 @@ export default function AdminWithdrawalsPage() {
       </div>
 
       {/* Withdrawals Table */}
-      <div className="bg-gray-800 rounded-lg overflow-hidden">
+      <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="table-modern">
             <thead className="bg-gray-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -415,8 +415,8 @@ export default function AdminWithdrawalsPage() {
 
       {/* Approval Modal */}
       {showApprovalModal && selectedWithdrawal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+        <div className="modal-backdrop flex items-center justify-center z-50">
+          <div className="glass-card p-6 max-w-md w-full">
             <h3 className="text-xl font-semibold mb-4">
               {approvalAction === 'approve' ? 'Aprovar' : 'Rejeitar'} Saque
             </h3>
@@ -493,8 +493,8 @@ export default function AdminWithdrawalsPage() {
 
       {/* Details Modal */}
       {selectedWithdrawal && !showApprovalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="modal-backdrop flex items-center justify-center z-50">
+          <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold mb-4">Detalhes do Saque</h3>
 
             <div className="space-y-4">

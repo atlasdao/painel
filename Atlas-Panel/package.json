@@ -3,20 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --port 11337",
+    "dev": "next dev --port 11337",
+    "dev:turbo": "next dev --turbopack --port 11337",
     "build": "next build",
     "start": "next start --port 11337",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check-deps": "node scripts/check-dependencies.js",
+    "prebuild": "node scripts/check-dependencies.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.85.3",
     "@types/qrcode": "^1.5.5",
     "axios": "^1.11.0",
+    "canvas-confetti": "^1.9.3",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.22",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.540.0",
     "next": "15.4.6",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
+    "react-circular-progressbar": "^2.2.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
     "sonner": "^2.0.7"

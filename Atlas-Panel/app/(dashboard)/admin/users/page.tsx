@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '@/app/lib/services';
 import { UserRole, getRoleLabel } from '@/app/types/user-role';
-import { 
-  Users, 
-  Search, 
-  Filter, 
+import {
+  Users,
+  Search,
+  Filter,
   UserPlus,
   Edit,
   Trash2,
@@ -30,7 +30,8 @@ import {
   Unlock,
   CreditCard,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Store
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
@@ -48,6 +49,8 @@ interface User {
   validatedAt?: string;
   apiDailyLimit?: number;
   apiMonthlyLimit?: number;
+  commerceMode?: boolean;
+  commerceModeActivatedAt?: string;
 }
 
 interface UserStats {
@@ -85,6 +88,7 @@ export default function AdminUsersPage() {
     role: UserRole.USER,
     apiDailyLimit: 6000,
     apiMonthlyLimit: 180000,
+    commerceMode: false,
   });
 
   useEffect(() => {
@@ -131,6 +135,17 @@ export default function AdminUsersPage() {
     } catch (error) {
       console.error('Error toggling user status:', error);
       toast.error('Erro ao alterar status do usuário');
+    }
+  };
+
+  const handleToggleCommerceMode = async (userId: string, currentMode: boolean) => {
+    try {
+      await adminService.updateUser(userId, { commerceMode: !currentMode });
+      toast.success(`Modo Comércio ${!currentMode ? 'ativado' : 'desativado'} com sucesso`);
+      loadUsers();
+    } catch (error) {
+      console.error('Error toggling commerce mode:', error);
+      toast.error('Erro ao alterar modo comércio');
     }
   };
 
@@ -208,6 +223,7 @@ export default function AdminUsersPage() {
       role: user.role as UserRole,
       apiDailyLimit: user.apiDailyLimit || 6000,
       apiMonthlyLimit: user.apiMonthlyLimit || 180000,
+      commerceMode: user.commerceMode || false,
     });
     setShowEditModal(true);
   };
@@ -269,7 +285,7 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center">
+          <h1 className="text-3xl font-bold gradient-text flex items-center">
             <Users className="mr-3" />
             Gestão de Usuários
           </h1>
@@ -281,14 +297,14 @@ export default function AdminUsersPage() {
           <button
             onClick={() => loadUsers(true)}
             disabled={refreshing}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center space-x-2"
+            className="btn-outline flex items-center space-x-2"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Atualizar</span>
           </button>
           <button
             onClick={() => setShowNewUserModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center space-x-2"
+            className="btn-gradient flex items-center space-x-2"
           >
             <UserPlus className="w-5 h-5" />
             <span>Novo Usuário</span>
@@ -297,7 +313,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
+      <div className="glass-card p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
@@ -307,7 +323,7 @@ export default function AdminUsersPage() {
               placeholder="Buscar por nome, email ou ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-3 py-2 input-modern"
             />
           </div>
 
@@ -315,7 +331,7 @@ export default function AdminUsersPage() {
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 input-modern"
           >
             <option value="all">Todos os Papéis</option>
             <option value="admin">Administradores</option>
@@ -326,7 +342,7 @@ export default function AdminUsersPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 input-modern"
           >
             <option value="all">Todos os Status</option>
             <option value="active">Ativos</option>
@@ -337,7 +353,7 @@ export default function AdminUsersPage() {
           <select
             value={filterValidated}
             onChange={(e) => setFilterValidated(e.target.value)}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 input-modern"
           >
             <option value="all">Toda Validação</option>
             <option value="validated">Validados</option>
@@ -347,43 +363,43 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+      <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-900/50">
+          <table className="table-modern">
+            <thead>
               <tr>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Usuário
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Email
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Papel
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Status
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Validação
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Criado em
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Último Login
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left">
                   Ações
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-700/30 transition-colors">
-                  <td className="py-4 px-6">
+                <tr key={user.id}>
+                  <td>
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mr-3">
                         <User className="w-5 h-5 text-gray-400" />
                       </div>
                       <div>
@@ -392,24 +408,24 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-6">
+                  <td>
                     <span className="text-sm text-gray-300">{user.email}</span>
                   </td>
-                  <td className="py-4 px-6">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.role === 'ADMIN' 
-                        ? 'bg-purple-900/50 text-purple-400' 
-                        : 'bg-blue-900/50 text-blue-400'
+                  <td>
+                    <span className={`badge ${
+                      user.role === 'ADMIN'
+                        ? 'badge-danger'
+                        : 'badge-info'
                     }`}>
                       <Shield className="w-3 h-3 mr-1" />
                       {getRoleLabel(user.role)}
                     </span>
                   </td>
-                  <td className="py-4 px-6">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.isActive 
-                        ? 'bg-green-900/50 text-green-400' 
-                        : 'bg-red-900/50 text-red-400'
+                  <td>
+                    <span className={`badge ${
+                      user.isActive
+                        ? 'badge-success'
+                        : 'badge-danger'
                     }`}>
                       {user.isActive ? (
                         <>
@@ -424,41 +440,41 @@ export default function AdminUsersPage() {
                       )}
                     </span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td>
                     {user.isAccountValidated ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-400">
+                      <span className="badge badge-success">
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Validado
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900/50 text-yellow-400">
+                      <span className="badge badge-warning">
                         <AlertCircle className="w-3 h-3 mr-1" />
                         Pendente
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6">
+                  <td>
                     <span className="text-sm text-gray-400">
                       {formatDate(user.createdAt)}
                     </span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td>
                     <span className="text-sm text-gray-400">
                       {user.lastLoginAt ? formatDate(user.lastLoginAt) : '-'}
                     </span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => openUserDetails(user)}
-                        className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                        className="p-2 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-lg transition duration-200 hover-lift"
                         title="Ver detalhes"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openEditModal(user)}
-                        className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200"
+                        className="p-2 bg-blue-600/50 hover:bg-blue-700/50 text-white rounded-lg transition duration-200 hover-lift"
                         title="Editar usuário"
                       >
                         <Edit className="w-4 h-4" />
@@ -466,17 +482,17 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => handleToggleStatus(user.id, user.isActive)}
                         className={`p-2 ${
-                          user.isActive 
-                            ? 'bg-orange-600 hover:bg-orange-700' 
-                            : 'bg-green-600 hover:bg-green-700'
-                        } text-white rounded-lg transition duration-200`}
+                          user.isActive
+                            ? 'bg-orange-600/50 hover:bg-orange-700/50'
+                            : 'bg-green-600/50 hover:bg-green-700/50'
+                        } text-white rounded-lg transition duration-200 hover-lift`}
                         title={user.isActive ? 'Desativar' : 'Ativar'}
                       >
                         {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
-                        className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200"
+                        className="p-2 bg-red-600/50 hover:bg-red-700/50 text-white rounded-lg transition duration-200 hover-lift"
                         title="Excluir usuário"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -499,8 +515,8 @@ export default function AdminUsersPage() {
 
       {/* User Details Modal */}
       {showUserModal && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="modal-backdrop">
+          <div className="modal-content max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <h2 className="text-2xl font-bold text-white">Detalhes do Usuário</h2>
               <button
@@ -517,7 +533,7 @@ export default function AdminUsersPage() {
 
             <div className="space-y-6">
               {/* User Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-400">ID</label>
                   <div className="flex items-center space-x-2">
@@ -571,12 +587,12 @@ export default function AdminUsersPage() {
                 <div>
                   <label className="text-sm text-gray-400">Legacy API Key</label>
                   <div className="flex items-center space-x-2 mt-1">
-                    <code className="flex-1 bg-gray-900 p-2 rounded text-xs text-green-400 font-mono">
+                    <code className="flex-1 bg-gray-900/50 p-2 rounded text-xs text-green-400 font-mono">
                       {selectedUser.apiKey}
                     </code>
                     <button
                       onClick={() => copyToClipboard(selectedUser.apiKey!)}
-                      className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                      className="p-2 btn-outline"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
@@ -596,20 +612,20 @@ export default function AdminUsersPage() {
               ) : userStats && (
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-3">Estatísticas</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-900 p-3 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="stat-card p-3">
                       <p className="text-xs text-gray-400">Total de Transações</p>
                       <p className="text-xl font-bold text-white">{userStats.totalTransactions}</p>
                     </div>
-                    <div className="bg-gray-900 p-3 rounded-lg">
+                    <div className="stat-card p-3">
                       <p className="text-xs text-gray-400">Volume Total</p>
                       <p className="text-xl font-bold text-white">{formatCurrency(userStats.totalVolume)}</p>
                     </div>
-                    <div className="bg-gray-900 p-3 rounded-lg">
+                    <div className="stat-card p-3">
                       <p className="text-xs text-gray-400">Pendentes</p>
                       <p className="text-xl font-bold text-yellow-400">{userStats.pendingTransactions}</p>
                     </div>
-                    <div className="bg-gray-900 p-3 rounded-lg">
+                    <div className="stat-card p-3">
                       <p className="text-xs text-gray-400">Concluídas</p>
                       <p className="text-xl font-bold text-green-400">{userStats.completedTransactions}</p>
                     </div>
@@ -618,10 +634,10 @@ export default function AdminUsersPage() {
               )}
 
               {/* Actions */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-gray-700">
                 <button
                   onClick={() => handleGenerateApiKey(selectedUser.id)}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center space-x-2"
+                  className="btn-gradient flex items-center justify-center space-x-2 w-full sm:w-auto"
                 >
                   <Key className="w-4 h-4" />
                   <span>Gerar Nova API Key</span>
@@ -631,14 +647,14 @@ export default function AdminUsersPage() {
                     setShowUserModal(false);
                     openEditModal(selectedUser);
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 flex items-center space-x-2"
+                  className="btn-gradient flex items-center justify-center space-x-2 w-full sm:w-auto"
                 >
                   <Edit className="w-4 h-4" />
                   <span>Editar</span>
                 </button>
                 <button
                   onClick={() => setShowUserModal(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                  className="btn-outline w-full sm:w-auto"
                 >
                   Fechar
                 </button>
@@ -650,8 +666,8 @@ export default function AdminUsersPage() {
 
       {/* New User Modal */}
       {showNewUserModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="modal-backdrop">
+          <div className="modal-content max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold text-white mb-6">Criar Novo Usuário</h2>
             
             <div className="space-y-4">
@@ -663,7 +679,7 @@ export default function AdminUsersPage() {
                   type="text"
                   value={newUserData.username}
                   onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                   placeholder="johndoe"
                 />
               </div>
@@ -676,7 +692,7 @@ export default function AdminUsersPage() {
                   type="email"
                   value={newUserData.email}
                   onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                   placeholder="john@example.com"
                 />
               </div>
@@ -689,7 +705,7 @@ export default function AdminUsersPage() {
                   type="password"
                   value={newUserData.password}
                   onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                   placeholder="••••••••"
                 />
               </div>
@@ -701,7 +717,7 @@ export default function AdminUsersPage() {
                 <select
                   value={newUserData.role}
                   onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as UserRole })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 >
                   <option value={UserRole.USER}>Usuário</option>
                   <option value={UserRole.ADMIN}>Administrador</option>
@@ -729,8 +745,8 @@ export default function AdminUsersPage() {
 
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="modal-backdrop">
+          <div className="modal-content max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold text-white mb-6">Editar Usuário</h2>
             
             <div className="space-y-4">
@@ -742,7 +758,7 @@ export default function AdminUsersPage() {
                   type="text"
                   value={editUserData.username}
                   onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 />
               </div>
               
@@ -754,7 +770,7 @@ export default function AdminUsersPage() {
                   type="email"
                   value={editUserData.email}
                   onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 />
               </div>
               
@@ -765,7 +781,7 @@ export default function AdminUsersPage() {
                 <select
                   value={editUserData.role}
                   onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value as UserRole })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 >
                   <option value={UserRole.USER}>Usuário</option>
                   <option value={UserRole.ADMIN}>Administrador</option>
@@ -780,7 +796,7 @@ export default function AdminUsersPage() {
                   type="number"
                   value={editUserData.apiDailyLimit}
                   onChange={(e) => setEditUserData({ ...editUserData, apiDailyLimit: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 />
               </div>
               
@@ -792,8 +808,35 @@ export default function AdminUsersPage() {
                   type="number"
                   value={editUserData.apiMonthlyLimit}
                   onChange={(e) => setEditUserData({ ...editUserData, apiMonthlyLimit: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                 />
+              </div>
+
+              <div className="mt-4">
+                <label className="flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors">
+                  <div className="flex items-center">
+                    <Store className="w-5 h-5 text-purple-400 mr-3" />
+                    <div>
+                      <span className="text-sm font-medium text-gray-200">Modo Comércio</span>
+                      <p className="text-xs text-gray-400 mt-1">Permite transações comerciais para este usuário</p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={editUserData.commerceMode}
+                      onChange={(e) => setEditUserData({ ...editUserData, commerceMode: e.target.checked })}
+                    />
+                    <div className={`w-12 h-6 rounded-full transition-colors ${
+                      editUserData.commerceMode ? 'bg-purple-500' : 'bg-gray-600'
+                    }`}>
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                        editUserData.commerceMode ? 'translate-x-6' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
             

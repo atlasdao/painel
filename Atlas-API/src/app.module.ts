@@ -12,6 +12,11 @@ import { PaymentLinkModule } from './payment-link/payment-link.module';
 import { AccountValidationModule } from './account-validation/account-validation.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { CommerceModule } from './commerce/commerce.module';
+import { HealthModule } from './health/health.module';
+import { ProfileModule } from './profile/profile.module';
+import { LevelsModule } from './levels/levels.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -22,41 +27,46 @@ import { TransactionRepository } from './repositories/transaction.repository';
 import { AuditLogRepository } from './repositories/audit-log.repository';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
-    PrismaModule,
-    ServicesModule,
-    AuthModule,
-    EulenModule,
-    PixModule,
-    AdminModule,
-    ApiKeyRequestModule,
-    PaymentLinkModule,
-    AccountValidationModule,
-    WithdrawalsModule,
-    WebhooksModule,
-  ],
-  controllers: [AppController],
-  providers: [
-    AppService,
-    UserRepository,
-    TransactionRepository,
-    AuditLogRepository,
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: LoggingInterceptor,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: AuditInterceptor,
-    },
-  ],
+	imports: [
+		ConfigModule.forRoot({
+			isGlobal: true,
+			envFilePath: '.env',
+		}),
+		PrismaModule,
+		ServicesModule,
+		HealthModule,
+		AuthModule,
+		ProfileModule,
+		EulenModule,
+		PixModule,
+		AdminModule,
+		ApiKeyRequestModule,
+		PaymentLinkModule,
+		AccountValidationModule,
+		WithdrawalsModule,
+		WebhooksModule,
+		CouponsModule,
+		CommerceModule,
+		LevelsModule,
+	],
+	controllers: [AppController],
+	providers: [
+		AppService,
+		UserRepository,
+		TransactionRepository,
+		AuditLogRepository,
+		{
+			provide: APP_GUARD,
+			useClass: JwtAuthGuard,
+		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: LoggingInterceptor,
+		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: AuditInterceptor,
+		},
+	],
 })
 export class AppModule {}

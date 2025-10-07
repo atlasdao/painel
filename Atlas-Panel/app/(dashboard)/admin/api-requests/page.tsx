@@ -275,7 +275,7 @@ export default function AdminApiRequestsPage() {
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center">
+            <h1 className="text-3xl font-bold gradient-text flex items-center">
               <Key className="mr-3" />
               Solicitações de API Key
             </h1>
@@ -286,7 +286,7 @@ export default function AdminApiRequestsPage() {
           <button
             onClick={() => loadRequests(true)}
             disabled={refreshing}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200 flex items-center space-x-2"
+            className="btn-outline transition duration-200 flex items-center space-x-2"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Atualizar</span>
@@ -295,7 +295,7 @@ export default function AdminApiRequestsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Total</p>
@@ -305,7 +305,7 @@ export default function AdminApiRequestsPage() {
             </div>
           </div>
           
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Pendentes</p>
@@ -315,7 +315,7 @@ export default function AdminApiRequestsPage() {
             </div>
           </div>
           
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Aprovadas</p>
@@ -325,7 +325,7 @@ export default function AdminApiRequestsPage() {
             </div>
           </div>
           
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Rejeitadas</p>
@@ -337,7 +337,7 @@ export default function AdminApiRequestsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4">
+        <div className="glass-card p-4 mb-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -415,7 +415,7 @@ export default function AdminApiRequestsPage() {
       {/* Requests List */}
       <div className="space-y-4">
         {filteredRequests.length === 0 ? (
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-12">
+          <div className="glass-card p-12">
             <div className="text-center">
               <Key className="w-12 h-12 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400 text-lg">Nenhuma solicitação encontrada</p>
@@ -426,7 +426,7 @@ export default function AdminApiRequestsPage() {
           </div>
         ) : (
           filteredRequests.map((request) => (
-            <div key={request.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <div key={request.id} className="glass-card overflow-hidden">
               {/* Main Row */}
               <div className="p-6">
                 <div className="flex items-start justify-between">
@@ -482,7 +482,7 @@ export default function AdminApiRequestsPage() {
                     )}
                     <button
                       onClick={() => toggleRow(request.id)}
-                      className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                      className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded-lg transition duration-200"
                       title="Ver detalhes"
                     >
                       {expandedRow === request.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -518,13 +518,13 @@ export default function AdminApiRequestsPage() {
                           </code>
                           <button
                             onClick={() => toggleApiKeyVisibility(request.id)}
-                            className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition duration-200"
+                            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded transition duration-200"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => copyToClipboard(request.generatedApiKey!)}
-                            className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition duration-200"
+                            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded transition duration-200"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
@@ -553,9 +553,9 @@ export default function AdminApiRequestsPage() {
 
       {/* Approval Modal */}
       {showApprovalModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-lg w-full mx-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Aprovar Solicitação</h2>
+        <div className="modal-backdrop">
+          <div className="glass-card p-6 max-w-lg w-full mx-4">
+            <h2 className="text-2xl font-bold gradient-text mb-6">Aprovar Solicitação</h2>
             
             <div className="space-y-4">
               <div className="bg-gray-900 rounded-lg p-4">
@@ -607,7 +607,7 @@ export default function AdminApiRequestsPage() {
                   setShowApprovalModal(false);
                   setApprovalNotes('');
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                className="btn-outline transition duration-200"
                 disabled={isProcessing}
               >
                 Cancelar
@@ -636,9 +636,9 @@ export default function AdminApiRequestsPage() {
 
       {/* Rejection Modal */}
       {showRejectionModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-lg w-full mx-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Rejeitar Solicitação</h2>
+        <div className="modal-backdrop">
+          <div className="glass-card p-6 max-w-lg w-full mx-4">
+            <h2 className="text-2xl font-bold gradient-text mb-6">Rejeitar Solicitação</h2>
             
             <div className="space-y-4">
               <div className="bg-gray-900 rounded-lg p-4">
@@ -689,7 +689,7 @@ export default function AdminApiRequestsPage() {
                   setShowRejectionModal(false);
                   setRejectionReason('');
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                className="btn-outline transition duration-200"
                 disabled={isProcessing}
               >
                 Cancelar

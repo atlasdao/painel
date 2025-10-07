@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { pixService, accountValidationService } from '@/app/lib/services';
+import { pixService, accountValidationService, profileService } from '@/app/lib/services';
 import { DollarSign, Copy, Check, QrCode, Loader, CheckCircle, Clock, AlertCircle, Shield, Info } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import { translateStatus } from '@/app/lib/translations';
 
 export default function DepositPage() {
-  const [amount, setAmount] = useState('1.00');
+  const [amount, setAmount] = useState('0.00');
   const [pixAddress, setPixAddress] = useState('');
+  const [useCustomWallet, setUseCustomWallet] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [defaultWallet, setDefaultWallet] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [qrCodeData, setQrCodeData] = useState<{
     qrCode: string;
     pixKey: string;
@@ -29,6 +32,7 @@ export default function DepositPage() {
   const [loadingValidation, setLoadingValidation] = useState(true);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationDepixAddress, setValidationDepixAddress] = useState('');
+  const [validationUseCustomWallet, setValidationUseCustomWallet] = useState(false);
   const [validationRequirements, setValidationRequirements] = useState<{
     amount: number;
     description: string;
@@ -36,16 +40,52 @@ export default function DepositPage() {
   } | null>(null);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-scroll to QR code section for better mobile UX
+  const scrollToQRCode = (isValidation = false) => {
+    setTimeout(() => {
+      // Use different IDs for regular deposit vs validation
+      const sectionId = isValidation ? 'qr-code-validation' : 'qr-code-deposit';
+      const qrSection = document.getElementById(sectionId);
+
+      if (qrSection) {
+        // Calculate offset for better visibility (accounting for header)
+        const yOffset = -100;
+        const y = qrSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+        // Smooth scroll to QR code
+        window.scrollTo({ top: y, behavior: 'smooth' });
+
+        // Add highlight animation
+        qrSection.classList.add('highlight-pulse');
+
+        // Remove animation class after completion
+        setTimeout(() => {
+          qrSection.classList.remove('highlight-pulse');
+        }, 2000);
+      }
+    }, 300); // Delay to ensure DOM is fully updated
+  };
+
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // DEBUG: Log current state
+    console.log('[DEPOSIT DEBUG] Current state:', {
+      useCustomWallet,
+      pixAddress: pixAddress?.substring(0, 20) + '...',
+      pixAddressLength: pixAddress?.length,
+      defaultWallet: defaultWallet?.substring(0, 20) + '...',
+      defaultWalletLength: defaultWallet?.length,
+      amount
+    });
+
     if (!amount || parseFloat(amount) <= 0) {
       toast.error('Por favor, insira um valor válido');
       return;
     }
 
-    if (!pixAddress) {
-      toast.error('Por favor, insira o Endereço DePix');
+    if (useCustomWallet && !pixAddress) {
+      toast.error('Por favor, insira o Endereço DePix personalizado');
       return;
     }
 
@@ -55,12 +95,33 @@ export default function DepositPage() {
       const amountInReais = parseFloat(amount);
       const description = 'Depósito PIX';
       
-      const response = await pixService.generateQRCode({
+      const requestData: any = {
         amount: amountInReais,
-        depixAddress: pixAddress, // Campo obrigatório agora
         description,
         expirationMinutes: 30,
-      });
+      };
+
+      // Handle wallet address based on toggle state
+      if (useCustomWallet) {
+        // Custom wallet enabled - use user-provided wallet
+        if (pixAddress) {
+          requestData.depixAddress = pixAddress;
+        } else {
+          toast.error('Por favor, insira o Endereço DePix personalizado');
+          setLoading(false);
+          return;
+        }
+      } else if (defaultWallet) {
+        // Custom wallet disabled and default wallet exists - use default
+        requestData.depixAddress = defaultWallet;
+      } else {
+        // Neither custom wallet nor default wallet available
+        toast.error('Por favor, configure um endereço DePix padrão em Configurações ou use um endereço personalizado');
+        setLoading(false);
+        return;
+      }
+
+      const response = await pixService.generateQRCode(requestData);
       
       if (response.qrCode || response.qrCodeImage) {
         // A API retorna qrCodeImage (imagem) e qrCode (texto para copiar)
@@ -72,7 +133,8 @@ export default function DepositPage() {
         });
         setPaymentStatus('pending');
         toast.success('QR Code gerado com sucesso!');
-        
+        scrollToQRCode(); // Auto-scroll to QR code for better mobile UX
+
         // Iniciar polling para verificar status do pagamento
         if (response.transactionId) {
           startPollingPaymentStatus(response.transactionId);
@@ -80,9 +142,17 @@ export default function DepositPage() {
       } else {
         toast.error('Erro ao gerar QR Code');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating deposit:', error);
-      toast.error('Erro ao criar depósito');
+
+      // Mostrar mensagem específica do servidor se disponível
+      if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error?.message) {
+        toast.error(error.message);
+      } else {
+        toast.error('Erro ao criar depósito');
+      }
     } finally {
       setLoading(false);
     }
@@ -293,8 +363,9 @@ export default function DepositPage() {
   // Resetar formulário
   const resetForm = () => {
     setQrCodeData(null);
-    setAmount('1.00');
+    setAmount('0.00');
     setPixAddress('');
+    setUseCustomWallet(false);
     setPaymentStatus(null);
     stopPolling();
   };
@@ -312,10 +383,24 @@ export default function DepositPage() {
   useEffect(() => {
     checkValidationStatus();
     fetchValidationRequirements();
+    fetchUserProfile();
     return () => {
       stopPolling();
     };
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await profileService.getProfile();
+      setDefaultWallet(profile.defaultWalletAddress || null);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      // If profile fetch fails, default wallet will remain null
+      // and wallet input will be required
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const checkValidationStatus = async () => {
     setLoadingValidation(true);
@@ -343,14 +428,22 @@ export default function DepositPage() {
   };
 
   const handleValidationPayment = async () => {
-    if (!validationDepixAddress) {
-      toast.error('Por favor, informe o endereço DePix');
+    if (validationUseCustomWallet && !validationDepixAddress) {
+      toast.error('Por favor, informe o endereço DePix personalizado');
       return;
     }
-    
+
+    // Note: EUID will be automatically extracted from the payment webhook
+    // when the user completes the PIX payment, so we don't need to collect it manually
+
     setLoading(true);
     try {
-      const payment = await accountValidationService.createValidationPayment(validationDepixAddress);
+      // Handle wallet address for validation payment
+      const walletToUse = validationUseCustomWallet
+        ? validationDepixAddress
+        : defaultWallet || undefined;
+
+      const payment = await accountValidationService.createValidationPayment(walletToUse);
       
       console.log('Payment response:', payment);
       
@@ -376,7 +469,8 @@ export default function DepositPage() {
         setPaymentStatus('pending');
         setShowValidationModal(false);
         toast.success('QR Code de validação gerado!');
-        
+        scrollToQRCode(true); // Auto-scroll to validation QR code for better mobile UX
+
         if (payment.transactionId) {
           startPollingValidationPaymentStatus(payment.transactionId);
         }
@@ -385,9 +479,14 @@ export default function DepositPage() {
         console.error('qrCode type:', typeof payment.qrCode, 'value:', payment.qrCode);
         toast.error('QR Code não foi gerado corretamente - dados inválidos recebidos do servidor');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating validation payment:', error);
-      toast.error('Erro ao criar pagamento de validação');
+      console.error('Error response:', error?.response);
+      console.error('Error details:', error?.response?.data);
+
+      // Show more specific error message
+      const errorMessage = error?.response?.data?.message || error?.message || 'Erro ao criar pagamento de validação';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -423,7 +522,7 @@ export default function DepositPage() {
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
       
-      <h1 className="text-3xl font-bold mb-8 text-white">Adquirir DePix</h1>
+      <h1 className="text-3xl font-bold gradient-text mb-8">Adquirir DePix</h1>
 
       {/* Show loading state */}
       {loadingValidation ? (
@@ -459,7 +558,7 @@ export default function DepositPage() {
 
               {/* Show QR Code for validation payment */}
               {qrCodeData && (
-                <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+                <div id="qr-code-validation" className="glass-card shadow-lg p-6 border border-gray-700">
                   <h2 className="text-xl font-semibold mb-4 flex items-center text-white">
                     <QrCode className="mr-2 text-yellow-400" />
                     QR Code de Validação
@@ -523,7 +622,7 @@ export default function DepositPage() {
             <>
               {/* Show user limits and reputation info */}
               {validationStatus?.limits && (
-                <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
+                <div className="glass-card p-4 mb-6 border border-gray-700">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
                       <p className="text-gray-400 text-sm">Limite Diário</p>
@@ -555,7 +654,7 @@ export default function DepositPage() {
 
               <div className="grid md:grid-cols-2 gap-8">
         {/* Deposit Form */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+        <div className="glass-card shadow-lg p-6 border border-gray-700">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-white">
             <DollarSign className="mr-2 text-green-400" />
             Informações do Depósito
@@ -581,24 +680,58 @@ export default function DepositPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Endereço DePix
-              </label>
-              <input
-                type="text"
-                value={pixAddress}
-                onChange={(e) => setPixAddress(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
-                placeholder="Endereço DePix"
-                required
-              />
-            </div>
+            {/* Custom Wallet Toggle - Only show if user has default wallet */}
+            {defaultWallet ? (
+              <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                <label className="text-sm font-medium text-white">
+                  Usar carteira personalizada
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setUseCustomWallet(!useCustomWallet)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    useCustomWallet ? 'bg-blue-600' : 'bg-gray-500'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    useCustomWallet ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            ) : null}
+
+            {/* Show wallet input when: no default wallet OR custom wallet enabled */}
+            {(!defaultWallet || useCustomWallet) && (
+              <div className="transition-all duration-300 ease-in-out">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Endereço DePix {!defaultWallet ? '(Obrigatório)' : ''}
+                </label>
+                <input
+                  type="text"
+                  value={pixAddress}
+                  onChange={(e) => {
+                    setPixAddress(e.target.value);
+                    // Auto-enable custom wallet when user starts typing
+                    if (e.target.value && !useCustomWallet) {
+                      setUseCustomWallet(true);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+                  placeholder={defaultWallet ? "Endereço DePix personalizado" : "Insira o endereço DePix"}
+                  required={!defaultWallet || useCustomWallet}
+                />
+                {!defaultWallet && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Configure uma carteira padrão nas configurações para tornar este campo opcional
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full btn-gradient disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
                 <>
@@ -628,14 +761,14 @@ export default function DepositPage() {
         </div>
 
         {/* QR Code Display */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+        <div className="glass-card shadow-lg p-6 border border-gray-700">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-white">
             <QrCode className="mr-2 text-blue-400" />
             QR Code PIX
           </h2>
 
           {qrCodeData ? (
-            <div className="space-y-4">
+            <div id="qr-code-deposit" className="space-y-4">
               {/* Payment Status Indicator */}
               {paymentStatus && (
                 <div className={`p-4 rounded-lg border ${
@@ -736,7 +869,7 @@ export default function DepositPage() {
                     : 'bg-gray-600 text-white hover:bg-gray-700'
                 }`}
               >
-                {paymentStatus === 'completed' ? 'Adquirir Mais DePix' : 'Cancelar e Adquirir DePix'}
+                {paymentStatus === 'completed' ? 'Adquirir Mais DePix' : 'Cancelar Pagamento'}
               </button>
             </div>
           ) : (
@@ -752,7 +885,7 @@ export default function DepositPage() {
       </div>
 
       {/* Recent Deposits */}
-      <div className="mt-8 bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+      <div className="mt-8 glass-card">
         <h2 className="text-xl font-semibold mb-4 text-white">Aquisições Recentes</h2>
         <div className="text-sm text-gray-400">
           <p>Seus depósitos recentes aparecerão aqui</p>
@@ -766,30 +899,59 @@ export default function DepositPage() {
       {/* Validation Modal */}
       {showValidationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700">
+          <div className="glass-card p-6 max-w-md w-full mx-4 border border-gray-700">
             <h2 className="text-xl font-bold mb-4 text-white flex items-center">
               <Shield className="mr-2 text-yellow-400" size={24} />
               Validação de Conta
             </h2>
             
             <p className="text-gray-300 mb-4">
-              Para gerar o QR Code de validação, informe o endereço DePix onde você deseja receber os créditos após a validação.
+              Você pode usar a carteira padrão do sistema ou especificar uma carteira personalizada.
             </p>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Endereço DePix
-              </label>
-              <input
-                type="text"
-                value={validationDepixAddress}
-                onChange={(e) => setValidationDepixAddress(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 placeholder-gray-400"
-                placeholder="Insira seu endereço DePix"
-                required
-              />
-            </div>
-            
+
+            {/* Custom Wallet Toggle for Validation - Only show if user has default wallet */}
+            {defaultWallet ? (
+              <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-4">
+                <label className="text-sm font-medium text-white">
+                  Usar carteira personalizada
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setValidationUseCustomWallet(!validationUseCustomWallet)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    validationUseCustomWallet ? 'bg-yellow-600' : 'bg-gray-500'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    validationUseCustomWallet ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            ) : null}
+
+            {/* Show wallet input when: no default wallet OR custom wallet enabled */}
+            {(!defaultWallet || validationUseCustomWallet) && (
+              <div className="mb-4 transition-all duration-300 ease-in-out">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Endereço DePix {!defaultWallet ? '(Obrigatório)' : ''}
+                </label>
+                <input
+                  type="text"
+                  value={validationDepixAddress}
+                  onChange={(e) => setValidationDepixAddress(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 placeholder-gray-400"
+                  placeholder={defaultWallet ? "Endereço DePix personalizado" : "Insira o endereço DePix"}
+                  required={!defaultWallet || validationUseCustomWallet}
+                />
+                {!defaultWallet && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Configure uma carteira padrão nas configurações para tornar este campo opcional
+                  </p>
+                )}
+              </div>
+            )}
+
+
             <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3 mb-4">
               <p className="text-yellow-300 text-sm">
                 <strong>Valor da validação:</strong> R$ {validationRequirements?.amount ? (validationRequirements.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '2,00'}<br/>
@@ -803,6 +965,7 @@ export default function DepositPage() {
                 onClick={() => {
                   setShowValidationModal(false);
                   setValidationDepixAddress('');
+                  setValidationUseCustomWallet(false);
                 }}
                 className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
                 disabled={loading}
@@ -813,7 +976,7 @@ export default function DepositPage() {
                 type="button"
                 onClick={handleValidationPayment}
                 className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                disabled={loading || !validationDepixAddress}
+                disabled={loading || (!defaultWallet && !validationDepixAddress) || (validationUseCustomWallet && !validationDepixAddress)}
               >
                 {loading ? (
                   <>

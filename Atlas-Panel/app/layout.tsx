@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   description: "O Atlas Bridge é uma interface de minimização de confiança entre o sistema Pix e a Liquid Network, projetada para a sua autonomia financeira.",
   keywords: "Atlas DAO, DePix, PIX, Liquid Network, Bitcoin, Soberania Financeira, Descentralização",
   authors: [{ name: "Atlas DAO" }],
+  icons: {
+    icon: '/favicon.ico',
+  },
   openGraph: {
     title: "Atlas DAO - A Ponte para Sua Soberania Financeira",
     description: "Interface de minimização de confiança entre o sistema Pix e a Liquid Network",

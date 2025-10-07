@@ -49,14 +49,146 @@ dev.db
 # --- Cache do Compilador TypeScript ---
 *.tsbuildinfo
 
-# --- Arquivos gerados por IA ou ferramentas --- 
+# --- Arquivos gerados por IA ou ferramentas ---
 CLAUDE.md
 .claude
+/
+# --- Arquivos temporários ---
+/tmp/
+/tmp/*
+*.tmp
+test-*.js
+test-*.sh
 
 # --- Arquivos de Sistema Operacional ---
 .DS_Store
 Thumbs.db
 
+# --- Arquivos Temporarios ---
+
+/tmp
+tmp
+*.tmp
+
 # --- Pasta de Configuração de Editor (Opcional) ---
 .vscode/
 .idea/
+Atlas-Panel/public/sounds/README.md
+
+# ===================================================================
+# PADRÕES DE SEGURANÇA ADICIONAIS
+# Adicionado para proteger dados sensíveis e credenciais
+# ===================================================================
+
+# --- Configurações Privadas e Credenciais ---
+**/config/production.*
+**/config/local.*
+**/config/secrets.*
+*.local.json
+*.local.js
+*.local.ts
+.env.local.example
+.env.production.local
+.env.development.local
+
+# --- Arquivos de Segurança e Autenticação ---
+*.key
+*.pem
+*.crt
+*.cert
+*.p12
+*.pfx
+*.jks
+*.rsa
+*.dsa
+id_*
+known_hosts
+authorized_keys
+*.jwt
+*jwt*
+*token*
+*secret*
+*private*
+auth.json
+secrets.json
+
+# --- Arquivos de Banco de Dados e Sessão ---
+*.dump
+*.sql.backup
+*.sql.gz
+sessions/
+*.session
+db_backup_*
+local-storage/
+indexeddb/
+websql/
+*cookie*
+*.cookies
+
+# --- Scripts com Operações Sensíveis ---
+src/scripts/reset-*
+src/scripts/*password*
+src/scripts/*secret*
+src/scripts/*admin*
+scripts/prod-*
+scripts/production-*
+**/scripts/production-*
+**/scripts/*credentials*
+
+# --- Arquivos de Desenvolvimento e Teste ---
+test-data/
+fixtures/
+mocks/local-*
+*.test.local.*
+*test*.json
+*mock*.json
+
+# --- Cache e Build Artifacts Adicionais ---
+*.tsbuildinfo
+.tscache/
+.webpack/
+
+# --- Arquivos de Performance e Debug ---
+*.cpuprofile
+*.heapprofile
+profile-*
+*.trace
+*.debug
+heap-*
+
+# --- Arquivos Temporários Expandidos ---
+*.pid
+*.temp
+.temp/
+temp/
+.cache/
+cache/
+
+# --- Backups e Arquivos ---
+*.bak
+*.backup
+*.old
+backup/
+backups/
+
+# --- Arquivos de Sistema Operacional Expandidos ---
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Desktop.ini
+.directory
+
+# --- Configuração de Editor/IDE Específicas ---
+.vscode/settings.json
+.vscode/launch.json
+
+# --- Arquivos de Teste E2E ---
+test-results/
+playwright-report/
+playwright/.cache/
+
+# --- Relatórios de Segurança ---
+security-report.*
+audit-report.*
+vulnerability-report.*
