@@ -167,7 +167,7 @@ export default function ApiKeysPage() {
         )}
 
         {showForm && (
-          <div className="card bg-gray-800 border-gray-700 mb-6">
+          <div className="glass-card mb-6">
             <h3 className="text-lg font-semibold text-white mb-4">Nova Solicitação de Chave de API</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -279,7 +279,7 @@ export default function ApiKeysPage() {
         )}
 
         {/* Requests List */}
-        <div className="card bg-gray-800 border-gray-700">
+        <div className="glass-card">
           <h3 className="text-lg font-semibold text-white mb-4">Histórico de Solicitações</h3>
           
           {loading ? (

@@ -1,14 +1,32 @@
 import api from './api';
 import { Transaction, DashboardStats, Balance, PixQRCode } from '@/app/types';
 
+export const userService = {
+  async getUserProfile(): Promise<any> {
+    const response = await api.get('/auth/profile');
+    return response.data;
+  },
+
+  async getUserLimits(): Promise<any> {
+    const response = await api.get('/account-validation/limits');
+    return response.data;
+  },
+};
+
 export const accountValidationService = {
   async getValidationStatus(): Promise<any> {
     const response = await api.get('/account-validation/status');
     return response.data;
   },
 
-  async createValidationPayment(depixAddress: string): Promise<any> {
-    const response = await api.post('/account-validation/create-payment', { depixAddress });
+  async createValidationPayment(depixAddress?: string): Promise<any> {
+    const payload: any = {};
+    if (depixAddress) {
+      payload.depixAddress = depixAddress;
+    }
+    // Note: EUID/tax number will be automatically extracted from the webhook
+    // when the user completes the PIX payment
+    const response = await api.post('/account-validation/create-payment', payload);
     return response.data;
   },
 
@@ -49,11 +67,22 @@ export const pixService = {
     return response.data;
   },
 
-  async getTransactions(params?: { limit?: number; offset?: number }): Promise<Transaction[]> {
-    // Convert limit/offset to take/skip for API compatibility
+  async getTransactions(params?: {
+    limit?: number;
+    offset?: number;
+    startDate?: Date;
+    endDate?: Date;
+    type?: string;
+    status?: string;
+  }): Promise<Transaction[]> {
+    // Convert limit/offset to take/skip for API compatibility and add all filters
     const apiParams = params ? {
       take: params.limit,
-      skip: params.offset
+      skip: params.offset,
+      startDate: params.startDate?.toISOString(),
+      endDate: params.endDate?.toISOString(),
+      type: params.type,
+      status: params.status
     } : undefined;
     const response = await api.get<Transaction[]>('/pix/transactions', { params: apiParams });
     return response.data;
@@ -248,13 +277,6 @@ export const adminService = {
   },
 };
 
-export const userService = {
-  async getUserLimits(): Promise<any> {
-    const response = await api.get('/pix/limits');
-    return response.data;
-  },
-};
-
 export const apiKeyService = {
   async getApiKeyStatus(): Promise<{ hasApiKey: boolean; createdAt?: string }> {
     const response = await api.get('/auth/apitoken');
@@ -304,6 +326,116 @@ export const apiKeyRequestService = {
 
   async rejectRequest(requestId: string, data: { approvalNotes: string }): Promise<any> {
     const response = await api.put(`/api-key-requests/${requestId}/reject`, data);
+    return response.data;
+  },
+};
+
+export const profileService = {
+  async getProfile(): Promise<any> {
+    // Use the profile endpoint which has fresh data after avatar uploads
+    const response = await api.get('/profile');
+    return response.data;
+  },
+
+  async updateProfile(data: { username?: string; email?: string }): Promise<any> {
+    const response = await api.patch('/profile', data);
+    return response.data;
+  },
+
+  async uploadAvatar(file: File): Promise<any> {
+    // Convert file to base64
+    return new Promise((resolve, reject) => {
+      console.log(`[SERVICE] Converting file to base64: ${file.name}, ${file.size} bytes`);
+
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64String = reader.result as string;
+          const base64Data = base64String.split(',')[1]; // Remove data:image/png;base64, prefix
+          const mimeType = file.type;
+
+          console.log(`[SERVICE] Base64 conversion complete. Data length: ${base64Data.length}, MIME: ${mimeType}`);
+
+          // Validate base64 data before sending
+          if (!base64Data || base64Data.length === 0) {
+            throw new Error('Falha ao converter imagem para upload');
+          }
+
+          console.log(`[SERVICE] About to send POST request to /profile/avatar`);
+          console.log(`[SERVICE] Request payload:`, {
+            avatarData: `${base64String.substring(0, 50)}...`,
+            mimeType: mimeType,
+            dataLength: base64String.length
+          });
+
+          const response = await api.post('/profile/avatar', {
+            avatarData: base64String, // Send the full data URL (data:image/png;base64,...)
+            mimeType: mimeType,
+          }, {
+            timeout: 60000, // 60 second timeout for large uploads
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                console.log(`[SERVICE] Upload progress: ${percentCompleted}%`);
+              }
+            }
+          });
+
+          console.log(`[SERVICE] Upload successful! Response status:`, response.status);
+          console.log(`[SERVICE] Response data:`, response.data);
+          console.log(`[SERVICE] Profile picture in response:`, response.data?.profilePicture ? `${response.data.profilePicture.length} chars` : 'null');
+
+          resolve(response.data);
+        } catch (error) {
+          console.error(`[SERVICE] Upload error:`, error);
+          const typedError = error as any;
+          console.error(`[SERVICE] Error details:`, {
+            message: typedError.message,
+            response: typedError.response?.data,
+            status: typedError.response?.status,
+            statusText: typedError.response?.statusText
+          });
+          reject(error);
+        }
+      };
+      reader.onerror = (error) => {
+        console.error(`[SERVICE] FileReader error:`, error);
+        reject(new Error('Falha ao ler arquivo de imagem'));
+      };
+    });
+  },
+
+  async removeAvatar(): Promise<void> {
+    await api.delete('/profile/avatar');
+  },
+
+  async setup2FA(): Promise<any> {
+    const response = await api.post('/profile/2fa/setup');
+    return response.data;
+  },
+
+  async verify2FA(token: string): Promise<any> {
+    const response = await api.post('/profile/2fa/verify', { token });
+    return response.data;
+  },
+
+  async disable2FA(token: string): Promise<void> {
+    await api.post('/profile/2fa/disable', { token });
+  },
+
+  async updateDefaultWallet(data: { address: string; type: string }): Promise<any> {
+    const response = await api.patch('/profile/wallet', data);
+    return response.data;
+  },
+
+  async changePassword(data: { currentPassword: string; newPassword: string }): Promise<any> {
+    const response = await api.post('/profile/change-password', data);
+    return response.data;
+  },
+
+  async toggleCommerceMode(): Promise<any> {
+    const response = await api.post('/profile/commerce-mode/toggle');
     return response.data;
   },
 };

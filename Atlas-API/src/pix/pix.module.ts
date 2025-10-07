@@ -6,15 +6,12 @@ import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ServicesModule } from '../services/services.module';
+import { LevelsModule } from '../levels/levels.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, ServicesModule],
-  controllers: [PixController],
-  providers: [
-    PixService,
-    TransactionRepository,
-    AuditLogRepository,
-  ],
-  exports: [PixService],
+	imports: [AuthModule, PrismaModule, ServicesModule, LevelsModule],
+	controllers: [PixController],
+	providers: [PixService, TransactionRepository, AuditLogRepository],
+	exports: [PixService],
 })
 export class PixModule {}

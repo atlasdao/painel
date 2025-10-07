@@ -212,7 +212,7 @@ export default function ApiPage() {
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center">
+            <h1 className="text-3xl font-bold gradient-text flex items-center">
               <Key className="mr-3" />
               API de Integração
             </h1>
@@ -224,7 +224,7 @@ export default function ApiPage() {
             <button
               onClick={() => fetchApiKeyRequests(true)}
               disabled={refreshing}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200 flex items-center space-x-2"
+              className="btn-outline transition duration-200 flex items-center space-x-2"
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>Atualizar</span>
@@ -284,7 +284,7 @@ export default function ApiPage() {
         <div className="space-y-6">
           {/* Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <Shield className="w-8 h-8 text-blue-400" />
                 <span className={`text-2xl font-bold ${activeApiKeys.length > 0 ? 'text-green-400' : 'text-gray-400'}`}>
@@ -297,7 +297,7 @@ export default function ApiPage() {
               </p>
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <Activity className="w-8 h-8 text-purple-400" />
                 <span className="text-2xl font-bold text-white">{apiKeyRequests.length}</span>
@@ -306,7 +306,7 @@ export default function ApiPage() {
               <p className="text-sm text-gray-400 mt-1">Total de solicitações realizadas</p>
             </div>
 
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <Globe className="w-8 h-8 text-green-400" />
                 <span className="text-2xl font-bold text-white">v1</span>
@@ -345,14 +345,14 @@ export default function ApiPage() {
                             </code>
                             <button
                               onClick={() => toggleApiKeyVisibility(apiKey.id)}
-                              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                              className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded-lg transition duration-200"
                               title="Mostrar/Ocultar"
                             >
                               {showApiKey[apiKey.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => copyToClipboard(apiKey.generatedApiKey!, 'Chave API copiada!')}
-                              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                              className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded-lg transition duration-200"
                               title="Copiar"
                             >
                               <Copy className="w-4 h-4" />
@@ -425,7 +425,7 @@ export default function ApiPage() {
 
       {activeTab === 'documentation' && (
         <div className="space-y-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <div className="glass-card p-6">
             <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
               <FileText className="w-5 h-5 mr-2" />
               Documentação da API
@@ -581,7 +581,7 @@ export default function ApiPage() {
 
       {activeTab === 'requests' && (
         <div className="space-y-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+          <div className="glass-card shadow-lg">
             <div className="p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Histórico de Solicitações</h2>
               
@@ -686,9 +686,9 @@ export default function ApiPage() {
 
       {/* Request Form Modal */}
       {showRequestForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-6">Solicitar Acesso à API</h2>
+        <div className="modal-backdrop">
+          <div className="glass-card p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold gradient-text mb-6">Solicitar Acesso à API</h2>
             
             <form onSubmit={handleSubmitRequest} className="space-y-6">
               <div>
@@ -698,7 +698,7 @@ export default function ApiPage() {
                 <textarea
                   value={requestData.usageReason}
                   onChange={(e) => setRequestData({ ...requestData, usageReason: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                   rows={4}
                   required
                   minLength={10}
@@ -718,7 +718,7 @@ export default function ApiPage() {
                     type="url"
                     value={requestData.serviceUrl}
                     onChange={(e) => setRequestData({ ...requestData, serviceUrl: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full input-modern"
                     required
                     placeholder="https://exemplo.com"
                   />
@@ -735,7 +735,7 @@ export default function ApiPage() {
                     type="text"
                     value={requestData.estimatedVolume}
                     onChange={(e) => setRequestData({ ...requestData, estimatedVolume: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full input-modern"
                     required
                     placeholder="100-500 transações/mês"
                   />
@@ -752,7 +752,7 @@ export default function ApiPage() {
                 <select
                   value={requestData.usageType}
                   onChange={(e) => setRequestData({ ...requestData, usageType: e.target.value as any })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full input-modern"
                   required
                 >
                   <option value="SINGLE_CPF">CPF/CNPJ Único - Pagamentos centralizados em meu nome</option>
@@ -795,7 +795,7 @@ export default function ApiPage() {
                 <button
                   type="button"
                   onClick={() => setShowRequestForm(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                  className="btn-outline transition duration-200"
                   disabled={isSubmitting}
                 >
                   Cancelar

@@ -7,12 +7,14 @@ interface DropdownPortalProps {
   children: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
-  targetRef: React.RefObject<HTMLElement>;
+  targetRef: React.RefObject<HTMLElement | null>;
+  onPeriodSelect?: (period: any) => void;
 }
 
 export function DropdownPortal({ children, isOpen, onClose, targetRef }: DropdownPortalProps) {
   const [mounted, setMounted] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -27,11 +29,11 @@ export function DropdownPortal({ children, isOpen, onClose, targetRef }: Dropdow
       
       // Calculate position
       let top = rect.bottom + scrollTop + 8;
-      let left = rect.left + scrollLeft - 150; // Offset for menu width
-      
+      let left = rect.left + scrollLeft; // Align with button left edge
+
       // Ensure menu doesn't go off screen
-      const menuWidth = 200;
-      const menuHeight = 300; // Approximate height
+      const menuWidth = 288; // 72 * 4 (w-72 class)
+      const menuHeight = 400; // Max height from transactions page
       
       if (left + menuWidth > window.innerWidth) {
         left = window.innerWidth - menuWidth - 20;
@@ -52,7 +54,11 @@ export function DropdownPortal({ children, isOpen, onClose, targetRef }: Dropdow
   useEffect(() => {
     if (isOpen) {
       const handleClick = (e: MouseEvent) => {
-        if (targetRef.current && !targetRef.current.contains(e.target as Node)) {
+        const target = e.target as Node;
+        const isInsideTarget = targetRef.current && targetRef.current.contains(target);
+        const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+
+        if (!isInsideTarget && !isInsideDropdown) {
           onClose();
         }
       };
@@ -76,15 +82,23 @@ export function DropdownPortal({ children, isOpen, onClose, targetRef }: Dropdow
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div 
-        className="fixed z-50 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700"
-        style={{ top: `${position.top}px`, left: `${position.left}px` }}
-      >
-        {children}
-      </div>
-    </>,
+    <div
+      ref={dropdownRef}
+      className="fixed"
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        zIndex: 2147483647 // Maximum safe z-index value
+      }}
+      onClick={(e) => {
+        console.log('🏠 Portal container clicked:', e.target);
+      }}
+      onMouseDown={(e) => {
+        console.log('🏠 Portal container mousedown:', e.target);
+      }}
+    >
+      {children}
+    </div>,
     document.body
   );
 }

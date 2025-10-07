@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,79 +7,78 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Role enum for consistent role management
-enum UserRole {
-  USER
-  ADMIN
-}
-
-// User model for authentication and authorization
 model User {
-  id                    String        @id @default(uuid())
-  email                 String        @unique
-  username              String        @unique
-  password              String
-  apiKey                String?       @unique
-  role                  UserRole      @default(USER)
-  isActive              Boolean       @default(true)
-  
-  // Password reset fields
-  passwordResetCode     String?       // 6-digit code
-  passwordResetExpires  DateTime?     // Expiration time for reset code
-  passwordResetAttempts Int          @default(0) // Track attempts to prevent brute force
-  
-  // Account validation
-  isAccountValidated    Boolean       @default(false) // Account validated with R$1 payment
-  validationPaymentId   String?       // Transaction ID of validation payment
-  validatedAt           DateTime?     // When account was validated
-  
-  // Commerce mode settings
-  commerceMode          Boolean       @default(false) // Enable commerce features
-  commerceModeActivatedAt DateTime?   // When commerce mode was activated
-  paymentLinksEnabled   Boolean       @default(false) // Enable payment links creation
-  
-  // API limits
-  apiDailyLimit         Float         @default(6000) // Daily limit for API usage
-  apiMonthlyLimit       Float         @default(180000) // Monthly limit for API usage
-  
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  lastLoginAt           DateTime?
-  transactions          Transaction[]
-  auditLogs             AuditLog[]
-  limits                UserLimit?
-  reputation            UserReputation?
-  apiKeyRequests        ApiKeyRequest[]
-  paymentLinks          PaymentLink[]
-  withdrawalRequests    WithdrawalRequest[]
+  id                      String               @id @default(uuid())
+  email                   String               @unique
+  username                String               @unique
+  password                String
+  apiKey                  String?              @unique
+  role                    UserRole             @default(USER)
+  isActive                Boolean              @default(true)
+  passwordResetCode       String?
+  passwordResetExpires    DateTime?
+  passwordResetAttempts   Int                  @default(0)
+  isAccountValidated      Boolean              @default(false)
+  validationPaymentId     String?
+  validatedAt             DateTime?
+  verifiedTaxNumber       String?
+  commerceMode            Boolean              @default(false)
+  commerceModeActivatedAt DateTime?
+  paymentLinksEnabled     Boolean              @default(false)
+  apiDailyLimit           Float                @default(10000)
+  apiMonthlyLimit         Float                @default(50000)
+  profilePicture          String?
+  defaultWalletAddress    String?
+  defaultWalletType       String?              @default("LIQUID")
+  pixKey                  String?
+  pixKeyType              PixKeyType?
+  twoFactorEnabled        Boolean              @default(false)
+  twoFactorSecret         String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  lastLoginAt             DateTime?
+  botExternalId           String?
+  externalUserId          String?              @unique
+  apiKeyRequests          ApiKeyRequest[]
+  auditLogs               AuditLog[]
+  commerceApplication     CommerceApplication?
+  couponUsages            CouponUsage[]
+  levelHistory            LevelHistory[]
+  paymentLinks            PaymentLink[]
+  transactions            Transaction[]
+  userLevel               UserLevel?
+  limits                  UserLimit?
+  reputation              UserReputation?
+  withdrawalRequests      WithdrawalRequest[]
 
   @@index([email])
   @@index([username])
   @@index([apiKey])
   @@index([role])
   @@index([passwordResetCode])
+  @@index([verifiedTaxNumber])
+  @@index([botExternalId])
 }
 
-// Transaction model for PIX operations
 model Transaction {
-  id              String            @id @default(uuid())
-  userId          String
-  user            User              @relation(fields: [userId], references: [id])
-  type            TransactionType
-  status          TransactionStatus
-  amount          Float
-  currency        String            @default("BRL")
-  pixKey          String?
-  pixKeyType      PixKeyType?
-  externalId      String?           @unique
-  description     String?
-  metadata        String? // JSON stored as string
-  errorMessage    String?
-  processedAt     DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  webhookEvents   WebhookEvent[]
-  auditLogs       AuditLog[]
+  id            String            @id @default(uuid())
+  userId        String
+  type          TransactionType
+  status        TransactionStatus
+  amount        Float
+  currency      String            @default("BRL")
+  pixKey        String?
+  pixKeyType    PixKeyType?
+  externalId    String?           @unique
+  description   String?
+  metadata      String?
+  errorMessage  String?
+  processedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  auditLogs     AuditLog[]
+  user          User              @relation(fields: [userId], references: [id])
+  webhookEvents WebhookEvent[]
 
   @@index([userId])
   @@index([status])
@@ -91,47 +87,45 @@ model Transaction {
   @@index([createdAt])
 }
 
-// Webhook events for async notifications
 model WebhookEvent {
-  id            String              @id @default(uuid())
+  id            String             @id @default(uuid())
   transactionId String
-  transaction   Transaction         @relation(fields: [transactionId], references: [id])
   url           String
-  method        String              @default("POST")
-  headers       String? // JSON stored as string
-  payload       String // JSON stored as string
-  status        WebhookEventStatus  @default(PENDING)
-  attempts      Int                 @default(0)
-  maxAttempts   Int                 @default(3)
+  method        String             @default("POST")
+  headers       String?
+  payload       String
+  status        WebhookEventStatus @default(PENDING)
+  attempts      Int                @default(0)
+  maxAttempts   Int                @default(3)
   lastAttemptAt DateTime?
   responseCode  Int?
   responseBody  String?
   nextRetryAt   DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  transaction   Transaction        @relation(fields: [transactionId], references: [id])
 
   @@index([transactionId])
   @@index([status])
   @@index([nextRetryAt])
 }
 
-// Audit log for compliance
 model AuditLog {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   userId        String?
-  user          User?       @relation(fields: [userId], references: [id])
   transactionId String?
-  transaction   Transaction? @relation(fields: [transactionId], references: [id])
   action        String
   resource      String
   resourceId    String?
   ipAddress     String?
   userAgent     String?
-  requestBody   String? // JSON stored as string
-  responseBody  String? // JSON stored as string
+  requestBody   String?
+  responseBody  String?
   statusCode    Int?
-  duration      Int? // in milliseconds
-  createdAt     DateTime    @default(now())
+  duration      Int?
+  createdAt     DateTime     @default(now())
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([transactionId])
@@ -139,13 +133,12 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// API Rate Limiting
 model RateLimit {
   id        String   @id @default(uuid())
-  key       String   @unique // Can be IP, userId, or apiKey
-  type      String   // 'ip', 'user', 'api_key'
+  key       String   @unique
+  type      String
   requests  Int      @default(0)
-  window    String   // e.g., '1h', '1d'
+  window    String
   resetAt   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,197 +147,286 @@ model RateLimit {
   @@index([resetAt])
 }
 
-// User Transaction Limits (MED Compliance)
 model UserLimit {
-  id                    String   @id @default(uuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Daily limits
-  dailyDepositLimit     Float    @default(500.00)   // R$ 500 first day default
-  dailyWithdrawLimit    Float    @default(500.00)   
-  dailyTransferLimit    Float    @default(500.00)   
-  
-  // Per transaction limits  
-  maxDepositPerTx       Float    @default(5000.00)  // R$ 5000 per transaction default
-  maxWithdrawPerTx      Float    @default(5000.00)  
-  maxTransferPerTx      Float    @default(5000.00)  
-  
-  // Monthly limits
-  monthlyDepositLimit   Float    @default(50000.00) // R$ 50k monthly default
-  monthlyWithdrawLimit  Float    @default(50000.00) 
-  monthlyTransferLimit  Float    @default(50000.00) 
-  
-  // Special flags for compliance
-  isFirstDay            Boolean  @default(true)     // Special R$500 limit for first day
-  isKycVerified         Boolean  @default(false)    // KYC status affects limits
-  isHighRiskUser        Boolean  @default(false)    // Admin can mark high risk users
-  
-  // Metadata
-  lastLimitUpdate       DateTime @default(now())
-  updatedByAdminId      String?  // Which admin updated the limits
-  notes                 String?  // Admin notes about limit changes
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  dailyDepositLimit    Float    @default(500.00)
+  dailyWithdrawLimit   Float    @default(500.00)
+  dailyTransferLimit   Float    @default(500.00)
+  maxDepositPerTx      Float    @default(5000.00)
+  maxWithdrawPerTx     Float    @default(5000.00)
+  maxTransferPerTx     Float    @default(5000.00)
+  monthlyDepositLimit  Float    @default(50000.00)
+  monthlyWithdrawLimit Float    @default(50000.00)
+  monthlyTransferLimit Float    @default(50000.00)
+  isFirstDay           Boolean  @default(true)
+  isKycVerified        Boolean  @default(false)
+  isHighRiskUser       Boolean  @default(false)
+  lastLimitUpdate      DateTime @default(now())
+  updatedByAdminId     String?
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isFirstDay])
   @@index([isKycVerified])
 }
 
-// API Key Request model for approval workflow
 model ApiKeyRequest {
-  id                    String              @id @default(uuid())
-  userId                String
-  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Request details
-  usageReason           String              // Why the user needs API access
-  serviceUrl            String              // URL of the service that will use the API
-  estimatedVolume       String              // Estimated payment volume (e.g., "100-500 transactions/month")
-  usageType             ApiKeyUsageType     @default(SINGLE_CPF) // Single CPF/CNPJ or multiple
-  
-  // Approval workflow
-  status                ApiKeyRequestStatus @default(PENDING)
-  approvedBy            String?             // Admin ID who approved/rejected
-  approvalNotes         String?             // Admin notes on approval/rejection
-  approvedAt            DateTime?
-  rejectedAt            DateTime?
-  
-  // Generated API key info (after approval)
-  generatedApiKey       String?             @unique
-  apiKeyExpiresAt       DateTime?
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  
+  id              String              @id @default(uuid())
+  userId          String
+  usageReason     String
+  serviceUrl      String
+  estimatedVolume String
+  usageType       ApiKeyUsageType     @default(SINGLE_CPF)
+  status          ApiKeyRequestStatus @default(PENDING)
+  approvedBy      String?
+  approvalNotes   String?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  generatedApiKey String?             @unique
+  apiKeyExpiresAt DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([status])
   @@index([createdAt])
 }
 
-// Payment Links for quick payment generation
 model PaymentLink {
-  id                    String              @id @default(uuid())
-  userId                String
-  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Link configuration
-  shortCode             String              @unique // Short code for the link (e.g., "abc123")
-  amount                Float               // Amount to be paid
-  walletAddress         String              // Wallet to receive payment
-  description           String?             // Optional description
-  
-  // PIX QR Code management
-  currentQrCode         String?             // Current QR code data
-  qrCodeGeneratedAt     DateTime?           // When current QR was generated
-  lastPaymentId         String?             // Last successful payment transaction ID
-  
-  // Statistics
-  totalPayments         Int                 @default(0) // Total successful payments
-  totalAmount           Float               @default(0) // Total amount received
-  
-  isActive              Boolean             @default(true)
-  expiresAt             DateTime?           // Optional expiration date
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  
+  id                String    @id @default(uuid())
+  userId            String
+  shortCode         String    @unique
+  amount            Float?
+  isCustomAmount    Boolean   @default(false)
+  minAmount         Float?
+  maxAmount         Float?
+  walletAddress     String
+  description       String?
+  currentQrCode     String?
+  qrCodeGeneratedAt DateTime?
+  lastPaymentId     String?
+  totalPayments     Int       @default(0)
+  totalAmount       Float     @default(0)
+  isActive          Boolean   @default(true)
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([shortCode])
   @@index([userId])
   @@index([isActive])
 }
 
-// User Reputation for tracking user trust level
 model UserReputation {
-  id                    String              @id @default(uuid())
-  userId                String              @unique
-  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Transaction metrics
-  totalApprovedVolume   Float               @default(0)      // Total value of approved transactions
-  totalApprovedCount    Int                 @default(0)      // Number of approved transactions
-  totalRejectedCount    Int                 @default(0)      // Number of rejected/failed transactions
-  
-  // Reputation score (0-100)
-  reputationScore       Float               @default(0)      // Calculated reputation score
-  
-  // Current limits based on reputation
-  currentDailyLimit     Float               @default(6000)   // Current daily limit
-  nextLimitThreshold    Float               @default(50000)  // Volume needed for next limit increase
-  limitTier             Int                 @default(1)      // Current tier (1=6k, 2=10k, 3=20k, etc)
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  totalApprovedVolume Float    @default(0)
+  totalApprovedCount  Int      @default(0)
+  totalRejectedCount  Int      @default(0)
+  reputationScore     Float    @default(0)
+  currentDailyLimit   Float    @default(6000)
+  nextLimitThreshold  Float    @default(50000)
+  limitTier           Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([reputationScore])
 }
 
-// Withdrawal Request for managing user withdrawals
 model WithdrawalRequest {
-  id                    String              @id @default(uuid())
-  userId                String
-  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Withdrawal details
-  amount                Float               // Amount requested
-  method                WithdrawalMethod    // PIX or DEPIX
-  pixKey                String?             // PIX key for PIX withdrawals
-  pixKeyType            PixKeyType?         // Type of PIX key
-  liquidAddress         String?             // Liquid address for DePix withdrawals
-  
-  // Fee calculation
-  fee                   Float               // Calculated fee (1% for PIX, 3.50 for DePix)
-  netAmount             Float               // Amount after fee deduction
-  
-  // Status tracking
-  status                WithdrawalStatus    @default(PENDING)
-  statusReason          String?             // Reason for rejection/cancellation
-  
-  // D+1 Processing
-  requestedAt           DateTime            @default(now())
-  scheduledFor          DateTime            // D+1 date for processing
-  processedAt           DateTime?           // Actual processing date
-  
-  // Admin approval
-  approvedBy            String?             // Admin who approved
-  approvedAt            DateTime?
-  rejectedBy            String?             // Admin who rejected
-  rejectedAt            DateTime?
-  adminNotes            String?             // Admin notes on approval/rejection
-  
-  // Coldwallet info (for admin use)
-  coldwalletTxId        String?             // Transaction ID from coldwallet
-  
-  // Document verification (optional)
-  cpfCnpj               String?             // User's CPF/CNPJ for verification
-  fullName              String?             // Full name for verification
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  
+  id             String           @id @default(uuid())
+  userId         String
+  amount         Float
+  method         WithdrawalMethod
+  pixKey         String?
+  pixKeyType     PixKeyType?
+  liquidAddress  String?
+  fee            Float
+  netAmount      Float
+  status         WithdrawalStatus @default(PENDING)
+  statusReason   String?
+  requestedAt    DateTime         @default(now())
+  scheduledFor   DateTime
+  processedAt    DateTime?
+  approvedBy     String?
+  approvedAt     DateTime?
+  rejectedBy     String?
+  rejectedAt     DateTime?
+  adminNotes     String?
+  coldwalletTxId String?
+  cpfCnpj        String?
+  fullName       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  couponUsages   CouponUsage[]
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([status])
   @@index([scheduledFor])
   @@index([method])
 }
 
-// System Settings for configuration
 model SystemSettings {
-  id                    String              @id @default(uuid())
-  key                   String              @unique
-  value                 String              // JSON stored as string
-  description           String?
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@index([key])
 }
 
-// Enums
+model DiscountCoupon {
+  id                 String        @id @default(uuid())
+  code               String        @unique
+  description        String?
+  discountPercentage Float
+  maxUses            Int?
+  maxUsesPerUser     Int           @default(1)
+  currentUses        Int           @default(0)
+  validFrom          DateTime      @default(now())
+  validUntil         DateTime?
+  minAmount          Float?
+  maxAmount          Float?
+  allowedMethods     String[]      @default(["PIX", "DEPIX"])
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  createdBy          String?
+  usages             CouponUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validUntil])
+}
+
+model CouponUsage {
+  id                  String             @id @default(uuid())
+  couponId            String
+  userId              String
+  withdrawalRequestId String?
+  discountApplied     Float
+  originalFee         Float
+  finalFee            Float
+  usedAt              DateTime           @default(now())
+  coupon              DiscountCoupon     @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
+
+  @@unique([couponId, userId, withdrawalRequestId])
+  @@index([couponId])
+  @@index([userId])
+  @@index([usedAt])
+}
+
+model CommerceApplication {
+  id                  String                    @id @default(uuid())
+  userId              String                    @unique
+  businessName        String
+  businessType        String
+  monthlyVolume       String
+  productDescription  String
+  targetAudience      String
+  hasPhysicalStore    String
+  socialMedia         String
+  businessObjective   String
+  status              CommerceApplicationStatus @default(PENDING)
+  depositAmount       Float?                    @default(100000)
+  depositPaid         Boolean                   @default(false)
+  depositPaidAt       DateTime?
+  depositRefunded     Boolean                   @default(false)
+  depositRefundedAt   DateTime?
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  reviewNotes         String?
+  rejectionReason     String?
+  transactionCount    Int                       @default(0)
+  commerceActivatedAt DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UserLevel {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  level                 Int       @default(0)
+  dailyLimitBrl         Decimal   @default(0) @db.Decimal(10, 2)
+  dailyUsedBrl          Decimal   @default(0) @db.Decimal(10, 2)
+  totalVolumeBrl        Decimal?  @default(0) @db.Decimal(12, 2)
+  completedTransactions Int       @default(0)
+  lastLimitReset        DateTime  @default(now())
+  lastLevelUpgrade      DateTime?
+  syncedFromBot         Boolean   @default(false)
+  botExternalId         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([level])
+  @@index([botExternalId])
+  @@index([lastLimitReset])
+  @@index([dailyLimitBrl])
+}
+
+model LevelConfig {
+  level                     Int      @id
+  name                      String
+  dailyLimitBrl             Decimal  @db.Decimal(10, 2)
+  maxPerTransactionBrl      Decimal? @db.Decimal(10, 2)
+  minTransactionsForUpgrade Int
+  minVolumeForUpgrade       Decimal  @db.Decimal(12, 2)
+  description               String
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([level])
+}
+
+model LevelHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  oldLevel  Int
+  newLevel  Int
+  oldLimit  Decimal  @db.Decimal(10, 2)
+  newLimit  Decimal  @db.Decimal(10, 2)
+  reason    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([newLevel])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum CommerceApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  DEPOSIT_PENDING
+  ACTIVE
+}
+
 enum ApiKeyRequestStatus {
   PENDING
   APPROVED
@@ -353,8 +435,8 @@ enum ApiKeyRequestStatus {
 }
 
 enum ApiKeyUsageType {
-  SINGLE_CPF   // User will centralize payments in a single CPF/CNPJ
-  MULTIPLE_CPF // User will process payments from different CPF/CNPJ
+  SINGLE_CPF
+  MULTIPLE_CPF
 }
 
 enum TransactionType {
@@ -394,11 +476,11 @@ enum WithdrawalMethod {
 }
 
 enum WithdrawalStatus {
-  PENDING      // Aguardando aprovação
-  APPROVED     // Aprovado pelo admin
-  REJECTED     // Rejeitado pelo admin
-  PROCESSING   // Em processamento
-  COMPLETED    // Concluído
-  FAILED       // Falhou
-  CANCELLED    // Cancelado pelo usuário
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
 }

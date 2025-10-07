@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
   console.log('Middleware - userCookie:', userCookie ? 'EXISTS' : 'NOT FOUND');
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa'];
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/');
   
   // Auth routes that should redirect logged-in users
@@ -34,7 +34,23 @@ export function middleware(request: NextRequest) {
   // Only redirect authenticated users away from auth routes (login, register, etc)
   // But allow them to access home page (/) and payment pages (/pay/*)
   if (accessToken && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    // Check user's commerce mode to determine redirect destination
+    let redirectUrl = '/dashboard'; // default
+
+    if (userCookie) {
+      try {
+        const user = JSON.parse(userCookie.value);
+        console.log('Middleware - User commerce mode:', user.commerceMode);
+        if (user.commerceMode) {
+          redirectUrl = '/commerce';
+          console.log('Middleware - Redirecting commerce user to /commerce');
+        }
+      } catch (error) {
+        console.log('Middleware - Error parsing user cookie:', error);
+      }
+    }
+
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
 
   // Check admin access

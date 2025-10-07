@@ -4,9 +4,9 @@ import { ApiKeyRequestService } from './api-key-request.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [ApiKeyRequestController],
-  providers: [ApiKeyRequestService],
-  exports: [ApiKeyRequestService],
+	imports: [PrismaModule],
+	controllers: [ApiKeyRequestController],
+	providers: [ApiKeyRequestService],
+	exports: [ApiKeyRequestService],
 })
 export class ApiKeyRequestModule {}

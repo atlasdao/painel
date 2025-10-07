@@ -199,7 +199,7 @@ export default function AdminAuditPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold gradient-text">
               Logs de Auditoria
             </h1>
             <p className="text-gray-400 mt-2">
@@ -366,7 +366,7 @@ export default function AdminAuditPage() {
         </div>
 
         {/* Audit Logs Table */}
-        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
+        <div className="glass-card shadow-lg border border-gray-700 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -378,7 +378,7 @@ export default function AdminAuditPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="table-modern">
                 <thead className="bg-gray-700">
                   <tr>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
@@ -476,8 +476,8 @@ export default function AdminAuditPage() {
 
         {/* Audit Log Details Modal */}
         {showModal && selectedLog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="glass-card shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b border-gray-700">
                 <h2 className="text-xl font-bold text-white flex items-center">
                   <FileText className="w-6 h-6 mr-2" />
@@ -636,7 +636,7 @@ export default function AdminAuditPage() {
               <div className="flex justify-end p-6 border-t border-gray-700">
                 <button
                   onClick={handleCloseModal}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
+                  className="btn-outline transition duration-200"
                 >
                   Fechar
                 </button>

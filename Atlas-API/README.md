@@ -2,7 +2,7 @@
 
 ## 📋 Sobre o Projeto
 
-Atlas API é um gateway de pagamentos robusto que integra PIX com DePix (Liquid Network), permitindo conversões instantâneas entre moeda fiduciária brasileira e ativos digitais. O sistema oferece uma solução completa para processamento de pagamentos, com suporte a múltiplos níveis de usuário e autenticação via JWT e API Keys.
+Atlas API é um gateway de pagamentos robusto que integra PIX com DePix (Liquid Network), permitindo conversões instantâneas entre moeda fiduciária brasileira e ativos digitais. O sistema oferece uma solução completa para processamento de pagamentos, com suporte a múltiplos níveis de usuário e autenticação via JWT e API Keys. Nosso foco é aceitar comerciantes, oferecer as melhores ferramentas para aumentar as vendas deles e oferecer todo um ecosistema de serviços complementares que ele pode usar com a Atlas com soberania e privacidade.
 
 ## 🚀 Características Principais
 

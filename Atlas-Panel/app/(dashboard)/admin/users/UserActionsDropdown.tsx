@@ -19,6 +19,7 @@ interface UserActionsDropdownProps {
   onRevokeApiKey: (userId: string) => void;
   onDeleteUser: (userId: string) => void;
   onManageLimits: (user: any) => void;
+  onToggleCommerceMode?: (userId: string, currentMode: boolean) => void;
 }
 
 export default function UserActionsDropdown({
@@ -28,6 +29,7 @@ export default function UserActionsDropdown({
   onRevokeApiKey,
   onDeleteUser,
   onManageLimits,
+  onToggleCommerceMode,
 }: UserActionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -114,6 +116,7 @@ export default function UserActionsDropdown({
               <DollarSign size={16} className="mr-2 text-yellow-400" />
               Ajustar Limites
             </button>
+
 
             {user.apiKey && (
               <button

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pixKey" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pixKeyType" "PixKeyType";

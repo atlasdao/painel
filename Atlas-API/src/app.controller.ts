@@ -6,17 +6,17 @@ import { Public } from './common/decorators/public.decorator';
 @ApiTags('Health')
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+	constructor(private readonly appService: AppService) {}
 
-  @Get()
-  @Public()
-  @ApiOperation({ summary: 'Health check endpoint' })
-  @ApiResponse({ status: 200, description: 'API is healthy' })
-  getHealth(): { status: string; message: string; timestamp: string } {
-    return {
-      status: 'healthy',
-      message: 'Eulen API is running',
-      timestamp: new Date().toISOString(),
-    };
-  }
+	@Get()
+	@Public()
+	@ApiOperation({ summary: 'Health check endpoint' })
+	@ApiResponse({ status: 200, description: 'API is healthy' })
+	getHealth(): { status: string; message: string; timestamp: string } {
+		return {
+			status: 'healthy',
+			message: 'Depix API is running',
+			timestamp: new Date().toISOString(),
+		};
+	}
 }
