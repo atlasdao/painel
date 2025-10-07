@@ -57,6 +57,12 @@ CLAUDE.md
 .DS_Store
 Thumbs.db
 
+# --- Arquivos Temporarios ---
+
+/tmp
+tmp
+*.tmp
+
 # --- Pasta de Configuração de Editor (Opcional) ---
 .vscode/
 .idea/
