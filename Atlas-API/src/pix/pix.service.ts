@@ -374,10 +374,11 @@ export class PixService {
 
 			// For ALL personal deposits (both commerce and non-commerce users), enforce account validation and EUID
 			// This ensures only verified users can buy DePix for their own CPF
-			// However, skip validation checks for validation payments (to avoid circular dependency)
+			// However, skip validation checks for validation payments and payment links (to avoid circular dependency)
 			const isValidationPayment = data.metadata && data.metadata.isValidation === true;
+			const isPaymentLink = data.metadata && data.metadata.paymentLinkId;
 
-			if (!isValidationPayment) {
+			if (!isValidationPayment && !isPaymentLink) {
 				// Check if account is validated
 				if (!user.isAccountValidated) {
 					throw new HttpException(
@@ -386,24 +387,21 @@ export class PixService {
 					);
 				}
 
-				// Check if user has verified tax number (EUID)
-				if (!user.verifiedTaxNumber) {
-					throw new HttpException(
-						'Para criar depósitos pessoais, você precisa revalidar sua conta com CPF/CNPJ. Contate o suporte.',
-						HttpStatus.FORBIDDEN,
-					);
-				}
+				// Note: verifiedTaxNumber is optional for backwards compatibility with legacy users
+				// If present, it will be used as EUID in the Eulen API call below
 			}
 
-			// Validate user level limits for QR code generation
-			await this.levelsService.validateTransactionLimit(
-				userId,
-				data.amount,
-				TransactionType.DEPOSIT
-			);
+			// Validate user level limits for QR code generation (skip for payment links)
+			if (!isPaymentLink) {
+				await this.levelsService.validateTransactionLimit(
+					userId,
+					data.amount,
+					TransactionType.DEPOSIT
+				);
+			}
 
 			// For personal deposits, only use verified tax number if it's not the problematic EUID
-			if (!data.metadata?.isValidation) { // Skip enforcement for validation payments
+			if (!data.metadata?.isValidation && !data.metadata?.paymentLinkId) { // Skip enforcement for validation payments and payment links
 				// Don't send the problematic EUID that Eulen rejects
 				if (user.verifiedTaxNumber && user.verifiedTaxNumber !== 'EU022986123087767') {
 					data.payerCpfCnpj = user.verifiedTaxNumber; // Use verified tax number as EUID

@@ -256,15 +256,14 @@ export class EulenClientService {
 					amountInCents: data.amount,
 				};
 
-				// CRITICAL FIX: Only add depixAddress if it's a valid PIX key, NOT a Liquid address
-				// PIX keys are: CPF (11 digits), CNPJ (14 digits), email, phone, or EVP (random key)
-				// Liquid addresses start with prefixes like "lq1", "VJL", "ex1", etc.
-				if (data.pixKey && this.isValidPixKey(data.pixKey)) {
+				// CRITICAL: Always send depixAddress if provided
+				// The Eulen API expects a Liquid Network address here (destination wallet for DePix tokens)
+				// This is where the converted DePix (L-BTC) will be sent after PIX payment is received
+				if (data.pixKey) {
 					requestData.depixAddress = data.pixKey;
-					this.logger.log(`✅ Including PIX key as depixAddress: ${data.pixKey}`);
-				} else if (data.pixKey) {
-					this.logger.log(`⚠️ Skipping Liquid address - will use API default PIX address: ${data.pixKey}`);
-					// Do NOT send the Liquid address to the API - let it use the default PIX receiving address
+					this.logger.log(`✅ Including depixAddress (Liquid wallet): ${data.pixKey}`);
+				} else {
+					this.logger.log(`⚠️ No depixAddress provided - API will use default wallet`);
 				}
 
 				// Only add optional fields if they are provided
