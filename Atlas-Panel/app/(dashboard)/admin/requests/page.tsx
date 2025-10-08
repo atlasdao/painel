@@ -17,7 +17,8 @@ import {
   Globe,
   AlertCircle,
   History,
-  Store
+  Store,
+  Heart
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/app/lib/api';
@@ -110,24 +111,49 @@ interface CommerceApplication {
   updatedAt: string;
 }
 
+interface Donation {
+  id: string;
+  userId?: string;
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+  };
+  donorName?: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  message?: string;
+  transactionId?: string;
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AdminRequestsPage() {
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'api' | 'commerce'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'api' | 'commerce' | 'donations'>('withdrawals');
   const [withdrawalView, setWithdrawalView] = useState<'pending' | 'history'>('pending');
   const [apiView, setApiView] = useState<'pending' | 'history'>('pending');
   const [commerceView, setCommerceView] = useState<'pending' | 'history'>('pending');
+  const [donationView, setDonationView] = useState<'pending' | 'history'>('pending');
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalRequest[]>([]);
   const [apiRequests, setApiRequests] = useState<ApiKeyRequest[]>([]);
   const [apiHistory, setApiHistory] = useState<ApiKeyRequest[]>([]);
   const [commerceApplications, setCommerceApplications] = useState<CommerceApplication[]>([]);
   const [commerceHistory, setCommerceHistory] = useState<CommerceApplication[]>([]);
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [donationHistory, setDonationHistory] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
   const [selectedApiRequest, setSelectedApiRequest] = useState<ApiKeyRequest | null>(null);
   const [selectedCommerceApplication, setSelectedCommerceApplication] = useState<CommerceApplication | null>(null);
+  const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showApiDetailsModal, setShowApiDetailsModal] = useState(false);
   const [showCommerceDetailsModal, setShowCommerceDetailsModal] = useState(false);
+  const [showDonationDetailsModal, setShowDonationDetailsModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -139,9 +165,11 @@ export default function AdminRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<WithdrawalStatus | 'ALL'>('ALL');
   const [apiStatusFilter, setApiStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED'>('ALL');
   const [commerceStatusFilter, setCommerceStatusFilter] = useState<'ALL' | 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DEPOSIT_PENDING' | 'ACTIVE'>('ALL');
+  const [donationStatusFilter, setDonationStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [apiCurrentPage, setApiCurrentPage] = useState(1);
   const [commerceCurrentPage, setCommerceCurrentPage] = useState(1);
+  const [donationCurrentPage, setDonationCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
@@ -167,8 +195,14 @@ export default function AdminRequestsPage() {
       } else {
         fetchCommerceHistory();
       }
+    } else if (activeTab === 'donations') {
+      if (donationView === 'pending') {
+        fetchDonations();
+      } else {
+        fetchDonationHistory();
+      }
     }
-  }, [activeTab, withdrawalView, apiView, commerceView, statusFilter, apiStatusFilter, commerceStatusFilter, currentPage, apiCurrentPage, commerceCurrentPage]);
+  }, [activeTab, withdrawalView, apiView, commerceView, donationView, statusFilter, apiStatusFilter, commerceStatusFilter, donationStatusFilter, currentPage, apiCurrentPage, commerceCurrentPage, donationCurrentPage]);
 
   const fetchWithdrawals = async () => {
     // Prevent concurrent fetches
@@ -378,6 +412,151 @@ export default function AdminRequestsPage() {
     } finally {
       setLoading(false);
       setIsFetching(false);
+    }
+  };
+
+  const fetchDonations = async () => {
+    // Prevent concurrent fetches
+    if (isFetching) {
+      console.log('⏳ Already fetching, skipping duplicate request');
+      return;
+    }
+    try {
+      setIsFetching(true);
+      setLoading(true);
+      console.log('🔄 Fetching pending donations from /donations/admin');
+
+      const response = await api.get('/donations/admin', {
+        params: {
+          status: 'PENDING', // Always filter for PENDING donations in the "Pendentes" view
+          page: donationCurrentPage,
+          limit: itemsPerPage
+        }
+      });
+
+      console.log('✅ Pending donations fetched successfully:', response.data);
+      setDonations(response.data.data?.donations || []);
+    } catch (error: any) {
+      console.error('❌ Error fetching donations:', error);
+      if (error.response?.status === 429) {
+        toast.error('Muitas requisições. Por favor, aguarde um momento.');
+      } else if (error.response?.status === 401) {
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
+      } else if (error.response?.status === 403) {
+        toast.error('Acesso negado. Você precisa ser um administrador.');
+      } else {
+        toast.error(error.response?.data?.message || 'Erro ao carregar doações');
+      }
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const fetchDonationHistory = async () => {
+    // Prevent concurrent fetches
+    if (isFetching) {
+      console.log('⏳ Already fetching, skipping duplicate request');
+      return;
+    }
+    try {
+      setIsFetching(true);
+      setLoading(true);
+      console.log('🔄 Fetching donation history from /donations/admin');
+
+      const response = await api.get('/donations/admin', {
+        params: {
+          status: donationStatusFilter !== 'ALL' ? donationStatusFilter : undefined,
+          page: donationCurrentPage,
+          limit: itemsPerPage,
+          includeHistory: true
+        }
+      });
+
+      console.log('✅ Donation history fetched successfully:', response.data);
+      setDonationHistory(response.data.data?.donations || []);
+    } catch (error: any) {
+      console.error('❌ Error fetching donation history:', error);
+      if (error.response?.status === 429) {
+        toast.error('Muitas requisições. Por favor, aguarde um momento.');
+      } else if (error.response?.status === 401) {
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
+      } else if (error.response?.status === 403) {
+        toast.error('Acesso negado. Você precisa ser um administrador.');
+      } else {
+        toast.error(error.response?.data?.message || 'Erro ao carregar histórico de doações');
+      }
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const approveDonation = async (id: string) => {
+    // Store original state for rollback if needed
+    const originalDonations = [...donations];
+    const originalHistory = [...donationHistory];
+
+    try {
+      setIsProcessing(true);
+
+      // Optimistic update - remove the donation immediately
+      if (donationView === 'pending') {
+        setDonations(prev => prev.filter(d => d.id !== id));
+      } else {
+        setDonationHistory(prev => prev.filter(d => d.id !== id));
+      }
+
+      await api.patch(`/donations/admin/${id}/approve`);
+      toast.success('Doação aprovada com sucesso');
+
+    } catch (error: any) {
+      console.error('❌ Error approving donation:', error);
+      toast.error(error.response?.data?.message || 'Erro ao aprovar doação');
+
+      // Rollback on error
+      if (donationView === 'pending') {
+        setDonations(originalDonations);
+      } else {
+        setDonationHistory(originalHistory);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const rejectDonation = async (id: string, reason?: string) => {
+    // Store original state for rollback if needed
+    const originalDonations = [...donations];
+    const originalHistory = [...donationHistory];
+
+    try {
+      setIsProcessing(true);
+
+      // Optimistic update - remove the donation immediately
+      if (donationView === 'pending') {
+        setDonations(prev => prev.filter(d => d.id !== id));
+      } else {
+        setDonationHistory(prev => prev.filter(d => d.id !== id));
+      }
+
+      await api.patch(`/donations/admin/${id}/reject`, {
+        rejectionReason: reason
+      });
+      toast.success('Doação rejeitada');
+
+    } catch (error: any) {
+      console.error('❌ Error rejecting donation:', error);
+      toast.error(error.response?.data?.message || 'Erro ao rejeitar doação');
+
+      // Rollback on error
+      if (donationView === 'pending') {
+        setDonations(originalDonations);
+      } else {
+        setDonationHistory(originalHistory);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -637,6 +816,20 @@ export default function AdminRequestsPage() {
           <div className="text-left">
             <div className="text-sm">Comércio</div>
             <div className="text-xs opacity-80">{commerceApplications.length} pendentes</div>
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('donations')}
+          className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all ${
+            activeTab === 'donations'
+              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          <Heart size={20} />
+          <div className="text-left">
+            <div className="text-sm">Doações</div>
+            <div className="text-xs opacity-80">{donations.length} pendentes</div>
           </div>
         </button>
       </div>
@@ -2137,8 +2330,357 @@ export default function AdminRequestsPage() {
         </div>
       )}
 
+      {activeTab === 'donations' && (
+        <div className="space-y-6">
+          {/* Secondary Navigation for Donations */}
+          <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setDonationView('pending')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  donationView === 'pending'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                Pendentes
+              </button>
+              <button
+                onClick={() => setDonationView('history')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  donationView === 'history'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                Histórico
+              </button>
+            </div>
+
+            {donationView === 'history' && (
+              <div className="flex items-center space-x-4">
+                <select
+                  value={donationStatusFilter}
+                  onChange={(e) => setDonationStatusFilter(e.target.value as 'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED')}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
+                >
+                  <option value="ALL">Todos</option>
+                  <option value="PENDING">Pendente</option>
+                  <option value="CONFIRMED">Confirmada</option>
+                  <option value="REJECTED">Rejeitada</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Donations Content */}
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {donationView === 'pending' && (
+                <>
+                  {donations.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Heart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-300 mb-2">Nenhuma doação pendente</h3>
+                      <p className="text-gray-400">Não há doações aguardando aprovação no momento.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {donations.map((donation) => (
+                        <div key={donation.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-3">
+                                <User className="text-blue-400" size={20} />
+                                <div>
+                                  <p className="text-white font-medium">
+                                    {donation.user?.username || donation.donorName || 'Doador Anônimo'}
+                                  </p>
+                                  {donation.user?.email && (
+                                    <p className="text-gray-400 text-sm">{donation.user.email}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <p className="text-gray-400 text-sm">Valor</p>
+                                  <p className="text-white font-semibold">
+                                    {formatCurrency(donation.amount)} ({donation.paymentMethod})
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-400 text-sm">Data</p>
+                                  <p className="text-white">
+                                    {new Date(donation.createdAt).toLocaleString('pt-BR')}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {donation.message && (
+                                <div className="mb-4">
+                                  <p className="text-gray-400 text-sm">Mensagem</p>
+                                  <p className="text-gray-300 bg-gray-700/50 rounded-lg p-3">
+                                    {donation.message}
+                                  </p>
+                                </div>
+                              )}
+
+                              {donation.transactionId && (
+                                <div className="mb-4">
+                                  <p className="text-gray-400 text-sm">ID da Transação</p>
+                                  <p className="text-gray-300 font-mono text-sm">{donation.transactionId}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex space-x-2 ml-4">
+                              <button
+                                onClick={() => approveDonation(donation.id)}
+                                disabled={isProcessing}
+                                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                              >
+                                <Check size={16} />
+                                Aprovar
+                              </button>
+                              <button
+                                onClick={() => rejectDonation(donation.id)}
+                                disabled={isProcessing}
+                                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                              >
+                                <X size={16} />
+                                Rejeitar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {donationView === 'history' && (
+                <>
+                  {donationHistory.length === 0 ? (
+                    <div className="text-center py-12">
+                      <History className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-300 mb-2">Nenhuma doação no histórico</h3>
+                      <p className="text-gray-400">Não há doações processadas com os filtros atuais.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-700">
+                          <thead className="bg-gray-700">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Doador
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Valor
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Método
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Status
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Data
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                Ações
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-gray-800 divide-y divide-gray-700">
+                            {donationHistory.map((donation) => (
+                              <tr key={donation.id} className="hover:bg-gray-700">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    <User className="text-blue-400 mr-3" size={16} />
+                                    <div>
+                                      <div className="text-sm font-medium text-white">
+                                        {donation.user?.username || donation.donorName || 'Doador Anônimo'}
+                                      </div>
+                                      {donation.user?.email && (
+                                        <div className="text-sm text-gray-400">{donation.user.email}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-white">{formatCurrency(donation.amount)}</div>
+                                  <div className="text-sm text-gray-400">{donation.currency}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-white">{donation.paymentMethod}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    donation.status === 'CONFIRMED'
+                                      ? 'bg-green-100 text-green-800'
+                                      : donation.status === 'REJECTED'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {donation.status === 'CONFIRMED' ? 'Confirmada' :
+                                     donation.status === 'REJECTED' ? 'Rejeitada' : 'Pendente'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-white">
+                                    {new Date(donation.createdAt).toLocaleDateString('pt-BR')}
+                                  </div>
+                                  <div className="text-sm text-gray-400">
+                                    {new Date(donation.createdAt).toLocaleTimeString('pt-BR')}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedDonation(donation);
+                                        setShowDonationDetailsModal(true);
+                                      }}
+                                      className="text-blue-400 hover:text-blue-300"
+                                      title="Ver detalhes"
+                                    >
+                                      <Eye size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Donation Details Modal */}
+      {showDonationDetailsModal && selectedDonation && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
+          <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
+              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-white">Detalhes da Doação</h2>
+                  <button
+                    onClick={() => {
+                      setShowDonationDetailsModal(false);
+                      setSelectedDonation(null);
+                    }}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto">
+                <div className="space-y-6">
+                  {/* Donor Info */}
+                  <div className="p-4 bg-gray-700/50 rounded-lg">
+                    <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Doador</h3>
+                    <p className="text-white">Nome: {selectedDonation.user?.username || selectedDonation.donorName || 'Doador Anônimo'}</p>
+                    {selectedDonation.user?.email && (
+                      <p className="text-gray-300">Email: {selectedDonation.user.email}</p>
+                    )}
+                    {selectedDonation.user?.id && (
+                      <p className="text-gray-300">ID: {selectedDonation.user.id}</p>
+                    )}
+                  </div>
+
+                  {/* Donation Details */}
+                  <div className="p-4 bg-gray-700/50 rounded-lg">
+                    <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes da Doação</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-white font-medium">Valor:</p>
+                        <p className="text-gray-300">{formatCurrency(selectedDonation.amount)} {selectedDonation.currency}</p>
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Método de Pagamento:</p>
+                        <p className="text-gray-300">{selectedDonation.paymentMethod}</p>
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Status:</p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          selectedDonation.status === 'CONFIRMED'
+                            ? 'bg-green-100 text-green-800'
+                            : selectedDonation.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {selectedDonation.status === 'CONFIRMED' ? 'Confirmada' :
+                           selectedDonation.status === 'REJECTED' ? 'Rejeitada' : 'Pendente'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Data:</p>
+                        <p className="text-gray-300">{new Date(selectedDonation.createdAt).toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Message */}
+                  {selectedDonation.message && (
+                    <div className="p-4 bg-gray-700/50 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-400 mb-2">Mensagem</h3>
+                      <p className="text-gray-300 whitespace-pre-wrap">{selectedDonation.message}</p>
+                    </div>
+                  )}
+
+                  {/* Transaction ID */}
+                  {selectedDonation.transactionId && (
+                    <div className="p-4 bg-gray-700/50 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-400 mb-2">ID da Transação</h3>
+                      <p className="text-gray-300 font-mono text-sm break-all">{selectedDonation.transactionId}</p>
+                    </div>
+                  )}
+
+                  {/* Confirmation Date */}
+                  {selectedDonation.confirmedAt && (
+                    <div className="p-4 bg-gray-700/50 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Confirmação</h3>
+                      <p className="text-gray-300">{new Date(selectedDonation.confirmedAt).toLocaleString('pt-BR')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-gray-900 px-6 py-4 border-t border-gray-700 rounded-b-xl">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowDonationDetailsModal(false);
+                      setSelectedDonation(null);
+                    }}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
@@ -2172,8 +2714,18 @@ export default function AdminRequestsPage() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm text-gray-400">Doações Pendentes</p>
+              <p className="text-2xl font-bold text-white">{donations.length}</p>
+            </div>
+            <Heart className="text-red-500" size={24} />
+          </div>
+        </div>
+
+        <div className="stat-card col-span-full">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm text-gray-400">Total Pendente</p>
-              <p className="text-2xl font-bold text-white">{withdrawals.length + apiRequests.length + commerceApplications.length}</p>
+              <p className="text-2xl font-bold text-white">{withdrawals.length + apiRequests.length + commerceApplications.length + donations.length}</p>
             </div>
             <FileText className="text-purple-500" size={24} />
           </div>

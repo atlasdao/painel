@@ -43,6 +43,7 @@ model User {
   auditLogs               AuditLog[]
   commerceApplication     CommerceApplication?
   couponUsages            CouponUsage[]
+  donations               Donation[]
   levelHistory            LevelHistory[]
   paymentLinks            PaymentLink[]
   transactions            Transaction[]
@@ -413,6 +414,28 @@ model LevelHistory {
   @@index([newLevel])
 }
 
+model Donation {
+  id            String         @id @default(uuid())
+  userId        String?
+  donorName     String?
+  amount        Float
+  currency      String         @default("BRL")
+  paymentMethod DonationMethod
+  message       String?
+  transactionId String?
+  pixQrCode     String?
+  status        DonationStatus @default(PENDING)
+  confirmedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User?          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([createdAt])
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -483,4 +506,21 @@ enum WithdrawalStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+enum DonationMethod {
+  PIX
+  DEPIX_LIQUID
+  DEPIX_LIGHTNING
+  BTC_ONCHAIN
+  BTC_LIGHTNING
+  BTC_LIQUID
+  USDT_ERC20
+  XMR
+}
+
+enum DonationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }

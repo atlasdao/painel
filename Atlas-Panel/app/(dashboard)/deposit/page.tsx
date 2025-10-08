@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { pixService, accountValidationService, profileService } from '@/app/lib/services';
+import { api } from '@/app/lib/api';
 import { DollarSign, Copy, Check, QrCode, Loader, CheckCircle, Clock, AlertCircle, Shield, Info } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -376,6 +377,24 @@ export default function DepositPage() {
       setValidationRequirements(requirements);
     } catch (error) {
       console.error('Error fetching validation requirements:', error);
+
+      // Get current validation amount robustly
+      try {
+        const validationAmount = await accountValidationService.getCurrentValidationAmount();
+        setValidationRequirements({
+          amount: validationAmount,
+          description: `Pagamento único de R$ ${validationAmount.toFixed(2).replace('.', ',')} para validar sua conta`,
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      } catch (fallbackError) {
+        console.error('Error getting current validation amount:', fallbackError);
+        // This should rarely happen now
+        setValidationRequirements({
+          amount: 2.0, // Use admin default instead of hardcoded 1.0
+          description: 'Pagamento único de R$ 2,00 para validar sua conta',
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      }
     }
   };
 

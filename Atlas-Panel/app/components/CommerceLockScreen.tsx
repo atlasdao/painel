@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lock, ShieldCheck, AlertCircle, ChevronRight, Store, CheckCircle, Coins, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { accountValidationService } from '@/app/lib/services';
 import CommerceApplicationForm from './CommerceApplicationForm';
 
 interface CommerceLockScreenProps {
@@ -16,7 +17,24 @@ export default function CommerceLockScreen({
   commerceMode = false
 }: CommerceLockScreenProps) {
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [validationAmount, setValidationAmount] = useState<number>(2.0);
 
+  // Fetch dynamic validation amount on component mount
+  useEffect(() => {
+    const fetchValidationAmount = async () => {
+      try {
+        console.log('[CommerceLockScreen] Fetching validation amount...');
+        const amount = await accountValidationService.getCurrentValidationAmount();
+        console.log('[CommerceLockScreen] Fetched validation amount:', amount);
+        setValidationAmount(amount);
+      } catch (error) {
+        console.warn('[CommerceLockScreen] Failed to fetch validation amount, using default:', error);
+        // Keep default value of 2.0
+      }
+    };
+
+    fetchValidationAmount();
+  }, []);
 
   const validationRequirements = [
     {
@@ -113,7 +131,7 @@ export default function CommerceLockScreen({
                 <div className="flex-1">
                   <h3 className="text-yellow-400 font-semibold text-lg mb-2">Validação de Conta Necessária</h3>
                   <p className="text-gray-300 mb-3 leading-relaxed">
-                    Para acessar o Modo Comércio, você precisa primeiro validar sua conta com um pagamento único de <strong className="text-white">R$ 1,00</strong>.
+                    Para acessar o Modo Comércio, você precisa primeiro validar sua conta com um pagamento único de <strong className="text-white">R$ {validationAmount.toFixed(2).replace('.', ',')}</strong>.
                   </p>
                 </div>
               </div>

@@ -26,7 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WithdrawalStatus, WithdrawalMethod, UserRole } from '@prisma/client';
 
 @ApiTags('withdrawals')
-@Controller('withdrawals')
+@Controller({ path: 'withdrawals', version: '1' })
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class WithdrawalsController {

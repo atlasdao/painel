@@ -710,7 +710,7 @@ export class PixService {
 							transaction.id,
 							newStatus,
 							newStatus === TransactionStatus.FAILED
-								? 'Payment failed or was canceled'
+								? 'Pagamento falhou ou foi cancelado'
 								: undefined,
 						);
 					}

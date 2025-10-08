@@ -10,8 +10,14 @@ export class ErrorTranslator {
 		Unauthorized: 'Não autorizado',
 		'Access denied': 'Acesso negado',
 		'Invalid token': 'Token inválido',
+		'Invalid token payload': 'Payload do token inválido',
+		'Invalid token algorithm': 'Algoritmo do token inválido',
+		'Invalid refresh token': 'Token de atualização inválido',
 		'Token expired': 'Token expirado',
+		'Token has expired': 'Token expirou',
 		'Session expired': 'Sessão expirada',
+		'Invalid or expired reset code': 'Código de redefinição inválido ou expirado',
+		'Invalid or expired reset code.': 'Código de redefinição inválido ou expirado.',
 
 		// Validation errors
 		'Validation failed': 'Validação falhou',
@@ -61,6 +67,8 @@ export class ErrorTranslator {
 		// Transaction errors
 		'Transaction not found': 'Transação não encontrada',
 		'Transaction failed': 'Transação falhou',
+		'Transaction expired after 28 minutes': 'Transação expirou após 28 minutos',
+		'Payment failed or was canceled': 'Pagamento falhou ou foi cancelado',
 		'Insufficient balance': 'Saldo insuficiente',
 		'Invalid amount': 'Valor inválido',
 		'Minimum amount not met': 'Valor mínimo não atingido',

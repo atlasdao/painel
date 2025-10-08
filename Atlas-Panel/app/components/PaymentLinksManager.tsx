@@ -26,7 +26,8 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
-  Wallet
+  Wallet,
+  X
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { accountValidationService } from '@/app/lib/services';
@@ -75,6 +76,13 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     benefits: string[];
   } | null>(null);
   const [loadingValidation, setLoadingValidation] = useState(true);
+  const [showDescription, setShowDescription] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const dismissed = localStorage.getItem('payment-links-description-dismissed');
+      return dismissed !== 'true';
+    }
+    return true;
+  });
 
   // Session storage keys
   const FORM_STORAGE_KEY = 'payment-links-form-data';
@@ -215,6 +223,13 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     }
   };
 
+  const dismissDescription = () => {
+    setShowDescription(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('payment-links-description-dismissed', 'true');
+    }
+  };
+
   useEffect(() => {
     checkValidationStatus();
     loadPaymentLinks();
@@ -233,12 +248,24 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       console.error('Error checking validation status:', error);
       // If validation check fails, assume not validated
       setValidationStatus({ isValidated: false });
-      // Set default validation requirements
-      setValidationRequirements({
-        amount: 2.0,
-        description: 'Pagamento único de R$ 2,00 para validar sua conta',
-        benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
-      });
+
+      // Get current validation amount robustly
+      try {
+        const validationAmount = await accountValidationService.getCurrentValidationAmount();
+        setValidationRequirements({
+          amount: validationAmount,
+          description: `Pagamento único de R$ ${validationAmount.toFixed(2).replace('.', ',')} para validar sua conta`,
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      } catch (fallbackError) {
+        console.error('Error getting current validation amount:', fallbackError);
+        // This should rarely happen now
+        setValidationRequirements({
+          amount: 2.0, // Use admin default instead of hardcoded 1.0
+          description: 'Pagamento único de R$ 2,00 para validar sua conta',
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      }
     } finally {
       setLoadingValidation(false);
     }
@@ -644,7 +671,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
             </div>
           </div>
         </div>
-      ) : (
+      ) : showDescription ? (
         <div className="mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
           <div className="flex items-start gap-3">
             <QrCode className="text-blue-400 mt-0.5" size={20} />
@@ -676,9 +703,16 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 </div>
               )}
             </div>
+            <button
+              onClick={dismissDescription}
+              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors touch-target text-gray-400 hover:text-gray-300 flex-shrink-0"
+              title="Ocultar esta mensagem permanentemente"
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Enhanced Create Form */}
       {showCreateForm && (

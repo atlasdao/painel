@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Link, QrCode, X, Monitor } from 'lucide-react';
+import { Plus, Link, QrCode, X, Monitor, Heart } from 'lucide-react';
 
 interface FloatingActionMenuProps {
   onCreateLink?: () => void;

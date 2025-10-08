@@ -96,7 +96,7 @@ api.interceptors.response.use(
 
       return Promise.reject({
         ...error,
-        message: 'Network error. Check if the API server is running and CORS is configured correctly.',
+        message: 'Erro de rede. Verifique se o servidor da API está rodando e o CORS está configurado corretamente.',
       });
     }
 
