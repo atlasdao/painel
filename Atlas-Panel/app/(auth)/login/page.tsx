@@ -57,9 +57,11 @@ export default function LoginPage() {
           // Use redirect logic based on user's commerce mode
           if (response.user && 'id' in response.user) {
             const redirectDestination = authService.getRedirectDestination(response.user);
-            router.push(redirectDestination);
+            console.log('[Login] Redirecting to:', redirectDestination);
+            window.location.href = redirectDestination;
           } else {
-            router.push('/dashboard'); // fallback
+            console.log('[Login] No user in response, fallback to dashboard');
+            window.location.href = '/dashboard'; // fallback
           }
         }, 500);
       }
@@ -150,9 +152,11 @@ export default function LoginPage() {
         // Use redirect logic based on user's commerce mode
         if (response.user && 'id' in response.user) {
           const redirectDestination = authService.getRedirectDestination(response.user);
-          router.push(redirectDestination);
+          console.log('[Login] 2FA success - Redirecting to:', redirectDestination);
+          window.location.href = redirectDestination;
         } else {
-          router.push('/dashboard'); // fallback
+          console.log('[Login] 2FA success - No user in response, fallback to dashboard');
+          window.location.href = '/dashboard'; // fallback
         }
       }, 500);
     } catch (error: any) {

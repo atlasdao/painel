@@ -133,18 +133,31 @@ export class EulenClientService {
 			});
 
 			if (systemSetting?.value) {
-				this.logger.log(
-					`✅ Using Eulen token from database (length: ${systemSetting.value.length})`,
-				);
-				this.logger.debug(
-					`Token preview: ${systemSetting.value.substring(0, 50)}...`,
-				);
+				// Check if it's a placeholder token for development
+				if (systemSetting.value.includes('placeholder') || systemSetting.value.includes('development')) {
+					this.logger.warn(
+						`⚠️ Using placeholder/development Eulen token. External API calls will fail gracefully.`,
+					);
+					this.logger.warn(
+						`🔧 To fix: Update EULEN_API_TOKEN in SystemSettings with a real production token`,
+					);
+				} else {
+					this.logger.log(
+						`✅ Using Eulen token from database (length: ${systemSetting.value.length})`,
+					);
+					this.logger.debug(
+						`Token preview: ${systemSetting.value.substring(0, 50)}...`,
+					);
+				}
 				return systemSetting.value;
 			}
 
 			this.logger.error('❌ CRITICAL: No Eulen API token found in database!');
 			this.logger.error(
 				'Please ensure EULEN_API_TOKEN is set in SystemSettings table',
+			);
+			this.logger.error(
+				'Run: INSERT INTO "SystemSettings" (key, value, description) VALUES (\'EULEN_API_TOKEN\', \'your-token-here\', \'Eulen API token\');',
 			);
 			return null;
 		} catch (error) {

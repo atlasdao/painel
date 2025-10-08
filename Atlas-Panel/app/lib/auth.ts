@@ -406,7 +406,7 @@ export const authService = {
     console.log('[Auth] Commerce mode status:', user.commerceMode);
 
     // If user has commerce mode enabled, redirect to commerce dashboard
-    if (user.commerceMode) {
+    if (user.commerceMode === true) {
       console.log('[Auth] Redirecting to commerce dashboard');
       return '/commerce';
     }

@@ -11,6 +11,7 @@ import { User } from '@/app/types';
 import { UserRole, isAdmin } from '@/app/types/user-role';
 import ProfileDropdown from '@/components/ProfileDropdown';
 import LevelBadge from '@/components/LevelBadge';
+import DonationModal from '@/app/components/DonationModal';
 import {
   Home,
   ArrowDownLeft,
@@ -30,6 +31,7 @@ import {
   UserCircle,
   Camera,
   Store,
+  Heart,
 } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -44,6 +46,7 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [showDonationModal, setShowDonationModal] = useState(false);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
   const hasFetchedUser = useRef(false);
 
@@ -173,10 +176,11 @@ export default function DashboardLayout({
 
   const loadPendingRequests = async () => {
     try {
-      const [withdrawalsRes, apiRequestsRes, commerceRequestsRes] = await Promise.all([
+      const [withdrawalsRes, apiRequestsRes, commerceRequestsRes, donationsRes] = await Promise.all([
         api.get('/withdrawals/admin/pending'),
         api.get('/api-key-requests?status=PENDING'),
-        api.get('/admin/requests') // Get all commerce applications
+        api.get('/admin/requests'), // Get all commerce applications
+        api.get('/donations/admin/pending-count') // Get pending donations count
       ]);
 
       // Count commerce applications that need attention (PENDING, UNDER_REVIEW, DEPOSIT_PENDING)
@@ -184,9 +188,12 @@ export default function DashboardLayout({
         (app: any) => ['PENDING', 'UNDER_REVIEW', 'DEPOSIT_PENDING'].includes(app.status)
       ).length || 0;
 
+      const pendingDonations = donationsRes.data?.data?.pendingDonations || 0;
+
       const totalPending = (withdrawalsRes.data?.length || 0) +
                           (apiRequestsRes.data?.length || 0) +
-                          pendingCommerceRequests;
+                          pendingCommerceRequests +
+                          pendingDonations;
       setPendingRequests(totalPending);
     } catch (error) {
       console.error('Error loading pending requests:', error);
@@ -386,8 +393,29 @@ export default function DashboardLayout({
             </h1>
           </div>
 
+          {/* Mobile Donation Button */}
+          <div className="lg:hidden flex items-center gap-2">
+            <button
+              onClick={() => setShowDonationModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+              title="Fazer Doação"
+            >
+              <Heart className="w-4 h-4" />
+              <span className="text-sm">Doar</span>
+            </button>
+          </div>
+
           {/* Profile Dropdown for Desktop */}
           <div className="hidden lg:flex items-center gap-3 relative">
+            {/* Donation Button */}
+            <button
+              onClick={() => setShowDonationModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+              title="Fazer Doação"
+            >
+              <Heart className="w-4 h-4" />
+              <span className="text-sm">Doar</span>
+            </button>
             <LevelBadge size="sm" className="flex-shrink-0" />
             <button
               ref={profileButtonRef}
@@ -430,6 +458,12 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* Donation Modal */}
+      <DonationModal
+        isOpen={showDonationModal}
+        onClose={() => setShowDonationModal(false)}
+      />
     </div>
   );
 }

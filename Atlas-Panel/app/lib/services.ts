@@ -35,6 +35,29 @@ export const accountValidationService = {
     return response.data;
   },
 
+  // Robust method to get current validation amount from admin settings
+  async getCurrentValidationAmount(): Promise<number> {
+    try {
+      // First try to get from the public requirements endpoint
+      const requirements = await this.getValidationRequirements();
+      if (requirements?.amount) {
+        return requirements.amount;
+      }
+    } catch (error) {
+      console.warn('Failed to get validation requirements, trying admin settings:', error);
+    }
+
+    try {
+      // Fallback to admin settings endpoint (requires authentication)
+      const response = await api.get('/account-validation/settings');
+      return response.data?.validationAmount || 2.0;
+    } catch (error) {
+      console.error('Failed to get validation amount from admin settings:', error);
+      // Final fallback
+      return 2.0;
+    }
+  },
+
   async getUserLimits(): Promise<any> {
     const response = await api.get('/account-validation/limits');
     return response.data;

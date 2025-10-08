@@ -31,7 +31,8 @@ import {
   CreditCard,
   TrendingUp,
   AlertCircle,
-  Store
+  Store,
+  ArrowUpDown
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
@@ -64,9 +65,9 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterValidated, setFilterValidated] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showNewUserModal, setShowNewUserModal] = useState(false);
@@ -250,22 +251,41 @@ export default function AdminUsersPage() {
     }).format(amount);
   };
 
-  // Filtered users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = filterRole === 'all' || user.role.toLowerCase() === filterRole.toLowerCase();
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'active' && user.isActive) ||
-                         (filterStatus === 'inactive' && !user.isActive);
-    const matchesValidated = filterValidated === 'all' ||
-                            (filterValidated === 'validated' && user.isAccountValidated) ||
-                            (filterValidated === 'not-validated' && !user.isAccountValidated);
-    
-    return matchesSearch && matchesRole && matchesStatus && matchesValidated;
-  });
+  // Filtered and sorted users
+  const filteredUsers = users
+    .filter(user => {
+      const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            user.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = filterStatus === 'all' ||
+                           (filterStatus === 'active' && user.isActive) ||
+                           (filterStatus === 'inactive' && !user.isActive);
+      const matchesValidated = filterValidated === 'all' ||
+                              (filterValidated === 'validated' && user.isAccountValidated) ||
+                              (filterValidated === 'not-validated' && !user.isAccountValidated);
+
+      return matchesSearch && matchesStatus && matchesValidated;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'username':
+          return a.username.localeCompare(b.username);
+        case 'email':
+          return a.email.localeCompare(b.email);
+        case 'lastLogin':
+          if (!a.lastLoginAt && !b.lastLoginAt) return 0;
+          if (!a.lastLoginAt) return 1;
+          if (!b.lastLoginAt) return -1;
+          return new Date(b.lastLoginAt).getTime() - new Date(a.lastLoginAt).getTime();
+        default:
+          return 0;
+      }
+    });
 
   if (loading) {
     return (
@@ -327,17 +347,6 @@ export default function AdminUsersPage() {
             />
           </div>
 
-          {/* Role Filter */}
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 input-modern"
-          >
-            <option value="all">Todos os Papéis</option>
-            <option value="admin">Administradores</option>
-            <option value="user">Usuários</option>
-          </select>
-
           {/* Status Filter */}
           <select
             value={filterStatus}
@@ -359,6 +368,22 @@ export default function AdminUsersPage() {
             <option value="validated">Validados</option>
             <option value="not-validated">Não Validados</option>
           </select>
+
+          {/* Sort By */}
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 input-modern"
+            >
+              <option value="newest">Mais Recentes</option>
+              <option value="oldest">Mais Antigos</option>
+              <option value="username">Nome A-Z</option>
+              <option value="email">Email A-Z</option>
+              <option value="lastLogin">Último Login</option>
+            </select>
+          </div>
         </div>
       </div>
 

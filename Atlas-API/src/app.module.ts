@@ -17,6 +17,7 @@ import { CommerceModule } from './commerce/commerce.module';
 import { HealthModule } from './health/health.module';
 import { ProfileModule } from './profile/profile.module';
 import { LevelsModule } from './levels/levels.module';
+import { DonationsModule } from './donations/donations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -48,6 +49,7 @@ import { AuditLogRepository } from './repositories/audit-log.repository';
 		CouponsModule,
 		CommerceModule,
 		LevelsModule,
+		DonationsModule,
 	],
 	controllers: [AppController],
 	providers: [

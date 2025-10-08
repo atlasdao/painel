@@ -32,7 +32,7 @@ export class RsaJwtStrategy extends PassportStrategy(Strategy, 'rsa-jwt') {
 						// In production, you should use the issuer's public key
 						done(null, 'skip-verification');
 					} else {
-						done(new UnauthorizedException('Invalid token algorithm'));
+						done(new UnauthorizedException('Algoritmo do token inválido'));
 					}
 				} catch (error) {
 					done(error);
@@ -46,12 +46,12 @@ export class RsaJwtStrategy extends PassportStrategy(Strategy, 'rsa-jwt') {
 		const payload = rawPayload as RsaJwtPayload;
 
 		if (!payload.sub || !payload.scope) {
-			throw new UnauthorizedException('Invalid token payload');
+			throw new UnauthorizedException('Payload do token inválido');
 		}
 
 		const now = Math.floor(Date.now() / 1000);
 		if (payload.exp && payload.exp < now) {
-			throw new UnauthorizedException('Token has expired');
+			throw new UnauthorizedException('Token expirou');
 		}
 
 		return payload;

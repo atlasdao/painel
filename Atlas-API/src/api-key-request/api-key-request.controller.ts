@@ -33,7 +33,7 @@ import {
 import { UserRole } from '@prisma/client';
 
 @ApiTags('API Key Requests')
-@Controller('api-key-requests')
+@Controller({ path: 'api-key-requests', version: '1' })
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ApiKeyRequestController {

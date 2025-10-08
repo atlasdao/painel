@@ -542,6 +542,7 @@ export default function CommercePage() {
   };
 
 
+
   // Enhanced tab switching with animations and haptic feedback
   const handleTabSwitch = (newTab: string) => {
     if (newTab === activeTab) return;
@@ -808,6 +809,7 @@ export default function CommercePage() {
             onPOS={handlePOS}
           />
         )}
+
 
         {/* Celebration Animation */}
         <ConfettiCelebration isActive={showCelebration} />

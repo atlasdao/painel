@@ -289,6 +289,14 @@ export class AccountValidationService {
 				);
 			}
 
+			// Check for specific API configuration issues
+			if (error.message?.includes('Eulen API não configurado') || error.message?.includes('token')) {
+				throw new HttpException(
+					'Sistema de pagamento em configuração. Entre em contato com o suporte para ativar sua conta.',
+					HttpStatus.SERVICE_UNAVAILABLE,
+				);
+			}
+
 			if (error.message?.includes('Eulen API') || error.message?.includes('temporariamente') || error.message?.includes('SERVICE_UNAVAILABLE')) {
 				throw new HttpException(
 					'Serviço de pagamento temporariamente indisponível. Tente novamente em alguns minutos.',
@@ -350,6 +358,9 @@ export class AccountValidationService {
 		const webhookMetadata = metadata.webhookEvent;
 		const verifiedEUID = webhookMetadata?.payerEUID;
 
+		// Extract liquid wallet address from transaction metadata
+		const userLiquidAddress = metadata.userLiquidAddress;
+
 		await this.prisma.user.update({
 			where: { id: transaction.userId },
 			data: {
@@ -357,6 +368,8 @@ export class AccountValidationService {
 				validationPaymentId: transactionId,
 				validatedAt: new Date(),
 				verifiedTaxNumber: verifiedEUID, // Store the EUID from webhook as verified tax number
+				defaultWalletAddress: userLiquidAddress || null, // Store the liquid wallet address
+				defaultWalletType: userLiquidAddress ? "LIQUID" : null, // Set wallet type to LIQUID if address is provided
 			},
 		});
 

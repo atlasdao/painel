@@ -53,7 +53,7 @@ export class TransactionCleanupService {
 				},
 				data: {
 					status: TransactionStatus.EXPIRED,
-					errorMessage: 'Transaction expired after 28 minutes',
+					errorMessage: 'Transação expirou após 28 minutos',
 					processedAt: new Date(),
 				},
 			});
@@ -108,7 +108,7 @@ export class TransactionCleanupService {
 					data: {
 						status: TransactionStatus.EXPIRED,
 						errorMessage:
-							'Transaction expired after 28 minutes (backup cleanup)',
+							'Transação expirou após 28 minutos (limpeza de backup)',
 						processedAt: new Date(),
 					},
 				});
@@ -144,7 +144,7 @@ export class TransactionCleanupService {
 			},
 			data: {
 				status: TransactionStatus.EXPIRED,
-				errorMessage: 'Transaction expired after 28 minutes (manual cleanup)',
+				errorMessage: 'Transação expirou após 28 minutos (limpeza manual)',
 				processedAt: new Date(),
 			},
 		});

@@ -18,12 +18,12 @@ export class CustomJwtStrategy extends PassportStrategy(
 
 	async validate(payload: any) {
 		if (!payload || !payload.sub) {
-			throw new UnauthorizedException('Invalid token payload');
+			throw new UnauthorizedException('Payload do token inválido');
 		}
 
 		const now = Math.floor(Date.now() / 1000);
 		if (payload.exp && payload.exp < now) {
-			throw new UnauthorizedException('Token has expired');
+			throw new UnauthorizedException('Token expirou');
 		}
 
 		// Return user object with consistent structure

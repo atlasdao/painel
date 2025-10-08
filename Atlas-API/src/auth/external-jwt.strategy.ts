@@ -34,12 +34,12 @@ export class ExternalJwtStrategy extends PassportStrategy(
 
 	async validate(payload: ExternalJwtPayload): Promise<ExternalJwtPayload> {
 		if (!payload.sub || !payload.scope) {
-			throw new UnauthorizedException('Invalid token payload');
+			throw new UnauthorizedException('Payload do token inválido');
 		}
 
 		const now = Math.floor(Date.now() / 1000);
 		if (payload.exp && payload.exp < now) {
-			throw new UnauthorizedException('Token has expired');
+			throw new UnauthorizedException('Token expirou');
 		}
 
 		return payload;

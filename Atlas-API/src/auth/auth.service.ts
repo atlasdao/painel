@@ -203,7 +203,7 @@ export class AuthService {
 
 			if (!verified) {
 				this.logger.log(`[LOGIN] Invalid 2FA token for user ${user.email}`);
-				throw new UnauthorizedException('Invalid 2FA token');
+				throw new UnauthorizedException('Token 2FA inválido');
 			}
 
 			this.logger.log(
@@ -390,7 +390,7 @@ export class AuthService {
 			const decoded = this.jwtService.verify(token);
 			return decoded;
 		} catch (error) {
-			throw new UnauthorizedException('Invalid token');
+			throw new UnauthorizedException('Token inválido');
 		}
 	}
 
@@ -450,7 +450,7 @@ export class AuthService {
 			});
 			return decoded;
 		} catch (error) {
-			throw new UnauthorizedException('Invalid refresh token');
+			throw new UnauthorizedException('Token de atualização inválido');
 		}
 	}
 
@@ -597,7 +597,7 @@ export class AuthService {
 
 		const user = await this.userRepository.findByEmail(email);
 		if (!user || !user.passwordResetCode || !user.passwordResetExpires) {
-			return { valid: false, message: 'Invalid or expired reset code.' };
+			return { valid: false, message: 'Código de redefinição inválido ou expirado.' };
 		}
 
 		// Check if code is expired
@@ -626,7 +626,7 @@ export class AuthService {
 
 		const user = await this.userRepository.findByEmail(email);
 		if (!user || !user.passwordResetCode || !user.passwordResetExpires) {
-			throw new BadRequestException('Invalid or expired reset code.');
+			throw new BadRequestException('Código de redefinição inválido ou expirado.');
 		}
 
 		// Check if code is expired
