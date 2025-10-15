@@ -195,11 +195,10 @@ export class AccountValidationService {
 			);
 
 			// Generate QR code for validation payment via PIX service
-			// NOTE: Do NOT pass depixAddress to PIX service - it's a Liquid address
-			// The DePix API needs PIX keys, not Liquid addresses
+			// IMPORTANT: Pass depixAddress so the Eulen API knows where to send the BRL-L after receiving PIX payment
 			const qrCodeData = await this.pixService.generatePixQRCode(userId, {
 				amount: validationAmount,
-				// Remove depixAddress - let the API use its default PIX receiving address
+				depixAddress: depixAddress, // Pass user's Liquid address so payment goes to them
 				description: 'Validação de conta Atlas DAO',
 				// Note: No payerCpfCnpj restriction - EUID will come from webhook
 				metadata: {
@@ -376,7 +375,79 @@ export class AccountValidationService {
 		// Initialize user reputation
 		await this.initializeUserReputation(transaction.userId);
 
-		this.logger.log(`Account validated for user ${transaction.userId}`);
+		// Upgrade user to level 1 (Bronze) with proper limits
+		await this.upgradeToLevelOne(transaction.userId);
+
+		this.logger.log(`Account validated and upgraded to level 1 for user ${transaction.userId}`);
+	}
+
+	async upgradeToLevelOne(userId: string): Promise<void> {
+		const LEVEL_1_DAILY_LIMIT = 300; // Bronze tier daily limit
+
+		try {
+			// Check if user already has a UserLevel record
+			const existingLevel = await this.prisma.userLevel.findUnique({
+				where: { userId },
+			});
+
+			if (existingLevel) {
+				// User already has a level record, upgrade it to level 1
+				const oldLevel = existingLevel.level;
+
+				if (oldLevel === 0) {
+					await this.prisma.userLevel.update({
+						where: { userId },
+						data: {
+							level: 1,
+							dailyLimitBrl: LEVEL_1_DAILY_LIMIT,
+							lastLevelUpgrade: new Date(),
+						},
+					});
+
+					// Create level history record
+					await this.prisma.levelHistory.create({
+						data: {
+							userId,
+							previousLevel: 0,
+							newLevel: 1,
+							volumeAtChange: Number(existingLevel.totalVolumeBrl || 0),
+							reason: 'Account validation - automatic upgrade to Bronze tier',
+						},
+					});
+
+					this.logger.log(`User ${userId} upgraded from level 0 to level 1 (Bronze)`);
+				}
+			} else {
+				// Create new UserLevel record at level 1
+				await this.prisma.userLevel.create({
+					data: {
+						userId,
+						level: 1,
+						dailyLimitBrl: LEVEL_1_DAILY_LIMIT,
+						dailyUsedBrl: 0,
+						totalVolumeBrl: 0,
+						completedTransactions: 0,
+						lastLevelUpgrade: new Date(),
+					},
+				});
+
+				// Create level history record
+				await this.prisma.levelHistory.create({
+					data: {
+						userId,
+						previousLevel: 0,
+						newLevel: 1,
+						volumeAtChange: 0,
+						reason: 'Account validation - automatic upgrade to Bronze tier',
+					},
+				});
+
+				this.logger.log(`User ${userId} initialized at level 1 (Bronze)`);
+			}
+		} catch (error) {
+			this.logger.error(`Failed to upgrade user ${userId} to level 1:`, error);
+			// Don't throw error - validation should still succeed even if level upgrade fails
+		}
 	}
 
 	// Process all completed validation transactions that haven't been processed yet

@@ -670,10 +670,10 @@ export class AdminService {
 
 	async submitCommerceRequest(userId: string, dto: any) {
 		try {
-			// Validate required fields
-			if (!dto.businessName || !dto.businessType || !dto.monthlyVolume ||
-				!dto.productDescription || !dto.targetAudience || !dto.hasPhysicalStore ||
-				!dto.socialMedia || !dto.businessObjective) {
+			// Validate required fields with new field names
+			if (!dto.businessName || !dto.productOrService || !dto.monthlyPixSales ||
+				!dto.averagePrices || !dto.marketTime || !dto.references ||
+				!dto.refundRate || !dto.refundProcess || !dto.businessProof || !dto.contactInfo) {
 				throw new BadRequestException('Todos os campos são obrigatórios');
 			}
 
@@ -686,18 +686,20 @@ export class AdminService {
 				throw new BadRequestException('Você já possui uma aplicação de comércio. Apenas uma aplicação por usuário é permitida.');
 			}
 
-			// Create commerce application through Prisma directly
+			// Create commerce application through Prisma directly with new field mapping
 			const application = await this.prisma.commerceApplication.create({
 				data: {
 					userId,
 					businessName: dto.businessName,
-					businessType: dto.businessType,
-					monthlyVolume: dto.monthlyVolume,
-					productDescription: dto.productDescription,
-					targetAudience: dto.targetAudience,
-					hasPhysicalStore: dto.hasPhysicalStore,
-					socialMedia: dto.socialMedia,
-					businessObjective: dto.businessObjective,
+					productOrService: dto.productOrService,
+					averagePrices: dto.averagePrices,
+					monthlyPixSales: dto.monthlyPixSales,
+					marketTime: dto.marketTime,
+					references: dto.references,
+					refundRate: dto.refundRate,
+					refundProcess: dto.refundProcess,
+					businessProof: dto.businessProof,
+					contactInfo: dto.contactInfo,
 					status: 'PENDING',
 				},
 			});

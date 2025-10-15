@@ -175,16 +175,18 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
 
     setIsSubmitting(true);
     try {
-      // Submit application to backend - mapping new fields to existing backend fields
+      // Submit application to backend with correct field mapping
       const response = await api.post('/admin/requests', {
         businessName: formData.productOrService.substring(0, 100), // Use first 100 chars as business name
-        businessType: formData.averagePrices,
-        monthlyVolume: formData.monthlyPixSales,
-        productDescription: formData.productOrService,
-        targetAudience: formData.marketTime,
-        hasPhysicalStore: formData.references,
-        socialMedia: formData.refundRate,
-        businessObjective: `Processo de reembolso: ${formData.refundProcess}\n\nComprovação: ${formData.businessProof}\n\nContato: ${formData.contactInfo}`,
+        productOrService: formData.productOrService,
+        averagePrices: formData.averagePrices,
+        monthlyPixSales: formData.monthlyPixSales,
+        marketTime: formData.marketTime,
+        references: formData.references,
+        refundRate: formData.refundRate,
+        refundProcess: formData.refundProcess,
+        businessProof: formData.businessProof,
+        contactInfo: formData.contactInfo,
         acceptTerms: formData.acceptTerms
       });
 

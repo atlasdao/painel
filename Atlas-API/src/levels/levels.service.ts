@@ -207,11 +207,10 @@ export class LevelsService {
       await this.prisma.levelHistory.create({
         data: {
           userId,
-          oldLevel: userLevel!.level,
+          previousLevel: userLevel!.level,
           newLevel,
-          reason: 'Upgrade automático baseado em volume e quantidade de transações',
-          oldLimit: userLevel!.dailyLimitBrl,
-          newLimit: userLevel!.dailyLimitBrl
+          volumeAtChange: Number(userLevel!.totalVolumeBrl || 0),
+          reason: 'Upgrade automático baseado em volume e quantidade de transações'
         }
       });
 
