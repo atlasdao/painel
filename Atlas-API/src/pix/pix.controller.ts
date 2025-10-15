@@ -198,10 +198,13 @@ export class PixController {
 			depixAddress: string; // DePix address from frontend - REQUIRED
 			description?: string;
 			expirationMinutes?: number;
+			isCommerceRequest?: boolean; // Flag to indicate if request is from commerce page
 		},
 	) {
 		const userId = req.user.id || req.user.sub;
-		return this.pixService.generatePixQRCode(userId, data);
+		// Pass authentication context to service to determine which limits to apply
+		const isApiRequest = req.user.scope && req.user.scope.includes('api');
+		return this.pixService.generatePixQRCode(userId, { ...data, isApiRequest });
 	}
 
 	@Post('validate-key')

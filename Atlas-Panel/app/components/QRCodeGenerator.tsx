@@ -41,6 +41,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQR, setGeneratedQR] = useState<GeneratedQR | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [showFirstTimeWarning, setShowFirstTimeWarning] = useState(true);
 
   const validateCPF = (cpf: string) => {
     // Remove non-digits
@@ -91,11 +92,18 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
       return;
     }
 
-    // Validate amount limits
+    // Validate amount limits (Commerce Mode: NO level limits, only max per transaction)
     const amountValue = parseFloat(formData.amount.replace(',', '.'));
+    const minAmount = 1;
     const maxAmount = formData.payerCpf ? 5000 : 3000;
+
+    if (amountValue < minAmount) {
+      toast.error(`Valor mínimo permitido: R$ ${minAmount.toFixed(2)}`);
+      return;
+    }
+
     if (amountValue > maxAmount) {
-      toast.error(`Valor máximo permitido: R$ ${maxAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      toast.error(`Valor máximo por transação: R$ ${maxAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
       return;
     }
 
@@ -120,7 +128,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
       const payload = {
         amount: parseFloat(formData.amount.replace(',', '.')), // Handle comma decimal separator
         payerCpfCnpj: formData.payerCpf ? formData.payerCpf.replace(/\D/g, '') : undefined,
-        depixAddress: useCustomWallet ? formData.walletAddress : defaultWallet
+        depixAddress: useCustomWallet ? formData.walletAddress : defaultWallet,
+        isCommerceRequest: true // Flag to indicate this is from commerce page, not deposit page
       };
 
       const response = await api.post('/pix/qrcode', payload);
@@ -241,6 +250,33 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
         </p>
       </div>
 
+      {/* First Time Purchase Warning */}
+      {showFirstTimeWarning && (
+        <div className="relative p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg">
+          <button
+            onClick={() => setShowFirstTimeWarning(false)}
+            className="absolute top-2 right-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+            aria-label="Fechar aviso"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="flex items-start gap-3 pr-6">
+            <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-yellow-400 font-medium mb-1">
+                Aviso para Clientes Novos
+              </p>
+              <p className="text-yellow-300/90 text-sm">
+                Clientes que nunca compraram DePix possuem um limite de <strong>R$ 500,00</strong> na primeira compra.
+                Após 24 horas da primeira transação, poderão realizar compras com os limites normais (até R$ 3.000 ou R$ 5.000 com CPF/CNPJ).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!generatedQR ? (
         /* QR Code Generation Form */
         <div className="space-y-6">
@@ -264,7 +300,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Limite máximo: R$ {formData.payerCpf ? '5.000,00' : '3.000,00'} {formData.payerCpf ? '(com CPF/CNPJ)' : '(sem CPF/CNPJ)'}
+              Limites: R$ 1,00 (mínimo) a R$ {formData.payerCpf ? '5.000,00' : '3.000,00'} {formData.payerCpf ? '(com CPF/CNPJ)' : '(sem CPF/CNPJ)'} por transação
             </p>
           </div>
 
@@ -288,7 +324,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Deixe em branco para aceitar pagamento de qualquer CPF/CNPJ (limite de R$ 3.000). Com CPF/CNPJ específico o limite é R$ 5.000
+              Deixe em branco para aceitar pagamento de qualquer CPF/CNPJ (limite de R$ 3.000 por transação). Com CPF/CNPJ específico o limite é R$ 5.000
             </p>
           </div>
 

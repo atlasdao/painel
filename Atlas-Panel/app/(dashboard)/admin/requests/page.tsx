@@ -90,13 +90,16 @@ interface CommerceApplication {
     email: string;
   };
   businessName: string;
-  businessType: string;
-  monthlyVolume: string;
-  productDescription: string;
-  targetAudience: string;
-  hasPhysicalStore: string;
-  socialMedia: string;
-  businessObjective: string;
+  productOrService: string;  // Qual produto ou serviço você vende?
+  averagePrices: string;  // Quais são os valores médios dos seus produtos ou serviços?
+  monthlyPixSales: string;  // Qual a quantidade e volume mensal médio de vendas via Pix?
+  marketTime: string;  // Quanto tempo de mercado você/sua empresa tem?
+  references: string;  // Você tem grupos, comunidades ou páginas de referência?
+  refundRate: string;  // Qual é sua taxa de reembolso?
+  refundProcess?: string;  // Como você resolve reembolsos e disputas (MEDs)?
+  businessProof?: string;  // Como podemos comprovar que este negócio pertence a você?
+  contactInfo?: string;  // Tem Telegram ou SimpleX para contato mais rápido?
+  businessObjective?: string;  // Legacy field
   status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DEPOSIT_PENDING' | 'ACTIVE';
   depositAmount?: number;
   depositPaid: boolean;
@@ -647,7 +650,9 @@ export default function AdminRequestsPage() {
       setSelectedCommerceApplication(null);
       setApprovalNotes('');
       setRejectionReason('');
+      // Refresh both pending and history lists
       fetchCommerceApplications();
+      fetchCommerceHistory();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao processar aplicação');
     } finally {
@@ -1695,8 +1700,8 @@ export default function AdminRequestsPage() {
               <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
                 <p className="text-sm text-gray-400">Usuário: {selectedCommerceApplication.user.username}</p>
                 <p className="text-sm text-gray-400">Negócio: {selectedCommerceApplication.businessName}</p>
-                <p className="text-sm text-gray-400">Tipo: {selectedCommerceApplication.businessType}</p>
-                <p className="text-sm text-gray-400">Volume: {selectedCommerceApplication.monthlyVolume}</p>
+                <p className="text-sm text-gray-400">Produto/Serviço: {selectedCommerceApplication.productOrService}</p>
+                <p className="text-sm text-gray-400">Volume: {selectedCommerceApplication.monthlyPixSales}</p>
               </div>
             )}
 
@@ -1890,10 +1895,10 @@ export default function AdminRequestsPage() {
                             <p className="text-sm text-white">{application.businessName}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-300">{application.businessType}</p>
+                            <p className="text-sm text-gray-300">{application.productOrService}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-300">{application.monthlyVolume}</p>
+                            <p className="text-sm text-gray-300">{application.monthlyPixSales}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm">
@@ -2086,68 +2091,93 @@ export default function AdminRequestsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Tipo de Negócio:</p>
+                        <p className="text-white font-medium">Produto ou Serviço:</p>
                         <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.businessType?.trim() ||
+                          {selectedCommerceApplication.productOrService?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.businessType?.length && selectedCommerceApplication.businessType.length < 10 && (
+                          {selectedCommerceApplication.productOrService?.length && selectedCommerceApplication.productOrService.length < 10 && (
                             <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
                           )}
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Volume Mensal:</p>
+                        <p className="text-white font-medium">Valores Médios:</p>
                         <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.monthlyVolume?.trim() ||
+                          {selectedCommerceApplication.averagePrices?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.monthlyVolume?.length && selectedCommerceApplication.monthlyVolume.length < 10 && (
+                          {selectedCommerceApplication.averagePrices?.length && selectedCommerceApplication.averagePrices.length < 10 && (
                             <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
                           )}
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Público-Alvo:</p>
+                        <p className="text-white font-medium">Volume Mensal de Vendas via Pix:</p>
                         <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.targetAudience?.trim() ||
+                          {selectedCommerceApplication.monthlyPixSales?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.targetAudience?.length && selectedCommerceApplication.targetAudience.length < 10 && (
+                          {selectedCommerceApplication.monthlyPixSales?.length && selectedCommerceApplication.monthlyPixSales.length < 10 && (
+                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Tempo de Mercado:</p>
+                        <p className="text-gray-300 break-words">
+                          {selectedCommerceApplication.marketTime?.trim() ||
+                            <span className="text-red-400 italic">Não informado</span>}
+                          {selectedCommerceApplication.marketTime?.length && selectedCommerceApplication.marketTime.length < 10 && (
                             <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
                           )}
                         </p>
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Descrição do Produto/Serviço:</p>
+                      <p className="text-white font-medium">Grupos, Comunidades ou Páginas de Referência:</p>
                       <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-blue-500">
                         <p className="text-gray-300 break-words whitespace-pre-wrap">
-                          {selectedCommerceApplication.productDescription?.trim() ||
+                          {selectedCommerceApplication.references?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
                         </p>
-                        {selectedCommerceApplication.productDescription && (
+                        {selectedCommerceApplication.references && (
                           <p className="text-xs text-gray-500 mt-2">
-                            {selectedCommerceApplication.productDescription.length} caracteres
-                            {selectedCommerceApplication.productDescription.length < 50 && (
-                              <span className="text-yellow-400 ml-2">⚠️ Descrição muito curta</span>
+                            {selectedCommerceApplication.references.length} caracteres
+                            {selectedCommerceApplication.references.length < 10 && (
+                              <span className="text-yellow-400 ml-2">⚠️ Resposta muito curta</span>
                             )}
                           </p>
                         )}
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Possui Loja Física:</p>
+                      <p className="text-white font-medium">Taxa de Reembolso:</p>
                       <p className="text-gray-300 break-words">
-                        {selectedCommerceApplication.hasPhysicalStore?.trim() ||
+                        {selectedCommerceApplication.refundRate?.trim() ||
                           <span className="text-red-400 italic">Não informado</span>}
                       </p>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Redes Sociais:</p>
+                      <p className="text-white font-medium">Processo de Reembolso e Disputas (MEDs):</p>
+                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-purple-500">
+                        <p className="text-gray-300 break-words whitespace-pre-wrap">
+                          {selectedCommerceApplication.refundProcess?.trim() ||
+                            <span className="text-red-400 italic">Não informado</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-white font-medium">Comprovação de Propriedade do Negócio:</p>
+                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-green-500">
+                        <p className="text-gray-300 break-words whitespace-pre-wrap">
+                          {selectedCommerceApplication.businessProof?.trim() ||
+                            <span className="text-red-400 italic">Não informado</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-white font-medium">Contato (Telegram/SimpleX):</p>
                       <p className="text-gray-300 break-words">
-                        {selectedCommerceApplication.socialMedia?.trim() ||
+                        {selectedCommerceApplication.contactInfo?.trim() ||
                           <span className="text-red-400 italic">Não informado</span>}
-                        {selectedCommerceApplication.socialMedia?.length && selectedCommerceApplication.socialMedia.length < 10 && (
-                          <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                        )}
                       </p>
                     </div>
                     <div className="mt-4">

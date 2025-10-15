@@ -535,8 +535,11 @@ export class WebhookService {
 					},
 				});
 
+				// Upgrade user to level 1 (Bronze) with proper limits
+				await this.upgradeUserToLevelOne(user.id);
+
 				this.logger.log(
-					`✅ PIX WEBHOOK: Account validated for user ${user.id}`,
+					`✅ PIX WEBHOOK: Account validated and upgraded to level 1 for user ${user.id}`,
 				);
 			}
 
@@ -671,5 +674,77 @@ export class WebhookService {
 		};
 
 		return statusMap[pixStatus.toUpperCase()] || TransactionStatus.PENDING;
+	}
+
+	/**
+	 * Upgrade user to level 1 (Bronze) with proper limits after account validation
+	 */
+	private async upgradeUserToLevelOne(userId: string): Promise<void> {
+		const LEVEL_1_DAILY_LIMIT = 300; // Bronze tier daily limit
+
+		try {
+			// Check if user already has a UserLevel record
+			const existingLevel = await this.prisma.userLevel.findUnique({
+				where: { userId },
+			});
+
+			if (existingLevel) {
+				// User already has a level record, upgrade it to level 1
+				const oldLevel = existingLevel.level;
+
+				if (oldLevel === 0) {
+					await this.prisma.userLevel.update({
+						where: { userId },
+						data: {
+							level: 1,
+							dailyLimitBrl: LEVEL_1_DAILY_LIMIT,
+							lastLevelUpgrade: new Date(),
+						},
+					});
+
+					// Create level history record
+					await this.prisma.levelHistory.create({
+						data: {
+							userId,
+							previousLevel: 0,
+							newLevel: 1,
+							volumeAtChange: Number(existingLevel.totalVolumeBrl || 0),
+							reason: 'Account validation - automatic upgrade to Bronze tier',
+						},
+					});
+
+					this.logger.log(`User ${userId} upgraded from level 0 to level 1 (Bronze)`);
+				}
+			} else {
+				// Create new UserLevel record at level 1
+				await this.prisma.userLevel.create({
+					data: {
+						userId,
+						level: 1,
+						dailyLimitBrl: LEVEL_1_DAILY_LIMIT,
+						dailyUsedBrl: 0,
+						totalVolumeBrl: 0,
+						completedTransactions: 0,
+						lastLevelUpgrade: new Date(),
+					},
+				});
+
+				// Create level history record
+				await this.prisma.levelHistory.create({
+					data: {
+						userId,
+						previousLevel: 0,
+						newLevel: 1,
+						volumeAtChange: 0,
+						reason: 'Account validation - automatic upgrade to Bronze tier',
+					},
+				});
+
+				this.logger.log(`User ${userId} initialized at level 1 (Bronze)`);
+			}
+		} catch (error) {
+			this.logger.error(`Failed to upgrade user ${userId} to level 1:`, error);
+			// Don't throw error - validation should still succeed even if level upgrade fails
+		}
 	}
 }

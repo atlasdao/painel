@@ -27,6 +27,11 @@ import { v4 as uuidv4 } from 'uuid';
 export class PixService {
 	private readonly logger = new Logger(PixService.name);
 
+	// In-memory cache for level configs (refreshed every 5 minutes)
+	private levelConfigCache: Map<number, { dailyLimitBrl: number; maxPerTransactionBrl: number }> = new Map();
+	private levelConfigCacheTimestamp: number = 0;
+	private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 	constructor(
 		private readonly eulenClient: EulenClientService,
 		private readonly limitValidationService: LimitValidationService,
@@ -51,12 +56,8 @@ export class PixService {
 				depositDto.amount,
 			);
 
-			// SECOND: Validate user level limits
-			await this.levelsService.validateTransactionLimit(
-				userId,
-				depositDto.amount,
-				TransactionType.DEPOSIT
-			);
+			// NOTE: Level limits removed for deposits - users can deposit any amount
+			// Level limits only apply to withdrawals and transfers
 
 			// Log the request
 			await this.auditLogRepository.createLog({
@@ -354,6 +355,8 @@ export class PixService {
 			expirationMinutes?: number;
 			payerCpfCnpj?: string; // CPF/CNPJ do pagador (para modo comércio)
 			metadata?: any; // Additional metadata to store with the transaction
+			isApiRequest?: boolean; // Whether this request is from API (via x-api-key header)
+			isCommerceRequest?: boolean; // Whether this request is from commerce page (not deposit page)
 		},
 	): Promise<{ qrCode: string; qrCodeImage: string; transactionId: string }> {
 		try {
@@ -364,7 +367,16 @@ export class PixService {
 				select: {
 					commerceMode: true,
 					isAccountValidated: true,
-					verifiedTaxNumber: true
+					verifiedTaxNumber: true,
+					apiKey: true,
+					userLevel: {
+						select: {
+							level: true,
+							dailyLimitBrl: true,
+							dailyUsedBrl: true,
+							lastLimitReset: true
+						}
+					}
 				},
 			});
 
@@ -391,13 +403,155 @@ export class PixService {
 				// If present, it will be used as EUID in the Eulen API call below
 			}
 
-			// Validate user level limits for QR code generation (skip for payment links)
-			if (!isPaymentLink) {
-				await this.levelsService.validateTransactionLimit(
-					userId,
-					data.amount,
-					TransactionType.DEPOSIT
-				);
+			// Apply limits based on the REQUEST CONTEXT (not just user attributes)
+			if (!isValidationPayment) {
+				// Check if user is making an API request via x-api-key header
+				const isApiUser = !!user.apiKey;
+				const isUsingApiKey = data.isApiRequest === true;
+				const isCommerceManualQR = data.isCommerceRequest === true;
+
+				this.logger.log(`🔍 VALIDATION DEBUG for user ${userId}:`);
+				this.logger.log(`  - isPaymentLink: ${isPaymentLink}`);
+				this.logger.log(`  - isValidationPayment: ${isValidationPayment}`);
+				this.logger.log(`  - isApiUser: ${isApiUser}`);
+				this.logger.log(`  - isUsingApiKey: ${isUsingApiKey}`);
+				this.logger.log(`  - isCommerceManualQR: ${isCommerceManualQR}`);
+				this.logger.log(`  - user.commerceMode: ${user.commerceMode}`);
+				this.logger.log(`  - Amount requested: R$ ${data.amount.toFixed(2)}`);
+
+				if (isUsingApiKey && isApiUser) {
+					// API REQUESTS (via x-api-key): No level limits for API users
+					// They can generate QR codes for any amount and any CPF/CNPJ
+					this.logger.log(
+						`✅ API request from user ${userId} - Skipping level validation (API users have no level limits when using API key)`
+					);
+				} else if (isCommerceManualQR && user.commerceMode) {
+					// COMMERCE MANUAL QR CODE (from /commerce page): Apply commerce-specific limits, NO level limits
+					// Minimum: 1 BRL
+					// Maximum: 3000 BRL (without CPF/CNPJ) or 5000 BRL (with CPF/CNPJ)
+					const minAmount = 1;
+					const maxAmount = data.payerCpfCnpj ? 5000 : 3000;
+
+					if (data.amount < minAmount) {
+						throw new HttpException(
+							`Valor mínimo para transação: R$ ${minAmount.toFixed(2)}`,
+							HttpStatus.BAD_REQUEST
+						);
+					}
+
+					if (data.amount > maxAmount) {
+						const limitType = data.payerCpfCnpj ? 'com CPF/CNPJ' : 'sem CPF/CNPJ';
+						throw new HttpException(
+							`Valor máximo por transação no modo comércio ${limitType}: R$ ${maxAmount.toFixed(2)}`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					this.logger.log(
+						`✅ Commerce manual QR validation passed for user ${userId}: ` +
+						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (${data.payerCpfCnpj ? 'with' : 'without'} CPF/CNPJ) - NO level limits enforced`
+					);
+				} else if (isPaymentLink && user.commerceMode) {
+					// PAYMENT LINKS (Commerce feature): Apply commerce-specific limits
+					// Minimum: 1 BRL
+					// Maximum: 3000 BRL (without CPF/CNPJ) or 5000 BRL (with CPF/CNPJ)
+					const minAmount = 1;
+					const maxAmount = data.payerCpfCnpj ? 5000 : 3000;
+
+					if (data.amount < minAmount) {
+						throw new HttpException(
+							`Valor mínimo para transação: R$ ${minAmount.toFixed(2)}`,
+							HttpStatus.BAD_REQUEST
+						);
+					}
+
+					if (data.amount > maxAmount) {
+						const limitType = data.payerCpfCnpj ? 'com CPF/CNPJ' : 'sem CPF/CNPJ';
+						throw new HttpException(
+							`Valor máximo por transação no modo comércio ${limitType}: R$ ${maxAmount.toFixed(2)}`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					this.logger.log(
+						`✅ Commerce payment link validation passed for user ${userId}: ` +
+						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (${data.payerCpfCnpj ? 'with' : 'without'} CPF/CNPJ)`
+					);
+				} else {
+					// PANEL /DEPOSIT PAGE: Apply level-based limits for ALL users
+					// This includes API users, commerce users, and regular users when NOT using API key
+					// OPTIMIZED: Use already-fetched userLevel data to avoid extra DB queries
+
+					if (!user.userLevel) {
+						throw new HttpException(
+							'Usuário não possui nível configurado. Entre em contato com o suporte.',
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					// Get level configuration from cache (very fast!)
+					const levelConfig = await this.getLevelConfigCached(user.userLevel.level);
+					const dailyLimit = levelConfig.dailyLimitBrl;
+					const maxPerTransaction = levelConfig.maxPerTransactionBrl;
+
+					// Check per-transaction limit
+					if (data.amount > maxPerTransaction) {
+						throw new HttpException(
+							`Valor por transação excede o limite máximo do seu nível (${user.userLevel.level}). Limite máximo: R$ ${maxPerTransaction.toFixed(2)}`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					// Check daily limit
+					if (data.amount > dailyLimit) {
+						throw new HttpException(
+							`Valor solicitado excede o limite diário do seu nível (${user.userLevel.level}). Limite diário: R$ ${dailyLimit.toFixed(2)}`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					// Calculate today's usage (this query is indexed and fast)
+					const startOfDay = new Date();
+					startOfDay.setHours(0, 0, 0, 0);
+					const endOfDay = new Date();
+					endOfDay.setHours(23, 59, 59, 999);
+
+					const todayUsage = await this.prisma.transaction.aggregate({
+						where: {
+							userId,
+							type: TransactionType.DEPOSIT,
+							createdAt: { gte: startOfDay, lte: endOfDay },
+							status: { in: ['COMPLETED', 'PROCESSING', 'PENDING'] }
+						},
+						_sum: { amount: true }
+					});
+
+					const currentDailyUsage = Number(todayUsage._sum.amount || 0);
+					const remainingLimit = dailyLimit - currentDailyUsage;
+
+					// Check if user has already reached daily limit
+					if (currentDailyUsage >= dailyLimit) {
+						throw new HttpException(
+							`Limite diário já foi atingido para o seu nível (${user.userLevel.level}). Limite diário: R$ ${dailyLimit.toFixed(2)}`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					// Check if this transaction would exceed daily limit
+					if (data.amount > remainingLimit) {
+						throw new HttpException(
+							`Esta transação excederia seu limite diário. Valor disponível hoje: R$ ${remainingLimit.toFixed(2)} (Nível ${user.userLevel.level})`,
+							HttpStatus.FORBIDDEN
+						);
+					}
+
+					const requestSource = isUsingApiKey ? 'API key' : 'Panel';
+					const userTypeLog = user.apiKey ? '(has API key)' : user.commerceMode ? '(commerce mode)' : '(regular user)';
+					this.logger.log(
+						`✅ Level validation passed for user ${userId} ${userTypeLog} via ${requestSource} (Level ${user.userLevel.level}): ` +
+						`Amount: R$ ${data.amount.toFixed(2)}, Daily usage: R$ ${currentDailyUsage.toFixed(2)}/${dailyLimit.toFixed(2)}`
+					);
+				}
 			}
 
 			// For personal deposits, only use verified tax number if it's not the problematic EUID
@@ -867,6 +1021,70 @@ export class PixService {
 			this.logger.error(`Failed to get user level limits for ${userId}:`, error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Get level config from cache or database (with 5-minute TTL)
+	 * This dramatically reduces DB queries for level configs
+	 */
+	private async getLevelConfigCached(level: number): Promise<{ dailyLimitBrl: number; maxPerTransactionBrl: number }> {
+		const now = Date.now();
+
+		// Check if cache is valid
+		if (now - this.levelConfigCacheTimestamp < this.CACHE_TTL_MS && this.levelConfigCache.has(level)) {
+			return this.levelConfigCache.get(level)!;
+		}
+
+		// Cache expired or empty - refresh all configs at once
+		if (now - this.levelConfigCacheTimestamp >= this.CACHE_TTL_MS) {
+			try {
+				const configs = await this.prisma.levelConfig.findMany({
+					select: {
+						level: true,
+						dailyLimitBrl: true,
+						maxPerTransactionBrl: true
+					}
+				});
+
+				// Clear and repopulate cache
+				this.levelConfigCache.clear();
+				for (const config of configs) {
+					this.levelConfigCache.set(config.level, {
+						dailyLimitBrl: Number(config.dailyLimitBrl),
+						maxPerTransactionBrl: Number(config.maxPerTransactionBrl || config.dailyLimitBrl)
+					});
+				}
+
+				this.levelConfigCacheTimestamp = now;
+				this.logger.log(`🔄 Level config cache refreshed with ${configs.length} configs`);
+			} catch (error) {
+				this.logger.error('Error refreshing level config cache:', error);
+			}
+		}
+
+		// Return from cache or fallback to defaults
+		if (this.levelConfigCache.has(level)) {
+			return this.levelConfigCache.get(level)!;
+		}
+
+		// Fallback to default configs (matching database LevelConfig table)
+		const defaultConfigs: Record<number, { dailyLimitBrl: number; maxPerTransactionBrl: number }> = {
+			0: { dailyLimitBrl: 0, maxPerTransactionBrl: 0 },
+			1: { dailyLimitBrl: 50, maxPerTransactionBrl: 50 },
+			2: { dailyLimitBrl: 100, maxPerTransactionBrl: 100 },
+			3: { dailyLimitBrl: 200, maxPerTransactionBrl: 200 },
+			4: { dailyLimitBrl: 350, maxPerTransactionBrl: 350 },
+			5: { dailyLimitBrl: 500, maxPerTransactionBrl: 500 },
+			6: { dailyLimitBrl: 750, maxPerTransactionBrl: 750 },
+			7: { dailyLimitBrl: 1000, maxPerTransactionBrl: 1000 },
+			8: { dailyLimitBrl: 1500, maxPerTransactionBrl: 1500 },
+			9: { dailyLimitBrl: 2000, maxPerTransactionBrl: 2000 },
+			10: { dailyLimitBrl: 999999, maxPerTransactionBrl: 5000 }
+		};
+
+		const fallbackConfig = defaultConfigs[level] || defaultConfigs[0];
+		this.logger.warn(`⚠️ Using fallback config for level ${level}: ${JSON.stringify(fallbackConfig)}`);
+		return fallbackConfig;
 	}
 
 	private getStatusMessage(status: TransactionStatus): string {

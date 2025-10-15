@@ -16,31 +16,39 @@ export class CreateCommerceApplicationDto {
 
   @IsString()
   @IsNotEmpty()
-  businessType: string;
+  productOrService: string; // Qual produto ou serviço você vende?
 
   @IsString()
   @IsNotEmpty()
-  monthlyVolume: string;
+  averagePrices: string; // Quais são os valores médios dos seus produtos ou serviços?
 
   @IsString()
   @IsNotEmpty()
-  productDescription: string;
+  monthlyPixSales: string; // Qual a quantidade e volume mensal médio de vendas via Pix?
 
   @IsString()
   @IsNotEmpty()
-  targetAudience: string;
+  marketTime: string; // Quanto tempo de mercado você/sua empresa tem?
 
   @IsString()
   @IsNotEmpty()
-  hasPhysicalStore: string;
+  references: string; // Você tem grupos, comunidades ou páginas de referência?
 
   @IsString()
   @IsNotEmpty()
-  socialMedia: string;
+  refundRate: string; // Qual é sua taxa de reembolso?
 
   @IsString()
   @IsNotEmpty()
-  businessObjective: string;
+  refundProcess: string; // Como você resolve reembolsos e disputas (MEDs)?
+
+  @IsString()
+  @IsNotEmpty()
+  businessProof: string; // Como podemos comprovar que este negócio pertence a você?
+
+  @IsString()
+  @IsNotEmpty()
+  contactInfo: string; // Tem Telegram ou SimpleX para contato mais rápido?
 
   @IsBoolean()
   @IsOptional()

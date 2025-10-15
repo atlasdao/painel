@@ -1062,6 +1062,239 @@ export default function SettingsPage() {
                 </p>
               </div>
 
+              {/* API Documentation - Only show for approved API keys */}
+              {apiKeyRequests.some(r => r.status === 'APPROVED') && (
+                <div className="mb-8 p-6 bg-gradient-to-br from-gray-900/50 via-blue-900/10 to-purple-900/10 rounded-xl border border-blue-500/20">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <Code className="text-blue-400" size={20} />
+                    Documentação da API
+                  </h3>
+
+                  <div className="space-y-6">
+                    {/* Base URL */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Base URL</h4>
+                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                        <code className="text-sm text-blue-400 font-mono">
+                          {typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Authentication */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Autenticação</h4>
+                      <p className="text-sm text-gray-400 mb-3">
+                        Todas as requisições devem incluir sua API Key no header:
+                      </p>
+                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                        <code className="text-sm text-green-400 font-mono">
+                          X-API-Key: sua-api-key-aqui
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Endpoints */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Endpoints Disponíveis</h4>
+                      <div className="space-y-4">
+
+                        {/* Create PIX Transaction */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/pix/create</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Criar uma transação PIX</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de requisição
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`{
+  "amount": 100.50,
+  "description": "Pagamento de teste",
+  "taxNumber": "12345678900",
+  "merchantOrderId": "ORDER-123"
+}`}
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* Check Transaction Status */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/pix/status/:id</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Verificar status de uma transação</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de resposta
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "PENDING",
+  "amount": 100.50,
+  "qrCode": "00020126580014br.gov.bcb.pix...",
+  "expiresAt": "2024-01-15T23:59:59Z"
+}`}
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* Create Payment Link */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/payment-links</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Criar um link de pagamento</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de requisição
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`{
+  "title": "Produto Digital",
+  "description": "Curso online",
+  "amount": 199.90,
+  "maxUses": 100,
+  "expiresAt": "2024-12-31T23:59:59Z"
+}`}
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* List Payment Links */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/payment-links</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Listar seus links de pagamento</p>
+                        </div>
+
+                        {/* Webhook Configuration */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/webhooks</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Configurar webhook para notificações</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de requisição
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`{
+  "url": "https://seusite.com/webhook",
+  "events": ["PAYMENT_CONFIRMED", "PAYMENT_FAILED"]
+}`}
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Response Status Codes */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Códigos de Status HTTP</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                          <code className="text-sm text-green-400 font-mono">200 OK</code>
+                          <span className="text-sm text-gray-400">Requisição bem-sucedida</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                          <code className="text-sm text-blue-400 font-mono">201 Created</code>
+                          <span className="text-sm text-gray-400">Recurso criado</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                          <code className="text-sm text-yellow-400 font-mono">400 Bad Request</code>
+                          <span className="text-sm text-gray-400">Dados inválidos</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                          <code className="text-sm text-red-400 font-mono">401 Unauthorized</code>
+                          <span className="text-sm text-gray-400">API Key inválida</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                          <code className="text-sm text-red-400 font-mono">429 Too Many Requests</code>
+                          <span className="text-sm text-gray-400">Limite de requisições excedido</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rate Limits */}
+                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <h4 className="text-sm font-semibold text-yellow-400 mb-2 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Limites de Taxa
+                      </h4>
+                      <p className="text-sm text-gray-400">
+                        A API possui limite de 100 requisições por minuto por API Key. Headers de resposta incluem:
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-gray-400">
+                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Limit</code>: Limite total</li>
+                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Remaining</code>: Requisições restantes</li>
+                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Reset</code>: Tempo de reset (Unix timestamp)</li>
+                      </ul>
+                    </div>
+
+                    {/* Example cURL */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Exemplo com cURL</h4>
+                      <div className="p-3 bg-black/50 rounded-lg border border-gray-700 relative">
+                        <button
+                          onClick={() => {
+                            const approvedKey = apiKeyRequests.find(r => r.status === 'APPROVED');
+                            const curlCommand = `curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${approvedKey?.apiKey || 'sua-api-key'}" \\
+  -d '{
+    "amount": 100.50,
+    "description": "Teste de pagamento",
+    "taxNumber": "12345678900"
+  }'`;
+                            navigator.clipboard.writeText(curlCommand);
+                            toast.success('✓ Comando copiado!', {
+                              style: { background: '#10b981', color: '#fff' },
+                              duration: 2000,
+                            });
+                          }}
+                          className="absolute top-2 right-2 p-1.5 hover:bg-gray-700 rounded transition-colors"
+                          title="Copiar comando"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                        </button>
+                        <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
+{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.apiKey || 'sua-api-key'}" \\
+  -d '{
+    "amount": 100.50,
+    "description": "Teste de pagamento",
+    "taxNumber": "12345678900"
+  }'`}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
 
               {/* Existing Requests */}
               {apiKeyRequests.length > 0 && (

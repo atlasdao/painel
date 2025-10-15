@@ -334,13 +334,16 @@ model CommerceApplication {
   id                  String                    @id @default(uuid())
   userId              String                    @unique
   businessName        String
-  businessType        String
-  monthlyVolume       String
-  productDescription  String
-  targetAudience      String
-  hasPhysicalStore    String
-  socialMedia         String
-  businessObjective   String
+  productOrService    String                    // Qual produto ou serviço você vende?
+  averagePrices       String                    // Quais são os valores médios dos seus produtos ou serviços?
+  monthlyPixSales     String                    // Qual a quantidade e volume mensal médio de vendas via Pix?
+  marketTime          String                    // Quanto tempo de mercado você/sua empresa tem?
+  references          String                    // Você tem grupos, comunidades ou páginas de referência?
+  refundRate          String                    // Qual é sua taxa de reembolso?
+  refundProcess       String?                   // Como você resolve reembolsos e disputas (MEDs)?
+  businessProof       String?                   // Como podemos comprovar que este negócio pertence a você?
+  contactInfo         String?                   // Tem Telegram ou SimpleX para contato mais rápido?
+  businessObjective   String?                   // Legacy field - kept for backwards compatibility
   status              CommerceApplicationStatus @default(PENDING)
   depositAmount       Float?                    @default(100000)
   depositPaid         Boolean                   @default(false)
@@ -399,19 +402,17 @@ model LevelConfig {
 }
 
 model LevelHistory {
-  id        String   @id @default(uuid())
-  userId    String
-  oldLevel  Int
-  newLevel  Int
-  oldLimit  Decimal  @db.Decimal(10, 2)
-  newLimit  Decimal  @db.Decimal(10, 2)
-  reason    String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid())
+  userId         String
+  previousLevel  Int
+  newLevel       Int
+  volumeAtChange Float
+  reason         String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
-  @@index([newLevel])
 }
 
 model Donation {
