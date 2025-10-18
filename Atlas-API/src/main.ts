@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger, VersioningType, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { useContainer } from 'class-validator';
 import helmet from 'helmet';
 import compression from 'compression';
 import * as express from 'express';
@@ -17,6 +18,9 @@ async function bootstrap() {
 		logger: ['error', 'warn', 'log'],
 		bodyParser: false, // Disable default body parser to configure custom limits
 	});
+
+	// Enable dependency injection for class-validator constraints
+	useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
 	const configService = app.get(ConfigService);
 	const port = configService.get<number>('PORT', 19997);

@@ -192,3 +192,4 @@ playwright/.cache/
 security-report.*
 audit-report.*
 vulnerability-report.*
+

@@ -13,7 +13,7 @@ import { LimitValidationService } from '../services/limit-validation.service';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, TransactionStatus, TransactionType, UserRole } from '@prisma/client';
+import { User, TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity } from '@prisma/client';
 import { ApiKeyUtils } from '../common/utils/api-key.util';
 import * as bcrypt from 'bcrypt';
 
@@ -973,6 +973,229 @@ export class AdminService {
 			}
 
 			throw new BadRequestException('Erro ao marcar depósito como pago');
+		}
+	}
+
+	// Incident Management Methods
+	async createIncident(createdBy: string, createIncidentDto: {
+		title: string;
+		description?: string;
+		severity: IncidentSeverity;
+		affectedServices?: string[];
+		affectedFrom?: string;
+		affectedTo?: string;
+	}) {
+		try {
+			const incident = await this.prisma.incident.create({
+				data: {
+					title: createIncidentDto.title,
+					description: createIncidentDto.description,
+					severity: createIncidentDto.severity,
+					affectedServices: createIncidentDto.affectedServices || [],
+					affectedFrom: createIncidentDto.affectedFrom ? new Date(createIncidentDto.affectedFrom) : null,
+					affectedTo: createIncidentDto.affectedTo ? new Date(createIncidentDto.affectedTo) : null,
+					createdBy,
+				},
+				include: {
+					creator: {
+						select: { username: true }
+					},
+					updates: true
+				}
+			});
+
+			// Log audit entry
+			await this.auditLogRepository.createLog({
+				userId: createdBy,
+				action: 'CREATE_INCIDENT',
+				resource: 'Incident',
+				resourceId: incident.id,
+				requestBody: createIncidentDto,
+			});
+
+			return {
+				success: true,
+				message: 'Incidente criado com sucesso',
+				data: incident
+			};
+		} catch (error) {
+			console.error('Error creating incident:', error);
+			throw new BadRequestException('Erro ao criar incidente');
+		}
+	}
+
+	async updateIncident(incidentId: string, updateIncidentDto: {
+		title?: string;
+		description?: string;
+		status?: IncidentStatus;
+		severity?: IncidentSeverity;
+		affectedServices?: string[];
+	}) {
+		try {
+			const existingIncident = await this.prisma.incident.findUnique({
+				where: { id: incidentId }
+			});
+
+			if (!existingIncident) {
+				throw new NotFoundException('Incidente não encontrado');
+			}
+
+			const updateData: any = {};
+			if (updateIncidentDto.title) updateData.title = updateIncidentDto.title;
+			if (updateIncidentDto.description !== undefined) updateData.description = updateIncidentDto.description;
+			if (updateIncidentDto.status) updateData.status = updateIncidentDto.status;
+			if (updateIncidentDto.severity) updateData.severity = updateIncidentDto.severity;
+			if (updateIncidentDto.affectedServices) updateData.affectedServices = updateIncidentDto.affectedServices;
+
+			if (updateIncidentDto.status === 'RESOLVED' && existingIncident.status !== 'RESOLVED') {
+				updateData.resolvedAt = new Date();
+			}
+
+			const incident = await this.prisma.incident.update({
+				where: { id: incidentId },
+				data: updateData,
+				include: {
+					creator: {
+						select: { username: true }
+					},
+					updates: {
+						orderBy: { createdAt: 'desc' },
+						include: {
+							creator: {
+								select: { username: true }
+							}
+						}
+					}
+				}
+			});
+
+			return {
+				success: true,
+				message: 'Incidente atualizado com sucesso',
+				data: incident
+			};
+		} catch (error) {
+			console.error('Error updating incident:', error);
+			if (error instanceof NotFoundException) {
+				throw error;
+			}
+			throw new BadRequestException('Erro ao atualizar incidente');
+		}
+	}
+
+	async addIncidentUpdate(incidentId: string, createdBy: string, message: string) {
+		try {
+			const incident = await this.prisma.incident.findUnique({
+				where: { id: incidentId }
+			});
+
+			if (!incident) {
+				throw new NotFoundException('Incidente não encontrado');
+			}
+
+			const update = await this.prisma.incidentUpdate.create({
+				data: {
+					incidentId,
+					message,
+					createdBy
+				},
+				include: {
+					creator: {
+						select: { username: true }
+					}
+				}
+			});
+
+			// Log audit entry
+			await this.auditLogRepository.createLog({
+				userId: createdBy,
+				action: 'ADD_INCIDENT_UPDATE',
+				resource: 'IncidentUpdate',
+				resourceId: update.id,
+				requestBody: { incidentId, message },
+			});
+
+			return {
+				success: true,
+				message: 'Atualização adicionada com sucesso',
+				data: update
+			};
+		} catch (error) {
+			console.error('Error adding incident update:', error);
+			if (error instanceof NotFoundException) {
+				throw error;
+			}
+			throw new BadRequestException('Erro ao adicionar atualização do incidente');
+		}
+	}
+
+	async resolveIncident(incidentId: string, resolvedBy: string, message?: string) {
+		try {
+			const incident = await this.prisma.incident.findUnique({
+				where: { id: incidentId }
+			});
+
+			if (!incident) {
+				throw new NotFoundException('Incidente não encontrado');
+			}
+
+			if (incident.status === 'RESOLVED') {
+				throw new BadRequestException('Incidente já foi resolvido');
+			}
+
+			// Update incident status
+			const updatedIncident = await this.prisma.incident.update({
+				where: { id: incidentId },
+				data: {
+					status: 'RESOLVED',
+					resolvedAt: new Date()
+				},
+				include: {
+					creator: {
+						select: { username: true }
+					},
+					updates: {
+						orderBy: { createdAt: 'desc' },
+						include: {
+							creator: {
+								select: { username: true }
+							}
+						}
+					}
+				}
+			});
+
+			// Add resolution update if message provided
+			if (message) {
+				await this.prisma.incidentUpdate.create({
+					data: {
+						incidentId,
+						message: `RESOLVIDO: ${message}`,
+						createdBy: resolvedBy
+					}
+				});
+			}
+
+			// Log audit entry
+			await this.auditLogRepository.createLog({
+				userId: resolvedBy,
+				action: 'RESOLVE_INCIDENT',
+				resource: 'Incident',
+				resourceId: incidentId,
+				requestBody: { message },
+			});
+
+			return {
+				success: true,
+				message: 'Incidente resolvido com sucesso',
+				data: updatedIncident
+			};
+		} catch (error) {
+			console.error('Error resolving incident:', error);
+			if (error instanceof NotFoundException || error instanceof BadRequestException) {
+				throw error;
+			}
+			throw new BadRequestException('Erro ao resolver incidente');
 		}
 	}
 }

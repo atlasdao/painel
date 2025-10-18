@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const [twoFAToken, setTwoFAToken] = useState('');
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState<{ [key: string]: boolean }>({});
 
   // Wallet State
   const [walletForm, setWalletForm] = useState({
@@ -165,12 +166,42 @@ export default function SettingsPage() {
     }
   };
 
-  const copyApiKey = (apiKey: string) => {
+  const copyApiKey = (apiKey: string | null | undefined) => {
+    if (!apiKey) {
+      toast.error('API Key não disponível para cópia', {
+        style: { background: '#ef4444', color: '#fff' },
+        duration: 2000,
+      });
+      return;
+    }
+
     navigator.clipboard.writeText(apiKey);
     toast.success('✓ API Key copiada!', {
       style: { background: '#10b981', color: '#fff' },
       duration: 2000,
     });
+  };
+
+  const toggleApiKeyVisibility = (apiKeyId: string) => {
+    setShowApiKeys(prev => ({
+      ...prev,
+      [apiKeyId]: !prev[apiKeyId]
+    }));
+  };
+
+  const formatApiKey = (apiKey: string | null | undefined, isVisible: boolean) => {
+    if (!apiKey) {
+      return 'API Key não disponível';
+    }
+
+    if (isVisible) {
+      return apiKey;
+    }
+    // Show first 8 and last 4 characters, censor the middle
+    if (apiKey.length <= 12) {
+      return '•'.repeat(apiKey.length);
+    }
+    return `${apiKey.substring(0, 8)}${'•'.repeat(Math.max(8, apiKey.length - 12))}${apiKey.substring(apiKey.length - 4)}`;
   };
 
   const loadUserProfile = async () => {
@@ -516,6 +547,27 @@ export default function SettingsPage() {
 
 
                 </div>
+
+                {/* API Key Quick Access */}
+                {apiKeyRequests.some(r => r.status === 'APPROVED') && (
+                  <div className="mt-8 p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Key className="w-5 h-5 text-green-400" />
+                        <div>
+                          <h4 className="text-sm font-medium text-white">API Key Ativa</h4>
+                          <p className="text-xs text-gray-400">Você possui acesso à nossa API</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('api')}
+                        className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                      >
+                        Ver API Key
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* User Limits Section */}
                 <div className="mt-8">
@@ -1052,13 +1104,111 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                 <Code className="text-purple-400" size={24} />
-                Solicitação de API Key
+                API & Integração
               </h2>
+
+              {/* Current API Keys Section - Always visible at top */}
+              <div className="p-6 bg-gradient-to-br from-green-900/20 via-blue-900/10 to-purple-900/10 rounded-xl border border-green-500/20 mb-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Key className="text-green-400" size={20} />
+                  Suas API Keys
+                </h3>
+
+                {apiKeyRequests.filter(r => r.status === 'APPROVED').length > 0 ? (
+                  <div className="space-y-4">
+                    {apiKeyRequests.filter(r => r.status === 'APPROVED').map((request) => (
+                      <div key={request.id} className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <span className="text-green-400 font-medium">API Key Ativa</span>
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            Criada em {new Date(request.createdAt).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+
+                        {request.generatedApiKey ? (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">Sua API Key:</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => toggleApiKeyVisibility(request.id)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                                  title={showApiKeys[request.id] ? "Ocultar API Key" : "Mostrar API Key"}
+                                >
+                                  {showApiKeys[request.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  {showApiKeys[request.id] ? "Ocultar" : "Mostrar"}
+                                </button>
+                                <button
+                                  onClick={() => copyApiKey(request.generatedApiKey)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                                  title="Copiar API Key"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="relative">
+                              <code className="block text-sm text-white font-mono break-all bg-gray-800 border border-gray-600 p-3 rounded">
+                                {formatApiKey(request.generatedApiKey, showApiKeys[request.id] || false)}
+                              </code>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                            <p className="text-yellow-400 text-sm">
+                              API Key ainda não foi gerada. Entre em contato com o suporte.
+                            </p>
+                          </div>
+                        )}
+
+                        {request.apiKeyExpiresAt && (
+                          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Expira em: {new Date(request.apiKeyExpiresAt).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+
+                        <div className="mt-3 text-xs text-gray-400">
+                          <p><span className="text-gray-300">Uso:</span> {request.usageReason}</p>
+                          <p><span className="text-gray-300">Serviço:</span> {request.serviceUrl}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Key className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">Nenhuma API Key Ativa</h4>
+                    <p className="text-gray-400 mb-4">
+                      Você ainda não possui uma API Key aprovada. Solicite uma abaixo para começar a integrar.
+                    </p>
+                    {!apiKeyRequests.some(r => r.status === 'PENDING') && (
+                      <button
+                        onClick={() => {
+                          // Scroll to request form
+                          const formElement = document.querySelector('[data-api-request-form]');
+                          formElement?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
+                      >
+                        Solicitar API Key
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Info Box */}
               <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg mb-6">
                 <p className="text-purple-400">
-                  Solicite acesso à API para integrar nossos serviços em sua aplicação.
+                  Integre nossos serviços de pagamento PIX em sua aplicação usando nossa API REST.
                 </p>
               </div>
 
@@ -1262,7 +1412,7 @@ export default function SettingsPage() {
                             const approvedKey = apiKeyRequests.find(r => r.status === 'APPROVED');
                             const curlCommand = `curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${approvedKey?.apiKey || 'sua-api-key'}" \\
+  -H "X-API-Key: ${approvedKey?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
@@ -1282,7 +1432,7 @@ export default function SettingsPage() {
                         <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
 {`curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.apiKey || 'sua-api-key'}" \\
+  -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
@@ -1296,23 +1446,21 @@ export default function SettingsPage() {
               )}
 
 
-              {/* Existing Requests */}
-              {apiKeyRequests.length > 0 && (
+              {/* Request History - Show pending/rejected requests */}
+              {apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'REJECTED') && (
                 <div className="space-y-4 mb-6">
-                  <h3 className="text-lg font-semibold text-white">Suas Solicitações</h3>
-                  {apiKeyRequests.map((request) => (
+                  <h3 className="text-lg font-semibold text-white">Histórico de Solicitações</h3>
+                  {apiKeyRequests.filter(r => r.status !== 'APPROVED').map((request) => (
                     <div key={request.id} className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                               request.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' :
-                              request.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' :
                               request.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
                               'bg-gray-500/20 text-gray-400'
                             }`}>
                               {request.status === 'PENDING' ? 'Pendente' :
-                               request.status === 'APPROVED' ? 'Aprovada' :
                                request.status === 'REJECTED' ? 'Rejeitada' :
                                request.status}
                             </span>
@@ -1327,36 +1475,6 @@ export default function SettingsPage() {
                           <p className="text-sm text-gray-300">
                             <span className="text-gray-400">URL do Serviço:</span> {request.serviceUrl}
                           </p>
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">Volume Estimado:</span> {request.estimatedVolume}
-                          </p>
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">Tipo de Uso:</span>
-                            {request.usageType === 'SINGLE_CPF' ? ' CPF Único' : ' Múltiplos CPFs'}
-                          </p>
-
-                          {request.status === 'APPROVED' && request.apiKey && (
-                            <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-green-400">API Key:</span>
-                                <button
-                                  onClick={() => copyApiKey(request.apiKey)}
-                                  className="p-1.5 hover:bg-gray-700 rounded transition-colors"
-                                  title="Copiar API Key"
-                                >
-                                  <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
-                                </button>
-                              </div>
-                              <code className="block text-xs text-green-300 font-mono break-all bg-black/30 p-2 rounded">
-                                {request.apiKey}
-                              </code>
-                              {request.apiKeyExpiresAt && (
-                                <p className="text-xs text-gray-400 mt-2">
-                                  Expira em: {new Date(request.apiKeyExpiresAt).toLocaleDateString('pt-BR')}
-                                </p>
-                              )}
-                            </div>
-                          )}
 
                           {request.status === 'REJECTED' && request.rejectionReason && (
                             <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -1374,7 +1492,7 @@ export default function SettingsPage() {
 
               {/* Request Form - Only show if no pending or approved requests */}
               {!apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'APPROVED') && (
-                <div className="space-y-4">
+                <div className="space-y-4" data-api-request-form>
                   <h3 className="text-lg font-semibold text-white">Nova Solicitação</h3>
 
                   <div>

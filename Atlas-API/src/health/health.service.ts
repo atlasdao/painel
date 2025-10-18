@@ -252,4 +252,50 @@ export class HealthService {
 	incrementErrorCount(): void {
 		this.errorCount++;
 	}
+
+	async getActiveIncidents() {
+		return this.prisma.incident.findMany({
+			where: {
+				status: {
+					not: 'RESOLVED'
+				}
+			},
+			include: {
+				updates: {
+					orderBy: { createdAt: 'desc' },
+					include: {
+						creator: {
+							select: { username: true }
+						}
+					}
+				},
+				creator: {
+					select: { username: true }
+				}
+			},
+			orderBy: [
+				{ severity: 'desc' },
+				{ createdAt: 'desc' }
+			]
+		});
+	}
+
+	async getAllIncidents() {
+		return this.prisma.incident.findMany({
+			include: {
+				updates: {
+					orderBy: { createdAt: 'desc' },
+					include: {
+						creator: {
+							select: { username: true }
+						}
+					}
+				},
+				creator: {
+					select: { username: true }
+				}
+			},
+			orderBy: { createdAt: 'desc' }
+		});
+	}
 }

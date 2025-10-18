@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
   console.log('Middleware - userCookie:', userCookie ? 'EXISTS' : 'NOT FOUND');
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa'];
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa', '/devs', '/status', '/termos', '/privacidade'];
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/');
   
   // Auth routes that should redirect logged-in users

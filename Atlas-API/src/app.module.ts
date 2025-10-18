@@ -26,6 +26,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { UserRepository } from './repositories/user.repository';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { AuditLogRepository } from './repositories/audit-log.repository';
+import { IsNotDisposableEmailConstraint } from './common/decorators/email-validation.decorator';
 
 @Module({
 	imports: [
@@ -57,6 +58,7 @@ import { AuditLogRepository } from './repositories/audit-log.repository';
 		UserRepository,
 		TransactionRepository,
 		AuditLogRepository,
+		IsNotDisposableEmailConstraint,
 		{
 			provide: APP_GUARD,
 			useClass: JwtAuthGuard,
