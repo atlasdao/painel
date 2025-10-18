@@ -99,7 +99,7 @@ export default function DepositPage() {
       const requestData: any = {
         amount: amountInReais,
         description,
-        expirationMinutes: 30,
+        expirationMinutes: Math.floor((29 * 60 + 50) / 60),
       };
 
       // Handle wallet address based on toggle state

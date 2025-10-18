@@ -12,7 +12,6 @@ import {
   Check,
   Terminal,
   FileCode,
-  Webhook,
   Database,
   Lock,
   Globe,
@@ -31,18 +30,21 @@ export default function DevsPage() {
   const [activeSection, setActiveSection] = useState('quick-start');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:19997/api/v1';
+  const isProduction = apiBaseUrl.includes('atlasdao.info');
+
   const handleCopyCode = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(id);
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const codeExamples = {
+  const getCodeExamples = () => ({
     quickStart: `// Criar link de pagamento
-const response = await fetch('http://localhost:19997/api/v1/payment-links', {
+const response = await fetch('${apiBaseUrl}/payment-links', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer SUA_API_KEY',
+    'X-API-Key': 'SUA_API_KEY',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -56,35 +58,25 @@ const response = await fetch('http://localhost:19997/api/v1/payment-links', {
 const paymentLink = await response.json();
 console.log('Link:', paymentLink.data.shortUrl);`,
 
-    webhook: `// Receber notificações de pagamento
-app.post('/webhook/atlas', (req, res) => {
-  const { event, data } = req.body;
-
-  if (event === 'payment.completed') {
-    console.log('Pagamento recebido:', data.paymentId);
-    console.log('Valor:', data.amount);
-    // Liberar produto/serviço aqui
-  }
-
-  res.status(200).send('OK');
-});`,
 
     generateQR: `// Gerar QR Code PIX
-const response = await fetch('http://localhost:19997/api/v1/pay/ABC123/generate-qr', {
+const response = await fetch('${apiBaseUrl}/pix/create', {
   method: 'POST',
   headers: {
+    'X-API-Key': 'SUA_API_KEY',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
-    amount: 99.90
+    amount: 99.90,
+    description: 'Pagamento teste'
   })
 });
 
-const qrData = await response.json();
-console.log('QR Code:', qrData.data.qrCode);`,
+const pixData = await response.json();
+console.log('PIX criado:', pixData.data);`,
 
     authentication: `// Fazer login e obter JWT
-const loginResponse = await fetch('http://localhost:19997/auth/login', {
+const loginResponse = await fetch('${apiBaseUrl}/auth/login', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -99,7 +91,7 @@ const { data } = await loginResponse.json();
 const token = data.accessToken;
 
 // Usar token em requisições autenticadas
-const profileResponse = await fetch('http://localhost:19997/api/v1/profile', {
+const profileResponse = await fetch('${apiBaseUrl}/profile', {
   headers: {
     'Authorization': \`Bearer \${token}\`
   }
@@ -109,9 +101,9 @@ const profileResponse = await fetch('http://localhost:19997/api/v1/profile', {
 
 # Criar link de pagamento
 response = requests.post(
-    'http://localhost:19997/api/v1/payment-links',
+    '${apiBaseUrl}/payment-links',
     headers={
-        'Authorization': 'Bearer SUA_API_KEY',
+        'X-API-Key': 'SUA_API_KEY',
         'Content-Type': 'application/json'
     },
     json={
@@ -132,11 +124,11 @@ $data = [
 ];
 
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, 'http://localhost:19997/api/v1/payment-links');
+curl_setopt($ch, CURLOPT_URL, '${apiBaseUrl}/payment-links');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer SUA_API_KEY',
+    'X-API-Key: SUA_API_KEY',
     'Content-Type: application/json'
 ]);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -148,8 +140,8 @@ echo "Link: " . $paymentLink['data']['shortUrl'];
 ?>`,
 
     curl: `# Criar link de pagamento
-curl -X POST http://localhost:19997/api/v1/payment-links \\
-  -H "Authorization: Bearer SUA_API_KEY" \\
+curl -X POST ${apiBaseUrl}/payment-links \\
+  -H "X-API-Key: SUA_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Produto Exemplo",
@@ -157,11 +149,14 @@ curl -X POST http://localhost:19997/api/v1/payment-links \\
     "customerEmail": "cliente@email.com"
   }'
 
-# Gerar QR Code PIX
-curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
+# Criar transação PIX
+curl -X POST ${apiBaseUrl}/pix/create \\
+  -H "X-API-Key: SUA_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"amount": 99.90}'`
-  };
+  -d '{"amount": 99.90, "description": "Pagamento teste"}'`
+  });
+
+  const codeExamples = getCodeExamples();
 
   const features = [
     {
@@ -175,11 +170,6 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
       description: 'JWT e API Keys com criptografia robusta'
     },
     {
-      icon: Webhook,
-      title: 'Webhooks Confiáveis',
-      description: 'Notificações instantâneas de pagamentos'
-    },
-    {
       icon: Database,
       title: 'Ambiente de Desenvolvimento',
       description: 'Teste completo em localhost'
@@ -188,16 +178,10 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
 
   const apiEndpoints = [
     {
-      method: 'POST',
-      path: '/auth/login',
-      description: 'Autenticação de usuário',
-      category: 'Autenticação'
-    },
-    {
-      method: 'POST',
-      path: '/auth/register',
-      description: 'Registro de novo usuário',
-      category: 'Autenticação'
+      method: 'GET',
+      path: '/api/v1/profile',
+      description: 'Dados do perfil do usuário',
+      category: 'Perfil'
     },
     {
       method: 'POST',
@@ -213,35 +197,64 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
     },
     {
       method: 'GET',
-      path: '/pay/:shortCode',
-      description: 'Obter dados do link público',
-      category: 'PIX'
+      path: '/api/v1/payment-links/:id',
+      description: 'Detalhes de um link específico',
+      category: 'Pagamentos'
     },
     {
       method: 'POST',
-      path: '/pay/:shortCode/generate-qr',
-      description: 'Gerar QR Code PIX',
+      path: '/api/v1/pix/create',
+      description: 'Criar transação PIX',
       category: 'PIX'
     },
     {
       method: 'GET',
-      path: '/api/v1/profile',
-      description: 'Dados do perfil do usuário',
-      category: 'Usuário'
+      path: '/api/v1/pix/limits',
+      description: 'Verificar limites PIX',
+      category: 'PIX'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/withdrawals',
+      description: 'Listar saques',
+      category: 'Saques'
     },
     {
       method: 'POST',
-      path: '/webhooks/deposit',
-      description: 'Receber notificações de webhook',
-      category: 'Webhooks'
-    }
+      path: '/api/v1/withdrawals',
+      description: 'Solicitar saque',
+      category: 'Saques'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/donations',
+      description: 'Listar doações',
+      category: 'Doações'
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/donations',
+      description: 'Criar doação',
+      category: 'Doações'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/admin/stats',
+      description: 'Estatísticas administrativas',
+      category: 'Admin'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/admin/users',
+      description: 'Listar usuários (admin)',
+      category: 'Admin'
+    },
   ];
 
   const navigationSections = [
     { id: 'quick-start', title: 'Início Rápido', icon: Play },
     { id: 'authentication', title: 'Autenticação', icon: Lock },
     { id: 'payment-links', title: 'Links de Pagamento', icon: Code2 },
-    { id: 'webhooks', title: 'Webhooks', icon: Webhook },
     { id: 'examples', title: 'Exemplos', icon: Terminal },
     { id: 'testing', title: 'Testes', icon: Activity }
   ];
@@ -417,10 +430,27 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
               <div className="space-y-6">
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <h3 className="text-xl font-semibold text-white mb-4">1. Configuração da API</h3>
-                  <p className="text-gray-300 mb-4">Base URL para desenvolvimento:</p>
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
-                    <code className="text-green-400">http://localhost:19997/api/v1</code>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-gray-300 mb-2">Base URL ({isProduction ? 'Produção' : 'Desenvolvimento'}):</p>
+                      <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                        <code className={isProduction ? 'text-green-400' : 'text-blue-400'}>{apiBaseUrl}</code>
+                      </div>
+                    </div>
+                    {!isProduction && (
+                      <div>
+                        <p className="text-gray-300 mb-2">Base URL (Produção - Em breve):</p>
+                        <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                          <code className="text-yellow-400">https://api.atlasdao.info/api/v1</code>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  <p className={`text-sm mt-4 ${isProduction ? 'text-green-400' : 'text-blue-400'}`}>
+                    {isProduction
+                      ? '🚀 Ambiente de produção ativo'
+                      : '📝 Atualmente em desenvolvimento. A API de produção estará disponível em breve.'}
+                  </p>
                 </div>
 
                 <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
@@ -484,34 +514,33 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
             <div className="max-w-4xl">
               <h2 className="text-3xl font-bold text-white mb-6">Autenticação</h2>
               <p className="text-gray-300 mb-8">
-                A API Atlas suporta dois tipos de autenticação: JWT para o painel web e API Keys para integrações programáticas.
+                A API Atlas utiliza API Keys para autenticação. Todas as requisições devem incluir sua API Key no header X-API-Key.
               </p>
 
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden mb-6">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                  <h3 className="text-xl font-semibold text-white">Login JWT</h3>
-                  <button
-                    onClick={() => handleCopyCode('authentication', codeExamples.authentication)}
-                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    {copiedCode === 'authentication' ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-400" />
-                        <span className="text-sm">Copiado!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        <span className="text-sm">Copiar</span>
-                      </>
-                    )}
-                  </button>
+                <div className="px-6 py-4 border-b border-gray-700">
+                  <h3 className="text-xl font-semibold text-white">Autenticação com API Key</h3>
                 </div>
-                <pre className="p-6 overflow-x-auto">
-                  <code className="text-sm text-gray-300 font-mono">
-                    {codeExamples.authentication}
-                  </code>
-                </pre>
+                <div className="p-6">
+                  <p className="text-gray-300 mb-4">
+                    Todas as requisições à API devem incluir o header X-API-Key com sua chave de API:
+                  </p>
+                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                    <code className="text-green-400">X-API-Key: sua-api-key-aqui</code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-red-400 mt-0.5" />
+                  <div>
+                    <p className="text-red-400 font-medium">Limite de Taxa</p>
+                    <p className="text-gray-300 text-sm mt-1">
+                      A API possui limite de 5 requisições por segundo por API Key. Requisições acima deste limite retornarão erro 429.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
@@ -520,7 +549,8 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
                   <div>
                     <p className="text-blue-400 font-medium">Importante</p>
                     <p className="text-gray-300 text-sm mt-1">
-                      Para integrações de produção, use API Keys em vez de JWT. Entre em contato com o suporte para obter sua API Key.
+                      Para obter sua API Key, faça uma solicitação através do painel de configurações em /settings {'>'}  API.
+                      Mantenha sua API Key segura e nunca a exponha em código frontend.
                     </p>
                   </div>
                 </div>
@@ -629,7 +659,7 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
                     <div>
                       <p className="text-blue-400 font-medium">Dica</p>
                       <p className="text-gray-300 text-sm mt-1">
-                        Os links ficam ativos por padrão. Configure webhooks para receber notificações quando pagamentos forem processados.
+                        Os links ficam ativos por padrão e podem receber pagamentos imediatamente após a criação.
                       </p>
                     </div>
                   </div>
@@ -638,41 +668,6 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
             </div>
           )}
 
-          {activeSection === 'webhooks' && (
-            <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold text-white mb-6">Webhooks</h2>
-              <p className="text-gray-300 mb-8">
-                Configure webhooks para receber notificações instantâneas quando pagamentos forem processados.
-              </p>
-
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                  <h3 className="text-xl font-semibold text-white">Endpoint de Webhook</h3>
-                  <button
-                    onClick={() => handleCopyCode('webhook', codeExamples.webhook)}
-                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    {copiedCode === 'webhook' ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-400" />
-                        <span className="text-sm">Copiado!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        <span className="text-sm">Copiar</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <pre className="p-6 overflow-x-auto">
-                  <code className="text-sm text-gray-300 font-mono">
-                    {codeExamples.webhook}
-                  </code>
-                </pre>
-              </div>
-            </div>
-          )}
 
           {activeSection === 'examples' && (
             <div className="max-w-4xl">
@@ -768,36 +763,52 @@ curl -X POST http://localhost:19997/api/v1/pay/ABC123/generate-qr \\
 
           {activeSection === 'testing' && (
             <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold text-white mb-6">Ambiente de Testes</h2>
+              <h2 className="text-3xl font-bold text-white mb-6">Status da API</h2>
               <p className="text-gray-300 mb-8">
-                Use o ambiente de desenvolvimento local para testar sua integração sem processar pagamentos reais.
+                A API Atlas está em desenvolvimento ativo. Solicite acesso antecipado através do painel de configurações.
               </p>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                  <h3 className="text-lg font-semibold text-white mb-4">Servidor Local</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">API em Desenvolvimento</h3>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm text-gray-400">Backend</p>
-                      <code className="text-blue-400">http://localhost:19997</code>
+                      <p className="text-sm text-gray-400">Base URL atual</p>
+                      <code className={isProduction ? 'text-green-400' : 'text-blue-400'}>{apiBaseUrl}</code>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-400">Frontend</p>
-                      <code className="text-blue-400">http://localhost:11337</code>
+                      <p className="text-sm text-gray-400">Status</p>
+                      <code className={isProduction ? 'text-green-400' : 'text-blue-400'}>
+                        {isProduction ? 'Produção Ativa' : 'Desenvolvimento Ativo'}
+                      </code>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Limite</p>
+                      <code className="text-green-400">5 req/sec por API Key</code>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                  <h3 className="text-lg font-semibold text-white mb-4">Status da API</h3>
-                  <Link
-                    href="/status"
-                    className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    <Activity className="w-4 h-4" />
-                    <span>Verificar Status</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </Link>
+                  <h3 className="text-lg font-semibold text-white mb-4">Recursos</h3>
+                  <div className="space-y-3">
+                    <Link
+                      href="/status"
+                      className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <Activity className="w-4 h-4" />
+                      <span>Status da API</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                    <Link
+                      href="/settings?tab=api"
+                      className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Solicitar API Key</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
