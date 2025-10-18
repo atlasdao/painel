@@ -1335,28 +1335,6 @@ export default function SettingsPage() {
                           <p className="text-sm text-gray-400">Listar seus links de pagamento</p>
                         </div>
 
-                        {/* Webhook Configuration */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/webhooks</code>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">Configurar webhook para notificações</p>
-
-                          <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
-                              Ver exemplo de requisição
-                            </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
-{`{
-  "url": "https://seusite.com/webhook",
-  "events": ["PAYMENT_CONFIRMED", "PAYMENT_FAILED"]
-}`}
-                              </pre>
-                            </div>
-                          </details>
-                        </div>
                       </div>
                     </div>
 

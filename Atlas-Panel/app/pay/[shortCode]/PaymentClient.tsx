@@ -43,7 +43,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
   const [paymentData, setPaymentData] = useState<any>(initialData || null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(28 * 60);
+  const [timeLeft, setTimeLeft] = useState(29 * 60 + 50);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [showQrCode, setShowQrCode] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -166,7 +166,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
         }
       }
 
-      setTimeLeft(28 * 60);
+      setTimeLeft(29 * 60 + 50);
       setIsExpired(false);
       setIsGenerating(false);
       setLoading(false);
@@ -206,7 +206,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       setIsGenerating(true);
       setIsExpired(false);
       await generateNewQRCode(paymentData?.isCustomAmount ? parseFloat(customAmount) : undefined);
-      setTimeLeft(28 * 60);
+      setTimeLeft(29 * 60 + 50);
       setIsGenerating(false);
     }
   };
@@ -572,7 +572,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         <div className="mt-2 h-0.5 bg-slate-700 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${isExpired ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}
-                            style={{ width: isExpired ? '100%' : `${(timeLeft / (28 * 60)) * 100}%` }}
+                            style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
                           />
                         </div>
                       </div>
@@ -875,7 +875,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
               <div className="mt-1.5 h-0.5 bg-slate-800/50 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${isExpired ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
-                  style={{ width: isExpired ? '100%' : `${(timeLeft / (28 * 60)) * 100}%` }}
+                  style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
                 />
               </div>
             </div>

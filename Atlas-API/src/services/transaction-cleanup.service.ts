@@ -7,15 +7,15 @@ import { TransactionStatus } from '@prisma/client';
 export class TransactionCleanupService {
 	private readonly logger = new Logger(TransactionCleanupService.name);
 
-	// 28 minutes in milliseconds
-	private readonly TRANSACTION_TIMEOUT = 28 * 60 * 1000;
+	// 29 minutes 50 seconds in milliseconds
+	private readonly TRANSACTION_TIMEOUT = (29 * 60 + 50) * 1000;
 
 	constructor(private readonly prisma: PrismaService) {}
 
 	@Cron(CronExpression.EVERY_MINUTE)
 	async checkPendingTransactions() {
 		try {
-			// Calculate the cutoff time (28 minutes ago)
+			// Calculate the cutoff time (29 minutes 50 seconds ago)
 			const cutoffTime = new Date(Date.now() - this.TRANSACTION_TIMEOUT);
 
 			// Find expired pending transactions
@@ -23,7 +23,7 @@ export class TransactionCleanupService {
 				where: {
 					status: TransactionStatus.PENDING,
 					createdAt: {
-						lt: cutoffTime, // Less than cutoff time (older than 28 minutes)
+						lt: cutoffTime, // Less than cutoff time (older than 29 minutes 50 seconds)
 					},
 				},
 			});
@@ -53,7 +53,7 @@ export class TransactionCleanupService {
 				},
 				data: {
 					status: TransactionStatus.EXPIRED,
-					errorMessage: 'Transação expirou após 28 minutos',
+					errorMessage: 'Transação expirou após 29 minutos e 50 segundos',
 					processedAt: new Date(),
 				},
 			});
@@ -108,7 +108,7 @@ export class TransactionCleanupService {
 					data: {
 						status: TransactionStatus.EXPIRED,
 						errorMessage:
-							'Transação expirou após 28 minutos (limpeza de backup)',
+							'Transação expirou após 29 minutos e 50 segundos (limpeza de backup)',
 						processedAt: new Date(),
 					},
 				});
@@ -144,7 +144,7 @@ export class TransactionCleanupService {
 			},
 			data: {
 				status: TransactionStatus.EXPIRED,
-				errorMessage: 'Transação expirou após 28 minutos (limpeza manual)',
+				errorMessage: 'Transação expirou após 29 minutos e 50 segundos (limpeza manual)',
 				processedAt: new Date(),
 			},
 		});
@@ -174,7 +174,7 @@ export class TransactionCleanupService {
 				},
 			}),
 
-			// Recent transactions (within 28 minutes)
+			// Recent transactions (within 29 minutes 50 seconds)
 			this.prisma.transaction.count({
 				where: {
 					status: TransactionStatus.PENDING,

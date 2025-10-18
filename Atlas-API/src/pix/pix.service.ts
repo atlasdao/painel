@@ -595,7 +595,7 @@ export class PixService {
 			const metadataToStore = {
 				isQrCodePayment: true,
 				depixAddress: data.depixAddress, // Also store in metadata for reference
-				expirationMinutes: data.expirationMinutes || 18, // Changed to 18 minutes as requested
+				expirationMinutes: data.expirationMinutes || Math.floor((29 * 60 + 50) / 60), // 29 minutes 50 seconds
 				payerCpfCnpj: data.payerCpfCnpj, // Store payer CPF/CNPJ if provided
 				...data.metadata, // Include any additional metadata (like paymentLinkId)
 			};
