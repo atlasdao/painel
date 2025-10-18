@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { IsNotDisposableEmail } from '../decorators/email-validation.decorator';
 
 export class RegisterDto {
 	@ApiProperty({
@@ -18,6 +19,9 @@ export class RegisterDto {
 		example: 'user@example.com',
 	})
 	@IsEmail()
+	@IsNotDisposableEmail({
+		message: 'Endereços de email temporários não são permitidos. Use um email permanente.',
+	})
 	@Transform(({ value }) => value?.toLowerCase().trim())
 	email: string;
 
@@ -291,6 +295,9 @@ export class ForgotPasswordDto {
 		example: 'user@example.com',
 	})
 	@IsEmail()
+	@IsNotDisposableEmail({
+		message: 'Endereços de email temporários não são permitidos. Use um email permanente.',
+	})
 	@IsNotEmpty()
 	@Transform(({ value }) => value?.toLowerCase().trim())
 	email: string;
@@ -302,6 +309,9 @@ export class ResetPasswordDto {
 		example: 'user@example.com',
 	})
 	@IsEmail()
+	@IsNotDisposableEmail({
+		message: 'Endereços de email temporários não são permitidos. Use um email permanente.',
+	})
 	@IsNotEmpty()
 	@Transform(({ value }) => value?.toLowerCase().trim())
 	email: string;
@@ -336,6 +346,9 @@ export class VerifyResetCodeDto {
 		example: 'user@example.com',
 	})
 	@IsEmail()
+	@IsNotDisposableEmail({
+		message: 'Endereços de email temporários não são permitidos. Use um email permanente.',
+	})
 	@IsNotEmpty()
 	@Transform(({ value }) => value?.toLowerCase().trim())
 	email: string;

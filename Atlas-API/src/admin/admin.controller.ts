@@ -24,9 +24,10 @@ import {
 	ApiParam,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { HealthService } from '../health/health.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TransactionCleanupService } from '../services/transaction-cleanup.service';
-import { TransactionStatus, TransactionType, UserRole } from '@prisma/client';
+import { TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity } from '@prisma/client';
 
 @ApiTags('Admin')
 @Controller({ path: 'admin', version: '1' })
@@ -36,6 +37,7 @@ export class AdminController {
 	constructor(
 		private readonly adminService: AdminService,
 		private readonly transactionCleanupService: TransactionCleanupService,
+		private readonly healthService: HealthService,
 	) {}
 
 	// Middleware to check admin role
@@ -640,5 +642,91 @@ export class AdminController {
 	) {
 		this.checkAdminRole(req.user);
 		return this.adminService.togglePaymentLinks(userId, enable);
+	}
+
+	// Incident Management Endpoints
+	@Get('system/incidents')
+	@ApiTags('Admin - Incident Management')
+	@ApiOperation({ summary: 'Get all incidents (Admin only)' })
+	@ApiResponse({ status: 200, description: 'Incidents retrieved successfully' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async getAllIncidents(@Req() req: any) {
+		this.checkAdminRole(req.user);
+		return {
+			success: true,
+			data: await this.healthService.getAllIncidents()
+		};
+	}
+
+	@Post('system/incidents')
+	@ApiTags('Admin - Incident Management')
+	@ApiOperation({ summary: 'Create new incident (Admin only)' })
+	@ApiResponse({ status: 201, description: 'Incident created successfully' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async createIncident(
+		@Req() req: any,
+		@Body() createIncidentDto: {
+			title: string;
+			description?: string;
+			severity: IncidentSeverity;
+			affectedServices?: string[];
+		}
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.createIncident(req.user.sub, createIncidentDto);
+	}
+
+	@Patch('system/incidents/:id')
+	@ApiTags('Admin - Incident Management')
+	@ApiOperation({ summary: 'Update incident (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Incident ID' })
+	@ApiResponse({ status: 200, description: 'Incident updated successfully' })
+	@ApiResponse({ status: 404, description: 'Incident not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async updateIncident(
+		@Req() req: any,
+		@Param('id') incidentId: string,
+		@Body() updateIncidentDto: {
+			title?: string;
+			description?: string;
+			status?: IncidentStatus;
+			severity?: IncidentSeverity;
+			affectedServices?: string[];
+		}
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.updateIncident(incidentId, updateIncidentDto);
+	}
+
+	@Post('system/incidents/:id/updates')
+	@ApiTags('Admin - Incident Management')
+	@ApiOperation({ summary: 'Add update to incident (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Incident ID' })
+	@ApiResponse({ status: 201, description: 'Incident update added successfully' })
+	@ApiResponse({ status: 404, description: 'Incident not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async addIncidentUpdate(
+		@Req() req: any,
+		@Param('id') incidentId: string,
+		@Body() updateDto: { message: string }
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.addIncidentUpdate(incidentId, req.user.sub, updateDto.message);
+	}
+
+	@Post('system/incidents/:id/resolve')
+	@ApiTags('Admin - Incident Management')
+	@ApiOperation({ summary: 'Resolve incident (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Incident ID' })
+	@ApiResponse({ status: 200, description: 'Incident resolved successfully' })
+	@ApiResponse({ status: 404, description: 'Incident not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async resolveIncident(
+		@Req() req: any,
+		@Param('id') incidentId: string,
+		@Body() resolveDto: { message?: string }
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.resolveIncident(incidentId, req.user.sub, resolveDto.message);
 	}
 }
