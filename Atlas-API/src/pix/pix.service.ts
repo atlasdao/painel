@@ -771,11 +771,12 @@ export class PixService {
 				};
 			}
 
-			// Only check with Eulen API if status is PENDING or PROCESSING
+			// Only check with Eulen API if status is PENDING, PROCESSING, or IN_REVIEW
 			if (
 				transaction.externalId &&
 				(transaction.status === TransactionStatus.PENDING ||
-					transaction.status === TransactionStatus.PROCESSING)
+					transaction.status === TransactionStatus.PROCESSING ||
+					transaction.status === TransactionStatus.IN_REVIEW)
 			) {
 				this.logger.log(`📡 CHECKING STATUS WITH EULEN API`);
 				this.logger.log(`  - Our Transaction ID: ${transaction.id}`);
@@ -835,7 +836,7 @@ export class PixService {
 					newStatus = TransactionStatus.EXPIRED;
 					shouldStopPolling = true;
 				} else if (eulenStatus.response?.status === 'under_review') {
-					newStatus = TransactionStatus.PROCESSING;
+					newStatus = TransactionStatus.IN_REVIEW;
 					this.logger.log(`🔍 Payment under review`);
 				} else if (eulenStatus.response?.status === 'refunded') {
 					newStatus = TransactionStatus.FAILED;

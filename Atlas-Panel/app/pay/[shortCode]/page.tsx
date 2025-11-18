@@ -3,7 +3,7 @@ import { generatePaymentMetadata } from '@/app/lib/metadata';
 import PaymentClient from './PaymentClient';
 
 interface PageProps {
-  params: { shortCode: string };
+  params: Promise<{ shortCode: string }>;
 }
 
 // Function to fetch payment data for metadata generation
@@ -28,7 +28,7 @@ async function getPaymentData(shortCode: string) {
 
 // Generate dynamic metadata for payment links
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { shortCode } = params;
+  const { shortCode } = await params;
 
   // Fetch payment data for metadata generation
   const paymentData = await getPaymentData(shortCode);
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function PaymentPage({ params }: PageProps) {
-  const { shortCode } = params;
+  const { shortCode } = await params;
 
   // Optionally fetch initial data for better performance
   const initialData = await getPaymentData(shortCode);

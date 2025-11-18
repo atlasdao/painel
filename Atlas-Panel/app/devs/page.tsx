@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { API_URL } from '@/app/lib/api';
 import Image from 'next/image';
 import {
   Code2,
@@ -29,8 +30,9 @@ export default function DevsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('quick-start');
   const [searchQuery, setSearchQuery] = useState('');
+  const [paymentLinkType, setPaymentLinkType] = useState<'fixed' | 'custom'>('fixed');
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:19997/api/v1';
+  const apiBaseUrl = API_URL;
   const isProduction = apiBaseUrl.includes('atlasdao.info');
 
   const handleCopyCode = (id: string, code: string) => {
@@ -41,7 +43,7 @@ export default function DevsPage() {
 
   const getCodeExamples = () => ({
     quickStart: `// Criar link de pagamento
-const response = await fetch('${apiBaseUrl}/payment-links', {
+const response = await fetch('${apiBaseUrl}/external/payment-links', {
   method: 'POST',
   headers: {
     'X-API-Key': 'SUA_API_KEY',
@@ -51,16 +53,59 @@ const response = await fetch('${apiBaseUrl}/payment-links', {
     title: 'Produto Exemplo',
     description: 'Descrição do produto',
     amount: 99.90,
-    customerEmail: 'cliente@email.com'
+    walletAddress: 'your_wallet_address_here'
   })
 });
 
 const paymentLink = await response.json();
-console.log('Link:', paymentLink.data.shortUrl);`,
+console.log('Link:', paymentLink.paymentUrl);`,
+
+    paymentLinkFixed: `// Criar link de pagamento com valor fixo
+const response = await fetch('${apiBaseUrl}/external/payment-links', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'SUA_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    title: 'Produto Exemplo',
+    description: 'Descrição do produto',
+    amount: 99.90,
+    isCustomAmount: false,
+    walletAddress: 'your_wallet_address_here',
+    webhookUrl: 'https://example.com/webhook' // opcional
+  })
+});
+
+const paymentLink = await response.json();
+console.log('Link de pagamento:', paymentLink.paymentUrl);
+console.log('Valor fixo: R$', paymentLink.amount);`,
+
+    paymentLinkCustom: `// Criar link de pagamento com valor livre (range)
+const response = await fetch('${apiBaseUrl}/external/payment-links', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'SUA_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    title: 'Doação Flexível',
+    description: 'Contribua com o valor que desejar',
+    isCustomAmount: true,
+    minAmount: 10.00,    // Valor mínimo permitido
+    maxAmount: 500.00,   // Valor máximo permitido (opcional)
+    walletAddress: 'your_wallet_address_here',
+    webhookUrl: 'https://example.com/webhook' // opcional
+  })
+});
+
+const paymentLink = await response.json();
+console.log('Link de pagamento:', paymentLink.paymentUrl);
+console.log('Range permitido: R$', paymentLink.minAmount, '- R$', paymentLink.maxAmount);`,
 
 
     generateQR: `// Gerar QR Code PIX
-const response = await fetch('${apiBaseUrl}/pix/create', {
+const response = await fetch('${apiBaseUrl}/external/pix/create', {
   method: 'POST',
   headers: {
     'X-API-Key': 'SUA_API_KEY',
@@ -68,40 +113,45 @@ const response = await fetch('${apiBaseUrl}/pix/create', {
   },
   body: JSON.stringify({
     amount: 99.90,
-    description: 'Pagamento teste'
+    description: 'Pagamento teste',
+    taxNumber: '12345678900', // opcional para valores < R$ 3000
+    walletAddress: 'your_wallet_address_here',
+    merchantOrderId: 'ORDER-123', // opcional
+    webhookUrl: 'https://example.com/webhook' // opcional
   })
 });
 
 const pixData = await response.json();
-console.log('PIX criado:', pixData.data);`,
+// Resposta inclui QR code automaticamente:
+// { id, status, amount, qrCode, qrCodeImage, expiresAt, ... }
+console.log('QR Code:', pixData.qrCode);
+console.log('QR Code Image:', pixData.qrCodeImage);`,
 
-    authentication: `// Fazer login e obter JWT
-const loginResponse = await fetch('${apiBaseUrl}/auth/login', {
-  method: 'POST',
+    authentication: `// Obter informações do perfil
+const profileResponse = await fetch('${apiBaseUrl}/external/profile', {
   headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    email: 'seu@email.com',
-    password: 'suasenha'
-  })
+    'X-API-Key': 'SUA_API_KEY'
+  }
 });
 
-const { data } = await loginResponse.json();
-const token = data.accessToken;
+const profile = await profileResponse.json();
+console.log('Perfil:', profile);
 
-// Usar token em requisições autenticadas
-const profileResponse = await fetch('${apiBaseUrl}/profile', {
+// Verificar estatísticas de uso da API
+const statsResponse = await fetch('${apiBaseUrl}/external/stats/usage?days=7', {
   headers: {
-    'Authorization': \`Bearer \${token}\`
+    'X-API-Key': 'SUA_API_KEY'
   }
-});`,
+});
+
+const stats = await statsResponse.json();
+console.log('Estatísticas:', stats);`,
 
     python: `import requests
 
 # Criar link de pagamento
 response = requests.post(
-    '${apiBaseUrl}/payment-links',
+    '${apiBaseUrl}/external/payment-links',
     headers={
         'X-API-Key': 'SUA_API_KEY',
         'Content-Type': 'application/json'
@@ -109,22 +159,24 @@ response = requests.post(
     json={
         'title': 'Produto Exemplo',
         'amount': 99.90,
-        'customerEmail': 'cliente@email.com'
+        'description': 'Descrição do produto',
+        'walletAddress': 'your_wallet_address_here'
     }
 )
 
 payment_link = response.json()
-print(f"Link: {payment_link['data']['shortUrl']}")`,
+print(f"Link: {payment_link['paymentUrl']}")`,
 
     php: `<?php
 $data = [
     'title' => 'Produto Exemplo',
     'amount' => 99.90,
-    'customerEmail' => 'cliente@email.com'
+    'description' => 'Descrição do produto',
+    'walletAddress' => 'your_wallet_address_here'
 ];
 
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, '${apiBaseUrl}/payment-links');
+curl_setopt($ch, CURLOPT_URL, '${apiBaseUrl}/external/payment-links');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -136,24 +188,34 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $response = curl_exec($ch);
 $paymentLink = json_decode($response, true);
 
-echo "Link: " . $paymentLink['data']['shortUrl'];
+echo "Link: " . $paymentLink['paymentUrl'];
 ?>`,
 
     curl: `# Criar link de pagamento
-curl -X POST ${apiBaseUrl}/payment-links \\
+curl -X POST ${apiBaseUrl}/external/payment-links \\
   -H "X-API-Key: SUA_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Produto Exemplo",
     "amount": 99.90,
-    "customerEmail": "cliente@email.com"
+    "description": "Descrição do produto",
+    "walletAddress": "your_wallet_address_here"
   }'
 
-# Criar transação PIX
-curl -X POST ${apiBaseUrl}/pix/create \\
+# Criar transação PIX (retorna QR code imediatamente)
+curl -X POST ${apiBaseUrl}/external/pix/create \\
   -H "X-API-Key: SUA_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"amount": 99.90, "description": "Pagamento teste"}'`
+  -d '{
+    "amount": 99.90,
+    "description": "Pagamento teste",
+    "taxNumber": "12345678900",
+    "walletAddress": "your_wallet_address_here",
+    "merchantOrderId": "ORDER-123"
+  }'
+
+# Note: taxNumber é opcional para valores < R$ 3000
+# merchantOrderId e webhookUrl também são campos opcionais`
   });
 
   const codeExamples = getCodeExamples();
@@ -179,81 +241,69 @@ curl -X POST ${apiBaseUrl}/pix/create \\
   const apiEndpoints = [
     {
       method: 'GET',
-      path: '/api/v1/profile',
+      path: '/api/v1/external/profile',
       description: 'Dados do perfil do usuário',
       category: 'Perfil'
     },
     {
-      method: 'POST',
-      path: '/api/v1/payment-links',
-      description: 'Criar link de pagamento',
-      category: 'Pagamentos'
-    },
-    {
       method: 'GET',
-      path: '/api/v1/payment-links',
-      description: 'Listar links de pagamento',
-      category: 'Pagamentos'
-    },
-    {
-      method: 'GET',
-      path: '/api/v1/payment-links/:id',
-      description: 'Detalhes de um link específico',
-      category: 'Pagamentos'
+      path: '/api/v1/external/health',
+      description: 'Health check da API',
+      category: 'Sistema'
     },
     {
       method: 'POST',
-      path: '/api/v1/pix/create',
+      path: '/api/v1/external/pix/create',
       description: 'Criar transação PIX',
       category: 'PIX'
     },
     {
       method: 'GET',
-      path: '/api/v1/pix/limits',
-      description: 'Verificar limites PIX',
+      path: '/api/v1/external/pix/status/:id',
+      description: 'Verificar status de transação',
       category: 'PIX'
     },
     {
       method: 'GET',
-      path: '/api/v1/withdrawals',
-      description: 'Listar saques',
-      category: 'Saques'
+      path: '/api/v1/external/pix/transactions',
+      description: 'Listar transações PIX',
+      category: 'PIX'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/external/pix/cancel/:id',
+      description: 'Cancelar transação PIX pendente',
+      category: 'PIX'
     },
     {
       method: 'POST',
-      path: '/api/v1/withdrawals',
-      description: 'Solicitar saque',
-      category: 'Saques'
+      path: '/api/v1/external/payment-links',
+      description: 'Criar link de pagamento',
+      category: 'Payment Links'
     },
     {
       method: 'GET',
-      path: '/api/v1/donations',
-      description: 'Listar doações',
-      category: 'Doações'
-    },
-    {
-      method: 'POST',
-      path: '/api/v1/donations',
-      description: 'Criar doação',
-      category: 'Doações'
+      path: '/api/v1/external/payment-links',
+      description: 'Listar links de pagamento',
+      category: 'Payment Links'
     },
     {
       method: 'GET',
-      path: '/api/v1/admin/stats',
-      description: 'Estatísticas administrativas',
-      category: 'Admin'
+      path: '/api/v1/external/payment-links/:id',
+      description: 'Detalhes de um link específico',
+      category: 'Payment Links'
     },
     {
       method: 'GET',
-      path: '/api/v1/admin/users',
-      description: 'Listar usuários (admin)',
-      category: 'Admin'
+      path: '/api/v1/external/stats/usage',
+      description: 'Estatísticas de uso da API',
+      category: 'Estatísticas'
     },
   ];
 
   const navigationSections = [
     { id: 'quick-start', title: 'Início Rápido', icon: Play },
-    { id: 'authentication', title: 'Autenticação', icon: Lock },
+    { id: 'authentication', title: 'Perfil & Stats', icon: Lock },
     { id: 'payment-links', title: 'Links de Pagamento', icon: Code2 },
     { id: 'examples', title: 'Exemplos', icon: Terminal },
     { id: 'testing', title: 'Testes', icon: Activity }
@@ -446,11 +496,11 @@ curl -X POST ${apiBaseUrl}/pix/create \\
                       </div>
                     )}
                   </div>
-                  <p className={`text-sm mt-4 ${isProduction ? 'text-green-400' : 'text-blue-400'}`}>
-                    {isProduction
-                      ? '🚀 Ambiente de produção ativo'
-                      : '📝 Atualmente em desenvolvimento. A API de produção estará disponível em breve.'}
-                  </p>
+                  {!isProduction && (
+                    <p className="text-sm mt-4 text-blue-400">
+                      📝 Atualmente em desenvolvimento. A API de produção estará disponível em breve.
+                    </p>
+                  )}
                 </div>
 
                 <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
@@ -512,9 +562,9 @@ curl -X POST ${apiBaseUrl}/pix/create \\
 
           {activeSection === 'authentication' && (
             <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold text-white mb-6">Autenticação</h2>
+              <h2 className="text-3xl font-bold text-white mb-6">Perfil & Estatísticas</h2>
               <p className="text-gray-300 mb-8">
-                A API Atlas utiliza API Keys para autenticação. Todas as requisições devem incluir sua API Key no header X-API-Key.
+                Acesse informações do seu perfil e estatísticas de uso da API usando sua API Key.
               </p>
 
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden mb-6">
@@ -537,7 +587,7 @@ curl -X POST ${apiBaseUrl}/pix/create \\
                   <div>
                     <p className="text-red-400 font-medium">Limite de Taxa</p>
                     <p className="text-gray-300 text-sm mt-1">
-                      A API possui limite de 5 requisições por segundo por API Key. Requisições acima deste limite retornarão erro 429.
+                      A API possui limite de 100 requisições por minuto por API Key. Requisições acima deste limite retornarão erro 429.
                     </p>
                   </div>
                 </div>
@@ -574,22 +624,44 @@ curl -X POST ${apiBaseUrl}/pix/create \\
                   </p>
 
                   <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                    <button
+                      onClick={() => setPaymentLinkType('fixed')}
+                      className={`bg-gray-900 rounded-lg p-4 border transition-all text-left ${
+                        paymentLinkType === 'fixed'
+                          ? 'border-blue-500 ring-2 ring-blue-500/50'
+                          : 'border-gray-600 hover:border-gray-500'
+                      }`}
+                    >
                       <h4 className="text-white font-medium mb-2">Valor Fixo</h4>
                       <p className="text-gray-400 text-sm">Cliente paga exatamente o valor definido</p>
-                    </div>
-                    <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                    </button>
+                    <button
+                      onClick={() => setPaymentLinkType('custom')}
+                      className={`bg-gray-900 rounded-lg p-4 border transition-all text-left ${
+                        paymentLinkType === 'custom'
+                          ? 'border-blue-500 ring-2 ring-blue-500/50'
+                          : 'border-gray-600 hover:border-gray-500'
+                      }`}
+                    >
                       <h4 className="text-white font-medium mb-2">Valor Livre</h4>
                       <p className="text-gray-400 text-sm">Cliente escolhe quanto pagar (com limite opcional)</p>
-                    </div>
+                    </button>
                   </div>
                 </div>
 
                 <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                    <h3 className="text-xl font-semibold text-white">POST /api/v1/payment-links</h3>
+                    <h3 className="text-xl font-semibold text-white">
+                      POST /api/v1/external/payment-links
+                      <span className="ml-3 text-sm text-gray-400">
+                        ({paymentLinkType === 'fixed' ? 'Valor Fixo' : 'Valor Livre'})
+                      </span>
+                    </h3>
                     <button
-                      onClick={() => handleCopyCode('createPaymentLink', codeExamples.quickStart)}
+                      onClick={() => handleCopyCode(
+                        'createPaymentLink',
+                        paymentLinkType === 'fixed' ? codeExamples.paymentLinkFixed : codeExamples.paymentLinkCustom
+                      )}
                       className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
                     >
                       {copiedCode === 'createPaymentLink' ? (
@@ -607,17 +679,32 @@ curl -X POST ${apiBaseUrl}/pix/create \\
                   </div>
                   <pre className="p-6 overflow-x-auto">
                     <code className="text-sm text-gray-300 font-mono">
-                      {codeExamples.quickStart}
+                      {paymentLinkType === 'fixed' ? codeExamples.paymentLinkFixed : codeExamples.paymentLinkCustom}
                     </code>
                   </pre>
                 </div>
+
+                {paymentLinkType === 'custom' && (
+                  <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Code2 className="w-5 h-5 text-blue-400 mt-0.5" />
+                      <div>
+                        <p className="text-blue-400 font-medium">Parâmetros Opcionais para Valor Livre</p>
+                        <p className="text-gray-300 text-sm mt-1">
+                          <code className="text-blue-400">minAmount</code>: Define o valor mínimo que o cliente pode pagar (opcional, padrão: 0.01)<br />
+                          <code className="text-blue-400">maxAmount</code>: Define o valor máximo que o cliente pode pagar (opcional, sem limite se não definido)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <h3 className="text-xl font-semibold text-white mb-4">Listar Links de Pagamento</h3>
                   <p className="text-gray-300 mb-4">Recupere todos os seus links de pagamento com informações de status e estatísticas.</p>
 
                   <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
-                    <code className="text-green-400">GET /api/v1/payment-links</code>
+                    <code className="text-green-400">GET /api/v1/external/payment-links</code>
                     <div className="mt-3 text-gray-400 text-sm">
                       <p><strong>Parâmetros opcionais:</strong></p>
                       <ul className="mt-2 space-y-1">
@@ -634,20 +721,17 @@ curl -X POST ${apiBaseUrl}/pix/create \\
                   <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
                     <pre className="text-sm text-gray-300">
 {`{
-  "success": true,
-  "data": {
-    "id": "pl_abc123",
-    "shortCode": "ABC123",
-    "shortUrl": "painel.atlasdao.info/pay/ABC123",
-    "title": "Produto Exemplo",
-    "description": "Descrição do produto",
-    "amount": 99.90,
-    "isCustomAmount": false,
-    "status": "active",
-    "totalReceived": 0,
-    "paymentCount": 0,
-    "createdAt": "2024-01-01T00:00:00Z"
-  }
+  "id": "0c95a1a8-3be9-4f15-a8c5-0320ecbdc376",
+  "shortCode": "8v6ZOWBH",
+  "amount": 99.90,
+  "isCustomAmount": false,
+  "minAmount": null,
+  "maxAmount": null,
+  "description": "Descrição do produto",
+  "isActive": true,
+  "expiresAt": null,
+  "createdAt": "2024-01-01T00:00:00Z",
+  "paymentUrl": "https://painel.atlasdao.info/pay/8v6ZOWBH"
 }`}
                     </pre>
                   </div>

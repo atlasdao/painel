@@ -8,6 +8,8 @@ import {
 	Get,
 	Query,
 	UseGuards,
+	Headers,
+	UnauthorizedException,
 } from '@nestjs/common';
 import {
 	ApiTags,
@@ -16,6 +18,7 @@ import {
 	ApiBody,
 	ApiQuery,
 	ApiBearerAuth,
+	ApiHeader,
 } from '@nestjs/swagger';
 import { WebhookService } from './webhook.service';
 import {
@@ -28,7 +31,7 @@ import { UserRole } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('webhooks')
-@Controller('webhooks')
+@Controller({ path: 'webhooks', version: '1' })
 export class WebhookController {
 	private readonly logger = new Logger(WebhookController.name);
 
@@ -42,6 +45,11 @@ export class WebhookController {
 		description:
 			'This endpoint receives webhook notifications when deposit transactions are processed by Eulen/Fitbank',
 	})
+	@ApiHeader({
+		name: 'Authorization',
+		description: 'Basic authorization with webhook secret',
+		required: true,
+	})
 	@ApiBody({
 		type: WebhookDepositEventDto,
 		description: 'Deposit event data from Eulen API',
@@ -52,6 +60,10 @@ export class WebhookController {
 		type: WebhookEventResponseDto,
 	})
 	@ApiResponse({
+		status: 401,
+		description: 'Unauthorized - invalid webhook secret',
+	})
+	@ApiResponse({
 		status: 400,
 		description: 'Bad request - invalid webhook data',
 	})
@@ -60,13 +72,48 @@ export class WebhookController {
 		description: 'Transaction not found for the provided qrId',
 	})
 	async receiveDepositWebhook(
-		@Body() eventData: WebhookDepositEventDto,
+		@Headers('authorization') authorization: string,
+		@Body() eventData: any,
 	): Promise<WebhookEventResponseDto> {
 		this.logger.log(
-			`🔔 WEBHOOK ENDPOINT: Received deposit event for qrId: ${eventData.qrId}`,
+			`🔔 WEBHOOK ENDPOINT: Received deposit webhook`,
+		);
+		this.logger.log(
+			`📦 Raw webhook payload: ${JSON.stringify(eventData, null, 2)}`,
 		);
 
-		return await this.webhookService.processDepositWebhook(eventData);
+		// Validate webhook authorization
+		await this.validateWebhookAuth(authorization);
+
+		// Check if the payload is wrapped in a "response" object (Eulen format)
+		const actualData = eventData.response || eventData;
+
+		this.logger.log(
+			`🔍 Processed qrId: ${actualData.qrId}`,
+		);
+
+		return await this.webhookService.processDepositWebhook(actualData);
+	}
+
+	/**
+	 * Validate webhook authorization using Basic Auth
+	 * Eulen sends: Authorization: Basic base64(secret:)
+	 */
+	private async validateWebhookAuth(authHeader: string): Promise<void> {
+		if (!authHeader) {
+			this.logger.error('🔒 WEBHOOK AUTH: Missing Authorization header');
+			throw new UnauthorizedException('Missing authorization header');
+		}
+
+		// Get webhook secret from service
+		const isValid = await this.webhookService.validateWebhookSecret(authHeader);
+
+		if (!isValid) {
+			this.logger.error('🔒 WEBHOOK AUTH: Invalid webhook secret');
+			throw new UnauthorizedException('Invalid webhook secret');
+		}
+
+		this.logger.log('✅ WEBHOOK AUTH: Valid webhook signature');
 	}
 
 	@Get('stats')

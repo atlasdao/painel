@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import { userService, profileService } from '@/app/lib/services';
-import api from '@/app/lib/api';
+import api, { API_URL } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
 import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Award } from 'lucide-react';
@@ -1226,7 +1226,7 @@ export default function SettingsPage() {
                       <h4 className="text-sm font-semibold text-gray-300 mb-2">Base URL</h4>
                       <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
                         <code className="text-sm text-blue-400 font-mono">
-                          {typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api
+                          {API_URL}
                         </code>
                       </div>
                     </div>
@@ -1253,7 +1253,7 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/pix/create</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/create</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Criar uma transação PIX</p>
 
@@ -1266,10 +1266,18 @@ export default function SettingsPage() {
 {`{
   "amount": 100.50,
   "description": "Pagamento de teste",
-  "taxNumber": "12345678900",
-  "merchantOrderId": "ORDER-123"
+  "taxNumber": "12345678900", // Obrigatório para valores >= R$ 3000
+  "walletAddress": "your_wallet_address_here",
+  "merchantOrderId": "ORDER-123", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
 }`}
                               </pre>
+                              <p className="text-xs text-gray-400 mt-2">
+                                ℹ️ taxNumber é opcional para valores abaixo de R$ 3.000
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                ✅ Sem limites de tier para External API
+                              </p>
                             </div>
                           </details>
                         </div>
@@ -1278,7 +1286,7 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/pix/status/:id</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/status/:id</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Verificar status de uma transação</p>
 
@@ -1292,9 +1300,43 @@ export default function SettingsPage() {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "PENDING",
   "amount": 100.50,
+  "description": "Pagamento de teste",
+  "merchantOrderId": "ORDER-123",
   "qrCode": "00020126580014br.gov.bcb.pix...",
-  "expiresAt": "2024-01-15T23:59:59Z"
+  "qrCodeImage": "data:image/png;base64,...",
+  "createdAt": "2025-01-15T12:00:00Z",
+  "expiresAt": "2025-01-15T12:30:00Z"
 }`}
+                              </pre>
+                              <p className="text-xs text-gray-400 mt-2">
+                                ✅ QR Code gerado automaticamente na criação
+                              </p>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* List Transactions */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/transactions</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Listar transações com filtros</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver parâmetros disponíveis
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`Query Parameters:
+- status: PENDING | COMPLETED | FAILED | EXPIRED | CANCELLED
+- type: DEPOSIT | WITHDRAW | TRANSFER
+- startDate: ISO 8601 date
+- endDate: ISO 8601 date
+- merchantOrderId: string
+- page: number (default: 1)
+- limit: number (default: 20, max: 100)`}
                               </pre>
                             </div>
                           </details>
@@ -1304,35 +1346,105 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/payment-links</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Criar um link de pagamento</p>
 
                           <details className="mt-2">
                             <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
-                              Ver exemplo de requisição
+                              Ver exemplo de requisição - Valor Fixo
                             </summary>
                             <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
                               <pre className="text-xs text-gray-300 overflow-x-auto">
-{`{
+{`// Link de pagamento com valor fixo
+{
   "title": "Produto Digital",
   "description": "Curso online",
   "amount": 199.90,
-  "maxUses": 100,
-  "expiresAt": "2024-12-31T23:59:59Z"
+  "isCustomAmount": false,
+  "walletAddress": "your_wallet_address_here",
+  "expiresAt": "2024-12-31T23:59:59Z", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
+}`}
+                              </pre>
+                            </div>
+                          </details>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de requisição - Valor Livre (Range)
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`// Link de pagamento com valor livre (cliente escolhe)
+{
+  "title": "Doação Flexível",
+  "description": "Contribua com o valor que desejar",
+  "isCustomAmount": true,
+  "minAmount": 10.00,    // Valor mínimo permitido
+  "maxAmount": 500.00,   // Valor máximo permitido (opcional)
+  "walletAddress": "your_wallet_address_here",
+  "maxUses": 1000,       // Opcional
+  "expiresAt": "2024-12-31T23:59:59Z", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
 }`}
                               </pre>
                             </div>
                           </details>
                         </div>
 
+                        {/* Get Payment Link */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links/:id</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Obter detalhes de um link de pagamento</p>
+                        </div>
+
                         {/* List Payment Links */}
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/payment-links</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
                           </div>
-                          <p className="text-sm text-gray-400">Listar seus links de pagamento</p>
+                          <p className="text-sm text-gray-400 mb-3">Listar seus links de pagamento</p>
+                        </div>
+
+                        {/* Cancel PIX Transaction */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded">DELETE</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/cancel/:id</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Cancelar transação PIX pendente</p>
+                        </div>
+
+                        {/* API Usage Stats */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/stats/usage</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Estatísticas de uso da API</p>
+                        </div>
+
+                        {/* User Profile */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/profile</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Obter informações do perfil do usuário</p>
+                        </div>
+
+                        {/* Health Check */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/health</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Health check da API (sem autenticação)</p>
                         </div>
 
                       </div>
@@ -1388,13 +1500,15 @@ export default function SettingsPage() {
                         <button
                           onClick={() => {
                             const approvedKey = apiKeyRequests.find(r => r.status === 'APPROVED');
-                            const curlCommand = `curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+                            const curlCommand = `curl -X POST ${API_URL}/external/pix/create \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${approvedKey?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
-    "taxNumber": "12345678900"
+    "taxNumber": "12345678900",
+    "walletAddress": "your_wallet_address_here",
+    "merchantOrderId": "ORDER-123"
   }'`;
                             navigator.clipboard.writeText(curlCommand);
                             toast.success('✓ Comando copiado!', {
@@ -1408,14 +1522,19 @@ export default function SettingsPage() {
                           <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
                         </button>
                         <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
-{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+{`curl -X POST ${API_URL}/external/pix/create \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
-    "taxNumber": "12345678900"
-  }'`}
+    "taxNumber": "12345678900",
+    "walletAddress": "your_wallet_address_here",
+    "merchantOrderId": "ORDER-123"
+  }'
+
+# Note: taxNumber é opcional para valores < R$ 3000
+# merchantOrderId e webhookUrl também são campos opcionais`}
                         </pre>
                       </div>
                     </div>

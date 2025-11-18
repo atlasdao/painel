@@ -5,6 +5,7 @@ import { RateLimiterService } from './rate-limiter.service';
 import { LimitValidationService } from './limit-validation.service';
 import { EmailService } from './email.service';
 import { TransactionCleanupService } from './transaction-cleanup.service';
+import { TransactionStatusSyncService } from './transaction-status-sync.service';
 import { LiquidValidationService } from './liquid-validation.service';
 import { MockPaymentService } from './mock-payment.service';
 import { EmailDomainSyncService } from './email-domain-sync.service';
@@ -22,6 +23,7 @@ import { IsNotDisposableEmailConstraint } from '../common/decorators/email-valid
 		LimitValidationService,
 		EmailService,
 		TransactionCleanupService,
+		TransactionStatusSyncService,
 		LiquidValidationService,
 		MockPaymentService,
 		EmailDomainSyncService,
@@ -35,6 +37,7 @@ import { IsNotDisposableEmailConstraint } from '../common/decorators/email-valid
 		LimitValidationService,
 		EmailService,
 		TransactionCleanupService,
+		TransactionStatusSyncService,
 		LiquidValidationService,
 		MockPaymentService,
 		EmailDomainSyncService,

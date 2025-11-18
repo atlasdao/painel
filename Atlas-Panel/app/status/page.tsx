@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { API_URL } from '@/app/lib/api';
 import Image from 'next/image';
 import {
   CheckCircle,
@@ -49,7 +50,7 @@ export default function StatusPage() {
   const [error, setError] = useState<string | null>(null);
 
   // API base URL for health endpoints (uses /api/v1)
-  const HEALTH_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:19997/api/v1';
+  const HEALTH_API_URL = API_URL;
 
   // Function to fetch status data from backend
   const fetchStatusData = async () => {

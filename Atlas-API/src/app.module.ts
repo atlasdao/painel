@@ -18,6 +18,7 @@ import { HealthModule } from './health/health.module';
 import { ProfileModule } from './profile/profile.module';
 import { LevelsModule } from './levels/levels.module';
 import { DonationsModule } from './donations/donations.module';
+import { ExternalApiModule } from './external-api/external-api.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -51,6 +52,7 @@ import { IsNotDisposableEmailConstraint } from './common/decorators/email-valida
 		CommerceModule,
 		LevelsModule,
 		DonationsModule,
+		ExternalApiModule,
 	],
 	controllers: [AppController],
 	providers: [

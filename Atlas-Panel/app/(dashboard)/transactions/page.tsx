@@ -41,6 +41,7 @@ const getStatusBadge = (status: string) => {
     'COMPLETED': 'bg-green-500/20 text-green-400 border-green-500/30',
     'PENDING': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     'PROCESSING': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    'IN_REVIEW': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     'FAILED': 'bg-red-500/20 text-red-400 border-red-500/30',
     'EXPIRED': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     'CANCELLED': 'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -84,7 +85,7 @@ export default function TransactionsPage() {
 
   // Filter states
   const [typeFilter, setTypeFilter] = useState<'all' | 'DEPOSIT' | 'WITHDRAW'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'COMPLETED' | 'FAILED' | 'PROCESSING' | 'EXPIRED' | 'CANCELLED'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'COMPLETED' | 'FAILED' | 'PROCESSING' | 'IN_REVIEW' | 'EXPIRED' | 'CANCELLED'>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>({
     id: '7d',
     label: 'Últimos 7 dias',
@@ -390,6 +391,7 @@ export default function TransactionsPage() {
               <option value="COMPLETED">Completado</option>
               <option value="PENDING">Pendente</option>
               <option value="PROCESSING">Processando</option>
+              <option value="IN_REVIEW">Em Revisão</option>
               <option value="FAILED">Falhou</option>
               <option value="EXPIRED">Expirado</option>
               <option value="CANCELLED">Cancelado</option>
