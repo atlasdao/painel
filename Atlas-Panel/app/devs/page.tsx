@@ -75,6 +75,52 @@ const response = await fetch('${apiBaseUrl}/pix/create', {
 const pixData = await response.json();
 console.log('PIX criado:', pixData.data);`,
 
+    webhook: `// Configurar webhook para link de pagamento
+const webhookResponse = await fetch('${apiBaseUrl}/payment-link/LINK_ID/webhook', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Meu Sistema',
+    url: 'https://meusite.com/webhook',
+    events: ['payment.completed', 'payment.failed'],
+    active: true,
+    headers: {
+      'X-Custom-Header': 'valor'
+    },
+    retryPolicy: {
+      maxRetries: 3,
+      retryDelay: 1000
+    }
+  })
+});
+
+const webhook = await webhookResponse.json();
+console.log('Webhook criado:', webhook.data);
+
+// Payload do webhook recebido
+{
+  "id": "event_uuid",
+  "type": "payment.completed",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "data": {
+    "paymentId": "payment_uuid",
+    "paymentLinkId": "link_uuid",
+    "amount": 100.00,
+    "currency": "BRL",
+    "status": "COMPLETED",
+    "customer": {
+      "name": "Nome do Cliente",
+      "email": "cliente@email.com",
+      "document": "CPF/CNPJ"
+    },
+    "metadata": {}
+  },
+  "signature": "hmac_sha256_signature"
+}`,
+
     authentication: `// Fazer login e obter JWT
 const loginResponse = await fetch('${apiBaseUrl}/auth/login', {
   method: 'POST',
@@ -200,6 +246,48 @@ curl -X POST ${apiBaseUrl}/pix/create \\
       path: '/api/v1/payment-links/:id',
       description: 'Detalhes de um link específico',
       category: 'Pagamentos'
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/payment-link/:linkId/webhook',
+      description: 'Criar webhook para link de pagamento',
+      category: 'Webhooks'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/payment-link/:linkId/webhooks',
+      description: 'Listar webhooks do link',
+      category: 'Webhooks'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/webhook/:id',
+      description: 'Obter detalhes do webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'PATCH',
+      path: '/api/v1/webhook/:id',
+      description: 'Atualizar webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/webhook/:id',
+      description: 'Deletar webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/webhook/:id/test',
+      description: 'Testar webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/payment-link/:linkId/webhook-events',
+      description: 'Listar eventos de webhook',
+      category: 'Webhooks'
     },
     {
       method: 'POST',

@@ -528,7 +528,7 @@ export class ProfileService {
 			dailyDepositLimit: userLimits?.dailyDepositLimit || 5000, // Default 5000 reais daily
 			maxDepositPerTx: userLimits?.maxDepositPerTx || 5000, // Fix: Use 5000 as default, not 10000
 			apiDailyLimit: user.apiDailyLimit || 10000, // Use user's API daily limit or default 10000
-			apiMonthlyLimit: user.apiMonthlyLimit || 50000, // Use user's API monthly limit or default 50000
+			apiMonthlyLimit: user.apiMonthlyLimit || 100000, // Use user's API monthly limit or default 100000
 		};
 
 		// Calculate reset times in São Paulo timezone

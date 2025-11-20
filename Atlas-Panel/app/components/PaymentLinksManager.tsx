@@ -27,10 +27,12 @@ import {
   ChevronDown,
   ChevronUp,
   Wallet,
-  X
+  X,
+  Webhook
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { accountValidationService } from '@/app/lib/services';
+import WebhookConfiguration from './WebhookConfiguration';
 // import { triggerConfetti } from '@/app/lib/confetti';
 
 interface PaymentLink {
@@ -83,6 +85,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     }
     return true;
   });
+  const [showWebhookConfig, setShowWebhookConfig] = useState<string | null>(null);
 
   // Session storage keys
   const FORM_STORAGE_KEY = 'payment-links-form-data';
@@ -1211,6 +1214,13 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                       <button
+                        onClick={() => setShowWebhookConfig(link.id)}
+                        className="px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg transition-colors touch-target"
+                        title="Configurar webhooks"
+                      >
+                        <Webhook size={16} />
+                      </button>
+                      <button
                         onClick={() => handleEditLink(link)}
                         className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors touch-target"
                         title="Editar link"
@@ -1244,6 +1254,31 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
           )}
         </div>
       ) : null}
+
+      {/* Webhook Configuration Modal */}
+      {showWebhookConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white">Configuração de Webhooks</h2>
+              <button
+                onClick={() => setShowWebhookConfig(null)}
+                className="p-2 hover:bg-zinc-800 rounded transition-colors"
+              >
+                <X className="h-5 w-5 text-zinc-400" />
+              </button>
+            </div>
+
+            <WebhookConfiguration
+              paymentLinkId={showWebhookConfig}
+              onWebhookChange={() => {
+                // Optionally reload payment links or show a success message
+                toast.success('Webhook configurado com sucesso!');
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

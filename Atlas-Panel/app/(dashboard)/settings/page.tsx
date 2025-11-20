@@ -182,6 +182,14 @@ export default function SettingsPage() {
     });
   };
 
+  const copyCodeExample = (code: string, type: string = 'código') => {
+    navigator.clipboard.writeText(code);
+    toast.success(`✓ ${type} copiado!`, {
+      style: { background: '#10b981', color: '#fff' },
+      duration: 2000,
+    });
+  };
+
   const toggleApiKeyVisibility = (apiKeyId: string) => {
     setShowApiKeys(prev => ({
       ...prev,
@@ -1224,8 +1232,18 @@ export default function SettingsPage() {
                     {/* Base URL */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-300 mb-2">Base URL</h4>
-                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                        <code className="text-sm text-blue-400 font-mono">
+                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 relative">
+                        <button
+                          onClick={() => {
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') + '/api' : 'https://api.atlasdao.com/api';
+                            copyCodeExample(baseUrl, 'Base URL');
+                          }}
+                          className="absolute top-2 right-2 p-1.5 hover:bg-gray-600/50 rounded transition-colors"
+                          title="Copiar Base URL"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                        </button>
+                        <code className="text-sm text-blue-400 font-mono pr-8">
                           {typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api
                         </code>
                       </div>
@@ -1237,8 +1255,15 @@ export default function SettingsPage() {
                       <p className="text-sm text-gray-400 mb-3">
                         Todas as requisições devem incluir sua API Key no header:
                       </p>
-                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                        <code className="text-sm text-green-400 font-mono">
+                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 relative">
+                        <button
+                          onClick={() => copyCodeExample('X-API-Key: sua-api-key-aqui', 'header de autenticação')}
+                          className="absolute top-2 right-2 p-1.5 hover:bg-gray-600/50 rounded transition-colors"
+                          title="Copiar header"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                        </button>
+                        <code className="text-sm text-green-400 font-mono pr-8">
                           X-API-Key: sua-api-key-aqui
                         </code>
                       </div>
@@ -1261,8 +1286,20 @@ export default function SettingsPage() {
                             <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
                               Ver exemplo de requisição
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700 relative">
+                              <button
+                                onClick={() => copyCodeExample(`{
+  "amount": 100.50,
+  "description": "Pagamento de teste",
+  "taxNumber": "12345678900",
+  "merchantOrderId": "ORDER-123"
+}`, 'exemplo JSON')}
+                                className="absolute top-2 right-2 p-1.5 hover:bg-gray-600/50 rounded transition-colors"
+                                title="Copiar exemplo"
+                              >
+                                <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                              </button>
+                              <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
 {`{
   "amount": 100.50,
   "description": "Pagamento de teste",
@@ -1286,8 +1323,21 @@ export default function SettingsPage() {
                             <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
                               Ver exemplo de resposta
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700 relative">
+                              <button
+                                onClick={() => copyCodeExample(`{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "PENDING",
+  "amount": 100.50,
+  "qrCode": "00020126580014br.gov.bcb.pix...",
+  "expiresAt": "2024-01-15T23:59:59Z"
+}`, 'exemplo de resposta')}
+                                className="absolute top-2 right-2 p-1.5 hover:bg-gray-600/50 rounded transition-colors"
+                                title="Copiar exemplo"
+                              >
+                                <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                              </button>
+                              <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
 {`{
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "PENDING",
@@ -1312,8 +1362,21 @@ export default function SettingsPage() {
                             <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
                               Ver exemplo de requisição
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700 relative">
+                              <button
+                                onClick={() => copyCodeExample(`{
+  "title": "Produto Digital",
+  "description": "Curso online",
+  "amount": 199.90,
+  "maxUses": 100,
+  "expiresAt": "2024-12-31T23:59:59Z"
+}`, 'exemplo JSON')}
+                                className="absolute top-2 right-2 p-1.5 hover:bg-gray-600/50 rounded transition-colors"
+                                title="Copiar exemplo"
+                              >
+                                <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                              </button>
+                              <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
 {`{
   "title": "Produto Digital",
   "description": "Curso online",

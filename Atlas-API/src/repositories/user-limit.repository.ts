@@ -31,9 +31,9 @@ export class UserLimitRepository extends AbstractBaseRepository<UserLimit> {
 					maxDepositPerTx: 5000.0, // R$ 5000 per transaction
 					maxWithdrawPerTx: 5000.0,
 					maxTransferPerTx: 5000.0,
-					monthlyDepositLimit: 50000.0, // R$ 50k monthly
-					monthlyWithdrawLimit: 50000.0,
-					monthlyTransferLimit: 50000.0,
+					monthlyDepositLimit: 100000.0, // R$ 100k monthly
+					monthlyWithdrawLimit: 100000.0,
+					monthlyTransferLimit: 100000.0,
 					isFirstDay: true,
 					isKycVerified: false,
 					isHighRiskUser: false,

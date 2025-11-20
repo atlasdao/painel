@@ -26,7 +26,7 @@ model User {
   commerceModeActivatedAt DateTime?
   paymentLinksEnabled     Boolean              @default(false)
   apiDailyLimit           Float                @default(10000)
-  apiMonthlyLimit         Float                @default(50000)
+  apiMonthlyLimit         Float                @default(100000)
   profilePicture          String?
   defaultWalletAddress    String?
   defaultWalletType       String?              @default("LIQUID")
@@ -194,6 +194,7 @@ model ApiKeyRequest {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs       ApiKeyUsageLog[]
 
   @@index([userId])
   @@index([status])
@@ -201,11 +202,11 @@ model ApiKeyRequest {
 }
 
 model PaymentLink {
-  id                String    @id @default(uuid())
+  id                String                @id @default(uuid())
   userId            String
-  shortCode         String    @unique
+  shortCode         String                @unique
   amount            Float?
-  isCustomAmount    Boolean   @default(false)
+  isCustomAmount    Boolean               @default(false)
   minAmount         Float?
   maxAmount         Float?
   walletAddress     String
@@ -213,13 +214,15 @@ model PaymentLink {
   currentQrCode     String?
   qrCodeGeneratedAt DateTime?
   lastPaymentId     String?
-  totalPayments     Int       @default(0)
-  totalAmount       Float     @default(0)
-  isActive          Boolean   @default(true)
+  totalPayments     Int                   @default(0)
+  totalAmount       Float                 @default(0)
+  isActive          Boolean               @default(true)
   expiresAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhooks          PaymentLinkWebhook[]
+  webhookEvents     PaymentLinkWebhookEvent[]
 
   @@index([shortCode])
   @@index([userId])
@@ -475,6 +478,7 @@ enum TransactionType {
 enum TransactionStatus {
   PENDING
   PROCESSING
+  IN_REVIEW
   COMPLETED
   FAILED
   CANCELLED
@@ -519,6 +523,7 @@ enum DonationMethod {
   BTC_LIGHTNING
   BTC_LIQUID
   USDT_ERC20
+  USDT_POLYGON
   XMR
 }
 
@@ -526,6 +531,13 @@ enum DonationStatus {
   PENDING
   CONFIRMED
   REJECTED
+}
+
+enum PaymentLinkWebhookStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
 }
 
 model BlockedEmailDomain {
@@ -587,5 +599,72 @@ model IncidentUpdate {
   creator     User     @relation(fields: [createdBy], references: [id])
 
   @@index([incidentId])
+  @@index([createdAt])
+}
+
+model ApiKeyUsageLog {
+  id               String    @id @default(uuid())
+  apiKeyRequestId  String?
+  endpoint         String
+  method           String
+  ipAddress        String?
+  userAgent        String?
+  statusCode       Int       @default(200)
+  responseTime     Int?      // in milliseconds
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+
+  apiKeyRequest    ApiKeyRequest? @relation(fields: [apiKeyRequestId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyRequestId])
+  @@index([createdAt])
+  @@index([statusCode])
+}
+
+model PaymentLinkWebhook {
+  id                String                @id @default(uuid())
+  paymentLinkId     String
+  name              String
+  url               String
+  events            String[]              @default([])
+  active            Boolean               @default(true)
+  secret            String
+  headers           Json?
+  retryPolicy       Json?
+  lastTriggeredAt   DateTime?
+  failureCount      Int                   @default(0)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  paymentLink       PaymentLink          @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  webhookEvents     PaymentLinkWebhookEvent[]
+
+  @@index([paymentLinkId])
+  @@index([active])
+  @@index([lastTriggeredAt])
+}
+
+model PaymentLinkWebhookEvent {
+  id                String                    @id @default(uuid())
+  paymentLinkId     String
+  webhookId         String
+  eventType         String
+  payload           Json
+  status            PaymentLinkWebhookStatus  @default(PENDING)
+  attempts          Int                       @default(0)
+  maxAttempts       Int                       @default(3)
+  lastAttemptAt     DateTime?
+  responseCode      Int?
+  responseBody      String?
+  nextRetryAt       DateTime?
+  signature         String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  paymentLink       PaymentLink              @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  webhook           PaymentLinkWebhook       @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([paymentLinkId])
+  @@index([webhookId])
+  @@index([status])
+  @@index([nextRetryAt])
   @@index([createdAt])
 }

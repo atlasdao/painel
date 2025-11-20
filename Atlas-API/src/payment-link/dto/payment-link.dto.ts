@@ -5,9 +5,12 @@ import {
 	IsDate,
 	IsBoolean,
 	Min,
+	IsArray,
+	ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { CreateWebhookDto } from './webhook.dto';
 
 export class CreatePaymentLinkDto {
 	@ApiPropertyOptional({
@@ -72,6 +75,17 @@ export class CreatePaymentLinkDto {
 	@IsOptional()
 	@Type(() => Date)
 	expiresAt?: Date;
+
+	@ApiPropertyOptional({
+		description: 'Webhooks para configurar com o link de pagamento',
+		type: [CreateWebhookDto],
+		isArray: true,
+	})
+	@IsArray()
+	@IsOptional()
+	@ValidateNested({ each: true })
+	@Type(() => CreateWebhookDto)
+	webhooks?: CreateWebhookDto[];
 }
 
 export class UpdatePaymentLinkDto {

@@ -14,6 +14,8 @@ import {
 } from '../common/dto/webhook.dto';
 import { TransactionStatus } from '@prisma/client';
 import { BotSyncService } from '../common/services/bot-sync.service';
+import { WebhookService as PaymentLinkWebhookService } from '../payment-link/webhook.service';
+import { Inject, forwardRef } from '@nestjs/common';
 
 @Injectable()
 export class WebhookService {
@@ -24,6 +26,8 @@ export class WebhookService {
 		private readonly transactionRepository: TransactionRepository,
 		private readonly auditLogRepository: AuditLogRepository,
 		private readonly botSyncService: BotSyncService,
+		@Inject(forwardRef(() => PaymentLinkWebhookService))
+		private readonly paymentLinkWebhookService: PaymentLinkWebhookService,
 	) {}
 
 	async processDepositWebhook(
@@ -68,19 +72,41 @@ export class WebhookService {
 				`🔄 WEBHOOK: Status mapping - Eulen: "${eventData.status}" → Atlas: "${newStatus}"`,
 			);
 
-			// Only update if status actually changed
-			if (previousStatus === newStatus) {
-				this.logger.log(
-					`✅ WEBHOOK: Status unchanged (${newStatus}) - no update needed`,
-				);
-				return {
-					success: true,
-					message: 'Webhook received but status unchanged',
-					transactionId: transaction.id,
-					previousStatus,
-					newStatus,
-				};
+			// Check if we need to process payment link webhooks even if status hasn't changed
+		const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {};
+		const hasPaymentLink = metadata.paymentLinkId;
+
+		// Only update transaction if status actually changed
+		if (previousStatus === newStatus) {
+			this.logger.log(
+				`✅ WEBHOOK: Status unchanged (${newStatus}) - no transaction update needed`,
+			);
+
+			// But still process payment link webhooks for status unchanged events
+			if (hasPaymentLink && newStatus === TransactionStatus.COMPLETED) {
+				this.logger.log(`🔗 WEBHOOK: Processing payment link webhooks despite unchanged status`);
+				try {
+					// Process payment link webhooks for completed payments even if status unchanged
+					await this.triggerPaymentLinkWebhooks(
+						metadata.paymentLinkId,
+						newStatus,
+						transaction,
+						eventData,
+					);
+					this.logger.log(`✅ WEBHOOK: Payment link webhooks processed successfully for unchanged status`);
+				} catch (error) {
+					this.logger.error(`❌ WEBHOOK: Failed to process payment link webhooks: ${error.message}`);
+				}
 			}
+
+			return {
+				success: true,
+				message: 'Webhook received but status unchanged',
+				transactionId: transaction.id,
+				previousStatus,
+				newStatus,
+			};
+		}
 
 			// Prepare metadata with webhook event data
 			const existingMetadata = transaction.metadata
@@ -184,6 +210,14 @@ export class WebhookService {
 							metadata.paymentLinkId,
 							transaction.id,
 							transaction.amount,
+						);
+
+						// Trigger payment link webhook events
+						await this.triggerPaymentLinkWebhooks(
+							metadata.paymentLinkId,
+							newStatus,
+							transaction,
+							eventData,
 						);
 					} else {
 						this.logger.log(`  ℹ️ No paymentLinkId found in metadata`);
@@ -318,6 +352,89 @@ export class WebhookService {
 				`Failed to update payment link ${paymentLinkId}: ${error.message}`,
 			);
 			throw error;
+		}
+	}
+
+	/**
+	 * Trigger webhook events for payment link transactions
+	 */
+	private async triggerPaymentLinkWebhooks(
+		paymentLinkId: string,
+		transactionStatus: TransactionStatus,
+		transaction: any,
+		webhookEventData: WebhookDepositEventDto,
+	) {
+		try {
+			this.logger.log(
+				`🎯 WEBHOOK TRIGGER: Processing webhooks for payment link ${paymentLinkId}`,
+			);
+
+			// Map transaction status to webhook event type
+			let eventType: string;
+			switch (transactionStatus) {
+				case TransactionStatus.PENDING:
+					eventType = 'payment.created';
+					break;
+				case TransactionStatus.PROCESSING:
+				case TransactionStatus.IN_REVIEW:
+					eventType = 'payment.processing';
+					break;
+				case TransactionStatus.COMPLETED:
+					eventType = 'payment.completed';
+					break;
+				case TransactionStatus.FAILED:
+				case TransactionStatus.CANCELLED:
+					eventType = 'payment.failed';
+					break;
+				case TransactionStatus.EXPIRED:
+					eventType = 'payment.expired';
+					break;
+				default:
+					this.logger.warn(
+						`Unknown transaction status: ${transactionStatus}, skipping webhook trigger`,
+					);
+					return;
+			}
+
+			// Create payment data for webhook
+			const paymentData = {
+				paymentId: transaction.id,
+				paymentLinkId: paymentLinkId,
+				amount: transaction.amount / 100, // Convert centavos to reais
+				currency: 'BRL',
+				status: transactionStatus,
+				externalId: transaction.externalId,
+				bankTxId: webhookEventData.bankTxId,
+				blockchainTxId: webhookEventData.blockchainTxID,
+				customer: {
+					name: webhookEventData.payerName,
+					taxNumber: webhookEventData.payerTaxNumber,
+					euid: webhookEventData.payerEUID,
+				},
+				metadata: {
+					customerMessage: webhookEventData.customerMessage,
+					pixKey: webhookEventData.pixKey,
+					originalWebhookData: webhookEventData,
+				},
+				createdAt: transaction.createdAt,
+				updatedAt: transaction.updatedAt,
+			};
+
+			// Trigger webhook events
+			await this.paymentLinkWebhookService.triggerWebhookEvent(
+				paymentLinkId,
+				eventType as any,
+				paymentData,
+			);
+
+			this.logger.log(
+				`✅ WEBHOOK TRIGGER: Successfully triggered '${eventType}' event for payment link ${paymentLinkId}`,
+			);
+		} catch (error) {
+			this.logger.error(
+				`❌ WEBHOOK TRIGGER: Failed to trigger webhooks for payment link ${paymentLinkId}: ${error.message}`,
+			);
+			// Don't throw error to avoid breaking the main payment processing flow
 		}
 	}
 

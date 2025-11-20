@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
 	CreatePaymentLinkDto,
@@ -6,6 +6,7 @@ import {
 	PaymentLinkResponseDto,
 } from './dto/payment-link.dto';
 import { PixService } from '../pix/pix.service';
+import { WebhookService } from './webhook.service';
 import { nanoid } from 'nanoid';
 
 @Injectable()
@@ -15,6 +16,8 @@ export class PaymentLinkService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly pixService: PixService,
+		@Inject(forwardRef(() => WebhookService))
+		private readonly webhookService: WebhookService,
 	) {}
 
 	async create(
@@ -176,6 +179,22 @@ export class PaymentLinkService {
 					expiresAt: dto.expiresAt || null,
 				},
 			});
+
+			// Create webhooks if provided
+			if (dto.webhooks && dto.webhooks.length > 0 && this.webhookService) {
+				for (const webhookDto of dto.webhooks) {
+					try {
+						await this.webhookService.createWebhook(
+							paymentLink.id,
+							userId,
+							webhookDto,
+						);
+					} catch (webhookError) {
+						this.logger.error(`Failed to create webhook: ${webhookError.message}`);
+						// Continue creating other webhooks even if one fails
+					}
+				}
+			}
 
 			this.logger.log(`Payment link created successfully: ${paymentLink.id} (${shortCode})`);
 			return this.formatResponse(paymentLink);

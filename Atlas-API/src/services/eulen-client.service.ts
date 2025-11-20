@@ -252,7 +252,7 @@ export class EulenClientService {
 	 */
 	async createDeposit(data: {
 		amount: number; // Amount in cents
-		pixKey: string; // DePix address (Liquid address)
+		pixKey?: string; // DePix address (Liquid address) - OPTIONAL
 		description?: string;
 		userFullName?: string;
 		userTaxNumber?: string;
@@ -269,14 +269,15 @@ export class EulenClientService {
 					amountInCents: data.amount,
 				};
 
-				// CRITICAL: Always send depixAddress if provided
+				// CRITICAL: Only send depixAddress if provided by user
 				// The Eulen API expects a Liquid Network address here (destination wallet for DePix tokens)
 				// This is where the converted DePix (L-BTC) will be sent after PIX payment is received
+				// If not provided, the API will extract the user's wallet from the PIX payment webhook
 				if (data.pixKey) {
 					requestData.depixAddress = data.pixKey;
-					this.logger.log(`✅ Including depixAddress (Liquid wallet): ${data.pixKey}`);
+					this.logger.log(`✅ Including depixAddress (user's Liquid wallet): ${data.pixKey}`);
 				} else {
-					this.logger.log(`⚠️ No depixAddress provided - API will use default wallet`);
+					this.logger.log(`💰 No depixAddress provided - DePix will be sent to user's wallet from PIX payment webhook`);
 				}
 
 				// Only add optional fields if they are provided
@@ -487,7 +488,7 @@ export class EulenClientService {
 
 			const depositResponse = await this.createDeposit({
 				amount: amountInCents, // Already in cents
-				pixKey: data.depixAddress || '', // Use provided PIX key or empty string (API will use default)
+				pixKey: data.depixAddress || undefined, // Use provided PIX key or undefined (so API uses user's wallet from webhook)
 				description: data.description,
 				userTaxNumber: data.userTaxNumber, // Pass tax number for EUID restriction
 			});

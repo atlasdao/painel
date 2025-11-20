@@ -135,6 +135,13 @@ scripts/production-*
 **/scripts/production-*
 **/scripts/*credentials*
 
+# --- Arquivos Temporários de Desenvolvimento na Raiz do Atlas-API APENAS ---
+# ATENÇÃO: Estes padrões só se aplicam à raiz da pasta Atlas-API, não às pastas src/
+Atlas-API/check-transaction-webhooks.js
+Atlas-API/create-admin.js
+Atlas-API/mark-transaction-paid.js
+Atlas-API/simulate-webhook.js
+
 # --- Arquivos de Desenvolvimento e Teste ---
 test-data/
 fixtures/

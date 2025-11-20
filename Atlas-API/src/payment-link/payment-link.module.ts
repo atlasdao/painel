@@ -1,14 +1,19 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
 import { PaymentLinkController } from './payment-link.controller';
 import { PublicPaymentLinkController } from './public-payment-link.controller';
+import { WebhookController } from './webhook.controller';
 import { PaymentLinkService } from './payment-link.service';
+import { WebhookService } from './webhook.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PixModule } from '../pix/pix.module';
+import { EncryptionUtil } from '../common/utils/encryption.util';
 
 @Module({
-	imports: [PrismaModule, PixModule],
-	controllers: [PaymentLinkController, PublicPaymentLinkController],
-	providers: [PaymentLinkService],
-	exports: [PaymentLinkService],
+	imports: [PrismaModule, PixModule, HttpModule, ConfigModule],
+	controllers: [PaymentLinkController, PublicPaymentLinkController, WebhookController],
+	providers: [PaymentLinkService, WebhookService, EncryptionUtil],
+	exports: [PaymentLinkService, WebhookService],
 })
 export class PaymentLinkModule {}
