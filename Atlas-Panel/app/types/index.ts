@@ -32,7 +32,7 @@ export interface Transaction {
   };
   type: 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER';
   amount: number;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+  status: 'PENDING' | 'PROCESSING' | 'IN_REVIEW' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
   currency?: string;
   pixKey?: string;
   pixKeyType?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM_KEY';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminService } from '@/app/lib/services';
 import { Transaction } from '@/app/types';
 import {
@@ -28,6 +28,9 @@ export default function AdminTransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const transactionsPerPage = 50;
   const [filters, setFilters] = useState({
     status: '',
     type: '',
@@ -44,20 +47,77 @@ export default function AdminTransactionsPage() {
     totalVolume: 0,
   });
 
+  // Use ref to track if this is initial load to avoid infinite loops
+  const initialLoadRef = useRef(true);
+
   useEffect(() => {
-    loadTransactions();
-  }, [filters]);
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      loadTransactions();
+    } else {
+      // Reset to page 1 when filters change
+      setCurrentPage(1);
+    }
+  }, [filters.status, filters.type, filters.userId, filters.search]);
+
+  useEffect(() => {
+    if (!initialLoadRef.current) {
+      loadTransactions();
+    }
+  }, [currentPage]);
 
   const loadTransactions = async () => {
+    const page = currentPage;
     setLoading(true);
     try {
-      const data = await adminService.getAllTransactions({
-        status: filters.status || undefined,
-        type: filters.type || undefined,
-        userId: filters.userId || undefined,
-      });
-      setTransactions(data);
-      calculateStats(data);
+      // For filtered searches, load all data to get accurate stats
+      // For paginated view, load only the current page
+      const hasFilters = filters.status || filters.type || filters.userId || filters.search;
+
+      if (hasFilters) {
+        // Load all filtered data for stats
+        const allData = await adminService.getAllTransactions({
+          status: filters.status || undefined,
+          type: filters.type || undefined,
+          userId: filters.userId || undefined,
+        });
+
+        // Filter by search term if provided
+        let filteredData = allData;
+        if (filters.search) {
+          const searchTerm = filters.search.toLowerCase();
+          filteredData = allData.filter(t =>
+            t.id.toLowerCase().includes(searchTerm) ||
+            t.userId.toLowerCase().includes(searchTerm)
+          );
+        }
+
+        setTotalTransactions(filteredData.length);
+        calculateStats(filteredData);
+
+        // Paginate the filtered results
+        const startIndex = (page - 1) * transactionsPerPage;
+        const endIndex = startIndex + transactionsPerPage;
+        setTransactions(filteredData.slice(startIndex, endIndex));
+      } else {
+        // Load paginated data for current page
+        const offset = (page - 1) * transactionsPerPage;
+        const data = await adminService.getAllTransactions({
+          limit: transactionsPerPage,
+          offset: offset,
+        });
+
+        setTransactions(data);
+
+        // For unfiltered view, load first 1000 transactions to calculate stats
+        // This is a reasonable compromise between performance and accuracy
+        const statsData = await adminService.getAllTransactions({
+          limit: 1000,
+          offset: 0,
+        });
+        calculateStats(statsData);
+        setTotalTransactions(1000); // Estimate - could be improved with a count endpoint
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
       toast.error('Erro ao carregar transações');
@@ -165,29 +225,57 @@ export default function AdminTransactionsPage() {
     }
   };
 
-  const exportToCSV = () => {
-    const headers = ['ID', 'Tipo', 'Status', 'Valor', 'Usuário', 'Data'];
-    const rows = transactions.map((t) => [
-      t.id,
-      t.type,
-      t.status,
-      formatCurrency(t.amount),
-      t.userId,
-      formatDate(t.createdAt),
-    ]);
+  const exportToCSV = async () => {
+    try {
+      setLoading(true);
+      toast.loading('Exportando transações...');
 
-    const csvContent = [headers, ...rows]
-      .map((row) => row.join(','))
-      .join('\n');
+      // Load all transactions for export (with filters if any)
+      const allData = await adminService.getAllTransactions({
+        status: filters.status || undefined,
+        type: filters.type || undefined,
+        userId: filters.userId || undefined,
+      });
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    toast.success('Transações exportadas com sucesso!');
+      // Filter by search term if provided
+      let dataToExport = allData;
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        dataToExport = allData.filter(t =>
+          t.id.toLowerCase().includes(searchTerm) ||
+          t.userId.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      const headers = ['ID', 'Tipo', 'Status', 'Valor', 'Usuário', 'Data'];
+      const rows = dataToExport.map((t) => [
+        t.id,
+        t.type,
+        t.status,
+        formatCurrency(t.amount),
+        t.userId,
+        formatDate(t.createdAt),
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map((row) => row.join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.dismiss();
+      toast.success(`${dataToExport.length} transações exportadas com sucesso!`);
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Erro ao exportar transações');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -399,9 +487,6 @@ export default function AdminTransactionsPage() {
                 <thead className="bg-gray-700">
                   <tr>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
-                      ID
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
                       Tipo
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
@@ -427,11 +512,6 @@ export default function AdminTransactionsPage() {
                       key={transaction.id}
                       className="hover:bg-gray-700/50 transition-colors"
                     >
-                      <td className="py-3 px-4">
-                        <span className="text-xs font-mono text-gray-400">
-                          {transaction.id.slice(0, 8)}...
-                        </span>
-                      </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           {getTypeIcon(transaction.type)}
@@ -463,7 +543,7 @@ export default function AdminTransactionsPage() {
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-gray-300">
-                          {transaction.userId.slice(0, 8)}...
+                          {transaction.user?.username || 'N/A'}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -487,6 +567,61 @@ export default function AdminTransactionsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination */}
+              {totalTransactions > transactionsPerPage && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-700">
+                  <div className="text-sm text-gray-400">
+                    Mostrando {Math.min((currentPage - 1) * transactionsPerPage + 1, totalTransactions)} a{' '}
+                    {Math.min(currentPage * transactionsPerPage, totalTransactions)} de {totalTransactions} transações
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Anterior
+                    </button>
+
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, Math.ceil(totalTransactions / transactionsPerPage)) }, (_, i) => {
+                      const totalPages = Math.ceil(totalTransactions / transactionsPerPage);
+                      let startPage = Math.max(1, currentPage - 2);
+                      let endPage = Math.min(totalPages, startPage + 4);
+
+                      if (endPage - startPage < 4) {
+                        startPage = Math.max(1, endPage - 4);
+                      }
+
+                      const pageNum = startPage + i;
+                      if (pageNum > totalPages) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-1 text-sm rounded ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-white hover:bg-gray-600'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalTransactions / transactionsPerPage)))}
+                      disabled={currentPage >= Math.ceil(totalTransactions / transactionsPerPage)}
+                      className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -5,10 +5,14 @@ import { RateLimiterService } from './rate-limiter.service';
 import { LimitValidationService } from './limit-validation.service';
 import { EmailService } from './email.service';
 import { TransactionCleanupService } from './transaction-cleanup.service';
+import { TransactionStatusSyncService } from './transaction-status-sync.service';
 import { LiquidValidationService } from './liquid-validation.service';
 import { MockPaymentService } from './mock-payment.service';
+import { EmailDomainSyncService } from './email-domain-sync.service';
 import { UserLimitRepository } from '../repositories/user-limit.repository';
+import { BlockedEmailDomainRepository } from '../repositories/blocked-email-domain.repository';
 import { PrismaModule } from '../prisma/prisma.module';
+import { IsNotDisposableEmailConstraint } from '../common/decorators/email-validation.decorator';
 
 @Global()
 @Module({
@@ -19,9 +23,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 		LimitValidationService,
 		EmailService,
 		TransactionCleanupService,
+		TransactionStatusSyncService,
 		LiquidValidationService,
 		MockPaymentService,
+		EmailDomainSyncService,
 		UserLimitRepository,
+		BlockedEmailDomainRepository,
+		IsNotDisposableEmailConstraint,
 	],
 	exports: [
 		EulenClientService,
@@ -29,9 +37,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 		LimitValidationService,
 		EmailService,
 		TransactionCleanupService,
+		TransactionStatusSyncService,
 		LiquidValidationService,
 		MockPaymentService,
+		EmailDomainSyncService,
 		UserLimitRepository,
+		BlockedEmailDomainRepository,
+		IsNotDisposableEmailConstraint,
 	],
 })
 export class ServicesModule {}

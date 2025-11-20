@@ -23,6 +23,7 @@ export default function RegisterPage() {
     password: false,
     confirmPassword: false,
   });
+  const [emailServerError, setEmailServerError] = useState<string | null>(null);
 
   // Validações
   const validations = {
@@ -59,6 +60,11 @@ export default function RegisterPage() {
       ...formData,
       [e.target.name]: e.target.value,
     });
+
+    // Clear server email error when user modifies email
+    if (e.target.name === 'email') {
+      setEmailServerError(null);
+    }
   };
 
   const handleBlur = (field: string) => {
@@ -97,11 +103,35 @@ export default function RegisterPage() {
     } catch (error: any) {
       const message = error.response?.data?.message || 'Erro ao criar conta';
       const errors = error.response?.data?.errors;
-      
+
       if (errors && Array.isArray(errors)) {
+        let disposableEmailError = false;
+
         errors.forEach((err: any) => {
-          toast.error(err.message || err);
+          // Check if this is a disposable email error
+          if (err.field && err.message) {
+            const fullMessage = `${err.field} ${err.message}`;
+
+            if (fullMessage.includes('temporários') ||
+                err.field.toLowerCase() === 'endereços' ||
+                err.message.toLowerCase().includes('temporários') ||
+                (fullMessage.toLowerCase().includes('email') && fullMessage.includes('temporários'))) {
+              // This is the disposable email error
+              const completeMessage = "Endereços de email temporários não são permitidos. Use um email permanente.";
+              setEmailServerError(completeMessage);
+              toast.error(completeMessage);
+              disposableEmailError = true;
+            } else {
+              toast.error(err.message || err);
+            }
+          } else {
+            toast.error(err.message || err);
+          }
         });
+
+        if (!disposableEmailError) {
+          toast.error(message);
+        }
       } else {
         toast.error(message);
       }
@@ -173,9 +203,9 @@ export default function RegisterPage() {
               autoComplete="email"
               required
               className={`input-field mt-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
-                touched.email && !validations.email.format ? 'border-red-500' : ''
+                emailServerError || (touched.email && !validations.email.format) ? 'border-red-500' : ''
               } ${
-                touched.email && validations.email.format ? 'border-green-500' : ''
+                !emailServerError && touched.email && validations.email.format ? 'border-green-500' : ''
               }`}
               placeholder="seu@email.com"
               value={formData.email}
@@ -184,18 +214,22 @@ export default function RegisterPage() {
             />
             
             {/* Email Validation */}
-            {touched.email && !validations.email.format && (
+            {emailServerError ? (
+              <div className="mt-2 flex items-start gap-2">
+                <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-400">{emailServerError}</p>
+              </div>
+            ) : touched.email && !validations.email.format ? (
               <div className="mt-2 flex items-center text-xs text-red-400">
                 <X size={12} className="mr-1" />
                 Email inválido
               </div>
-            )}
-            {touched.email && validations.email.format && (
+            ) : touched.email && validations.email.format ? (
               <div className="mt-2 flex items-center text-xs text-green-400">
                 <Check size={12} className="mr-1" />
                 Email válido
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Password Field */}

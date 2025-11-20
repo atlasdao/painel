@@ -27,6 +27,9 @@ import {
   X,
   Copy,
   Clock,
+  AlertCircle,
+  MessageSquare,
+  ExternalLink,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import os from 'os';
@@ -55,6 +58,24 @@ export default function AdminSystemPage() {
     thresholdTiers: [50000, 150000, 400000, 1000000, 2500000, 5000000],
   });
   const [savingValidation, setSavingValidation] = useState(false);
+
+  // Incident Management State
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [incidentLoading, setIncidentLoading] = useState(true);
+  const [showCreateIncident, setShowCreateIncident] = useState(false);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
+  const [newIncident, setNewIncident] = useState({
+    title: '',
+    description: '',
+    severity: 'MINOR',
+    affectedServices: [] as string[],
+    affectedFrom: '',
+    affectedTo: ''
+  });
+  const [newUpdate, setNewUpdate] = useState('');
+  const [creatingIncident, setCreatingIncident] = useState(false);
+  const [addingUpdate, setAddingUpdate] = useState(false);
 
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -88,6 +109,13 @@ export default function AdminSystemPage() {
       loadAuditLogs();
     }
   }, [activeTab, auditFilters]);
+
+  // Load incidents when switching to incidents tab
+  useEffect(() => {
+    if (activeTab === 'incidents') {
+      loadIncidents();
+    }
+  }, [activeTab]);
 
   const loadSystemInfo = async () => {
     setLoading(true);
@@ -320,8 +348,123 @@ export default function AdminSystemPage() {
     return 'text-gray-400';
   };
 
+  // Incident Management Functions
+  const loadIncidents = async () => {
+    setIncidentLoading(true);
+    try {
+      const response = await api.get('/admin/system/incidents');
+      setIncidents(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading incidents:', error);
+      toast.error('Erro ao carregar incidentes');
+    } finally {
+      setIncidentLoading(false);
+    }
+  };
+
+  const createIncident = async () => {
+    if (!newIncident.title.trim()) {
+      toast.error('Título é obrigatório');
+      return;
+    }
+
+    setCreatingIncident(true);
+    try {
+      await api.post('/admin/system/incidents', {
+        ...newIncident,
+        affectedFrom: newIncident.affectedFrom || undefined,
+        affectedTo: newIncident.affectedTo || undefined
+      });
+      toast.success('Incidente criado com sucesso!');
+      setNewIncident({
+        title: '',
+        description: '',
+        severity: 'MINOR',
+        affectedServices: [],
+        affectedFrom: '',
+        affectedTo: ''
+      });
+      setShowCreateIncident(false);
+      loadIncidents();
+    } catch (error) {
+      console.error('Error creating incident:', error);
+      toast.error('Erro ao criar incidente');
+    } finally {
+      setCreatingIncident(false);
+    }
+  };
+
+  const addIncidentUpdate = async () => {
+    if (!newUpdate.trim() || !selectedIncident) return;
+
+    setAddingUpdate(true);
+    try {
+      await api.post(`/admin/system/incidents/${selectedIncident.id}/updates`, {
+        message: newUpdate
+      });
+      toast.success('Atualização adicionada!');
+      setNewUpdate('');
+      loadIncidents();
+      // Refresh selected incident
+      const response = await api.get('/admin/system/incidents');
+      const updated = response.data.data.find((i: any) => i.id === selectedIncident.id);
+      if (updated) setSelectedIncident(updated);
+    } catch (error) {
+      console.error('Error adding update:', error);
+      toast.error('Erro ao adicionar atualização');
+    } finally {
+      setAddingUpdate(false);
+    }
+  };
+
+  const resolveIncident = async (incidentId: string, message?: string) => {
+    try {
+      await api.post(`/admin/system/incidents/${incidentId}/resolve`, {
+        message: message || 'Incidente resolvido'
+      });
+      toast.success('Incidente resolvido!');
+      loadIncidents();
+      if (selectedIncident?.id === incidentId) {
+        setShowIncidentModal(false);
+        setSelectedIncident(null);
+      }
+    } catch (error) {
+      console.error('Error resolving incident:', error);
+      toast.error('Erro ao resolver incidente');
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+        return 'text-red-400 bg-red-900/20';
+      case 'major':
+        return 'text-orange-400 bg-orange-900/20';
+      case 'minor':
+        return 'text-yellow-400 bg-yellow-900/20';
+      default:
+        return 'text-gray-400 bg-gray-900/20';
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'resolved':
+        return 'text-green-400 bg-green-900/20';
+      case 'monitoring':
+        return 'text-blue-400 bg-blue-900/20';
+      case 'identified':
+        return 'text-orange-400 bg-orange-900/20';
+      case 'investigating':
+        return 'text-red-400 bg-red-900/20';
+      default:
+        return 'text-gray-400 bg-gray-900/20';
+    }
+  };
+
   const tabs = [
     { id: 'overview', name: 'Visão Geral', icon: Activity },
+    { id: 'incidents', name: 'Incidentes', icon: AlertCircle },
     { id: 'limits', name: 'Limites MED', icon: AlertTriangle },
     { id: 'validation', name: 'Validação', icon: CheckCircle },
     { id: 'audit', name: 'Auditoria', icon: FileText },
@@ -845,6 +988,399 @@ export default function AdminSystemPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incidents Tab */}
+      {activeTab === 'incidents' && (
+        <div className="space-y-6">
+          {/* Create Incident Button */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-white">Gerenciamento de Incidentes</h2>
+            <button
+              onClick={() => setShowCreateIncident(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Criar Incidente
+            </button>
+          </div>
+
+          {/* Incidents List */}
+          <div className="glass-card overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Incidentes Ativos</h3>
+            </div>
+
+            {incidentLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
+                <span className="ml-3 text-gray-400">Carregando incidentes...</span>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-700">
+                {incidents.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-gray-400">
+                    <AlertCircle className="mx-auto w-12 h-12 text-gray-500 mb-4" />
+                    <p>Nenhum incidente encontrado</p>
+                    <p className="text-sm mt-2">Todos os serviços estão operando normalmente</p>
+                  </div>
+                ) : (
+                  incidents.map((incident) => (
+                    <div key={incident.id} className="px-6 py-4 hover:bg-gray-700/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-lg font-medium text-white">{incident.title}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(incident.severity)}`}>
+                              {incident.severity}
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(incident.status)}`}>
+                              {incident.status}
+                            </span>
+                          </div>
+                          {incident.description && (
+                            <p className="text-gray-300 text-sm mb-3">{incident.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} />
+                              {formatDate(incident.createdAt)}
+                            </span>
+                            <span>Criado por: {incident.creator?.username || 'Sistema'}</span>
+                            {incident.updates?.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <MessageSquare size={12} />
+                                {incident.updates.length} {incident.updates.length === 1 ? 'atualização' : 'atualizações'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => {
+                              setSelectedIncident(incident);
+                              setShowIncidentModal(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                          >
+                            Ver Detalhes
+                          </button>
+                          {incident.status !== 'RESOLVED' && (
+                            <button
+                              onClick={() => resolveIncident(incident.id)}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+                            >
+                              Resolver
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Incident Modal */}
+      {showCreateIncident && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Criar Novo Incidente</h2>
+              <button
+                onClick={() => {
+                  setShowCreateIncident(false);
+                  setNewIncident({
+                    title: '',
+                    description: '',
+                    severity: 'MINOR',
+                    affectedServices: [],
+                    affectedFrom: '',
+                    affectedTo: ''
+                  });
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Título *</label>
+                <input
+                  type="text"
+                  value={newIncident.title}
+                  onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
+                  placeholder="Ex: Instabilidade no sistema de pagamentos"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Descrição</label>
+                <textarea
+                  value={newIncident.description}
+                  onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
+                  placeholder="Descreva o problema em detalhes..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Severidade</label>
+                <select
+                  value={newIncident.severity}
+                  onChange={(e) => setNewIncident({ ...newIncident, severity: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="MINOR">Menor</option>
+                  <option value="MAJOR">Maior</option>
+                  <option value="CRITICAL">Crítico</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Serviços Afetados</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {['API Gateway', 'Processamento PIX', 'Dashboard', 'Banco de Dados', 'Webhooks', 'Autenticação'].map((service) => (
+                    <label key={service} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newIncident.affectedServices.includes(service)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewIncident({
+                              ...newIncident,
+                              affectedServices: [...newIncident.affectedServices, service]
+                            });
+                          } else {
+                            setNewIncident({
+                              ...newIncident,
+                              affectedServices: newIncident.affectedServices.filter(s => s !== service)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-white text-sm">{service}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Afetado Desde</label>
+                  <input
+                    type="datetime-local"
+                    value={newIncident.affectedFrom}
+                    onChange={(e) => setNewIncident({ ...newIncident, affectedFrom: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Afetado Até</label>
+                  <input
+                    type="datetime-local"
+                    value={newIncident.affectedTo}
+                    onChange={(e) => setNewIncident({ ...newIncident, affectedTo: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Deixe vazio se ainda afetado"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Deixe vazio se o incidente ainda está ativo</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={createIncident}
+                disabled={creatingIncident || !newIncident.title.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {creatingIncident ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Plus size={16} />
+                )}
+                Criar Incidente
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateIncident(false);
+                  setNewIncident({
+                    title: '',
+                    description: '',
+                    severity: 'MINOR',
+                    affectedServices: [],
+                    affectedFrom: '',
+                    affectedTo: ''
+                  });
+                }}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incident Details Modal */}
+      {showIncidentModal && selectedIncident && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-white">Detalhes do Incidente</h2>
+              <button
+                onClick={() => {
+                  setShowIncidentModal(false);
+                  setSelectedIncident(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-xl font-semibold text-white">{selectedIncident.title}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(selectedIncident.severity)}`}>
+                    {selectedIncident.severity}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(selectedIncident.status)}`}>
+                    {selectedIncident.status}
+                  </span>
+                </div>
+                {selectedIncident.description && (
+                  <p className="text-gray-300">{selectedIncident.description}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="text-gray-400">Criado em:</label>
+                  <p className="text-white">{formatDate(selectedIncident.createdAt)}</p>
+                </div>
+                <div>
+                  <label className="text-gray-400">Criado por:</label>
+                  <p className="text-white">{selectedIncident.creator?.username || 'Sistema'}</p>
+                </div>
+                {selectedIncident.resolvedAt && (
+                  <div>
+                    <label className="text-gray-400">Resolvido em:</label>
+                    <p className="text-white">{formatDate(selectedIncident.resolvedAt)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedFrom && (
+                  <div>
+                    <label className="text-gray-400">Afetado desde:</label>
+                    <p className="text-white">{formatDate(selectedIncident.affectedFrom)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedTo && (
+                  <div>
+                    <label className="text-gray-400">Afetado até:</label>
+                    <p className="text-white">{formatDate(selectedIncident.affectedTo)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedServices?.length > 0 && (
+                  <div className="col-span-2">
+                    <label className="text-gray-400">Serviços afetados:</label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedIncident.affectedServices.map((service: string, index: number) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs"
+                        >
+                          {service}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Updates Timeline */}
+              <div className="border-t border-gray-700 pt-4">
+                <h4 className="text-lg font-semibold text-white mb-3">Timeline de Atualizações</h4>
+
+                {selectedIncident.status !== 'RESOLVED' && (
+                  <div className="bg-gray-700/50 p-3 rounded-lg mb-4">
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Adicionar Atualização
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={newUpdate}
+                        onChange={(e) => setNewUpdate(e.target.value)}
+                        placeholder="Ex: Investigando o problema, aguarde..."
+                        className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={addIncidentUpdate}
+                        disabled={addingUpdate || !newUpdate.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        {addingUpdate ? (
+                          <RefreshCw className="animate-spin" size={16} />
+                        ) : (
+                          <MessageSquare size={16} />
+                        )}
+                        Adicionar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {selectedIncident.updates?.length === 0 ? (
+                    <p className="text-gray-400 text-center py-4">Nenhuma atualização ainda</p>
+                  ) : (
+                    selectedIncident.updates?.map((update: any, index: number) => (
+                      <div key={index} className="bg-gray-700/30 p-3 rounded-lg">
+                        <p className="text-white">{update.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatDate(update.createdAt)} - {update.author?.username || 'Sistema'}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-between">
+              <div>
+                {selectedIncident.status !== 'RESOLVED' && (
+                  <button
+                    onClick={() => resolveIncident(selectedIncident.id, 'Incidente resolvido via painel admin')}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    Resolver Incidente
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowIncidentModal(false);
+                  setSelectedIncident(null);
+                }}
+                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>

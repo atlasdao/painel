@@ -66,8 +66,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 			);
 		}
 
-		// Translate the message to Portuguese
-		const translatedMessage = ErrorTranslator.translate(message);
+		// Translate the message to Portuguese (except for External API endpoints)
+		const isExternalApi = request.url.includes('/external');
+		const translatedMessage = isExternalApi ? message : ErrorTranslator.translate(message);
 
 		const errorResponse: any = {
 			statusCode: status,

@@ -18,6 +18,7 @@ import { HealthModule } from './health/health.module';
 import { ProfileModule } from './profile/profile.module';
 import { LevelsModule } from './levels/levels.module';
 import { DonationsModule } from './donations/donations.module';
+import { ExternalApiModule } from './external-api/external-api.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -26,6 +27,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { UserRepository } from './repositories/user.repository';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { AuditLogRepository } from './repositories/audit-log.repository';
+import { IsNotDisposableEmailConstraint } from './common/decorators/email-validation.decorator';
 
 @Module({
 	imports: [
@@ -50,6 +52,7 @@ import { AuditLogRepository } from './repositories/audit-log.repository';
 		CommerceModule,
 		LevelsModule,
 		DonationsModule,
+		ExternalApiModule,
 	],
 	controllers: [AppController],
 	providers: [
@@ -57,6 +60,7 @@ import { AuditLogRepository } from './repositories/audit-log.repository';
 		UserRepository,
 		TransactionRepository,
 		AuditLogRepository,
+		IsNotDisposableEmailConstraint,
 		{
 			provide: APP_GUARD,
 			useClass: JwtAuthGuard,

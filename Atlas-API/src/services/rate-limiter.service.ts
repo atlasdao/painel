@@ -27,9 +27,9 @@ export class RateLimiterService {
 		},
 		{
 			endpoint: 'deposit',
-			rateLimit: 2,
-			burstLimit: 30,
-			dailyLimit: 2880,
+			rateLimit: 60, // Allow 60 requests per minute (1 per second) for payment links
+			burstLimit: 100, // Allow burst of 100 requests for high traffic
+			dailyLimit: 10000, // Increased daily limit for payment links
 		},
 		{
 			endpoint: 'deposit-status',

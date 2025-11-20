@@ -3,6 +3,7 @@ export const transactionStatusTranslations: Record<string, string> = {
   // Transaction Status
   'PENDING': 'Pendente',
   'PROCESSING': 'Processando',
+  'IN_REVIEW': 'Em Revisão',
   'COMPLETED': 'Concluído',
   'FAILED': 'Falhou',
   'CANCELLED': 'Cancelado',
@@ -33,6 +34,7 @@ export function translateStatus(status: string | undefined | null): string {
 export const statusColors: Record<string, string> = {
   'PENDING': 'bg-yellow-100 text-yellow-800',
   'PROCESSING': 'bg-blue-100 text-blue-800',
+  'IN_REVIEW': 'bg-purple-100 text-purple-800',
   'COMPLETED': 'bg-green-100 text-green-800',
   'FAILED': 'bg-red-100 text-red-800',
   'CANCELLED': 'bg-gray-100 text-gray-800',
@@ -59,6 +61,7 @@ export function getStatusColor(status: string | undefined | null): string {
 export const statusIcons: Record<string, string> = {
   'PENDING': '⏳',
   'PROCESSING': '⚙️',
+  'IN_REVIEW': '🔍',
   'COMPLETED': '✅',
   'FAILED': '❌',
   'CANCELLED': '🚫',

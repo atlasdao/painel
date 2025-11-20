@@ -26,6 +26,60 @@ export class WebhookService {
 		private readonly botSyncService: BotSyncService,
 	) {}
 
+	/**
+	 * Validate webhook secret using Basic Authorization
+	 * Eulen sends: Authorization: Basic base64(secret:)
+	 */
+	async validateWebhookSecret(authHeader: string): Promise<boolean> {
+		try {
+			// Get webhook secret from database
+			const setting = await this.prisma.systemSettings.findUnique({
+				where: { key: 'EULEN_WEBHOOK_SECRET' },
+			});
+
+			if (!setting) {
+				this.logger.error('❌ WEBHOOK SECRET: Not configured in database');
+				return false;
+			}
+
+			const expectedSecret = setting.value;
+
+			// Parse Basic Auth header
+			// Format: "Basic base64(secret:)" or "Basic base64(:secret)"
+			if (!authHeader.startsWith('Basic ')) {
+				this.logger.error('❌ WEBHOOK AUTH: Not Basic authentication');
+				return false;
+			}
+
+			// Eulen sends the secret in a non-standard way:
+			// Instead of: Basic base64(secret:)
+			// They send: Basic <plaintext-secret-first-48-chars>
+			const receivedValue = authHeader.substring(6).trim();
+
+			this.logger.log('🔍 WEBHOOK AUTH:');
+			this.logger.log(`  Received value (first 30 chars): ${receivedValue.substring(0, 30)}...`);
+			this.logger.log(`  Received length: ${receivedValue.length}`);
+			this.logger.log(`  Expected secret (first 30 chars): ${expectedSecret.substring(0, 30)}...`);
+			this.logger.log(`  Expected length: ${expectedSecret.length}`);
+
+			// Eulen truncates secrets to 48 characters, so compare first 48 chars
+			const isValid =
+				receivedValue === expectedSecret.substring(0, 48) ||  // Eulen's truncated secret
+				receivedValue === expectedSecret;                      // Full secret (just in case)
+
+			this.logger.log(`  Match result: ${isValid}`);
+
+			if (!isValid) {
+				this.logger.error('❌ WEBHOOK AUTH: Secret mismatch');
+			}
+
+			return isValid;
+		} catch (error) {
+			this.logger.error('❌ WEBHOOK AUTH: Validation error', error);
+			return false;
+		}
+	}
+
 	async processDepositWebhook(
 		eventData: WebhookDepositEventDto,
 	): Promise<WebhookEventResponseDto> {
@@ -239,6 +293,7 @@ export class WebhookService {
 		const statusMap: Record<string, TransactionStatus> = {
 			pending: TransactionStatus.PENDING,
 			paid: TransactionStatus.PROCESSING,
+			under_review: TransactionStatus.IN_REVIEW,
 			depix_sent: TransactionStatus.COMPLETED,
 			failed: TransactionStatus.FAILED,
 			expired: TransactionStatus.EXPIRED,

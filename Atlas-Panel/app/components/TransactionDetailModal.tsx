@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Clock,
   X,
-  Copy
+  Copy,
+  Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
@@ -23,6 +24,7 @@ const getStatusClass = (status: string) => {
     'COMPLETED': 'transaction-status-professional transaction-status-completed',
     'PENDING': 'transaction-status-professional transaction-status-pending',
     'PROCESSING': 'transaction-status-professional transaction-status-processing',
+    'IN_REVIEW': 'transaction-status-professional transaction-status-processing',
     'FAILED': 'transaction-status-professional transaction-status-failed',
     'EXPIRED': 'transaction-status-professional transaction-status-expired',
     'CANCELLED': 'transaction-status-professional transaction-status-expired'
@@ -92,6 +94,8 @@ export default function TransactionDetailModal({
         return <Clock className="text-yellow-500" size={20} />;
       case 'PROCESSING':
         return <RefreshCw className="text-blue-500 animate-spin" size={20} />;
+      case 'IN_REVIEW':
+        return <Search className="text-purple-500" size={20} />;
       case 'FAILED':
         return <XCircle className="text-red-500" size={20} />;
       case 'EXPIRED':
@@ -483,7 +487,7 @@ export default function TransactionDetailModal({
           {/* Footer */}
           <div className="flex justify-between p-6 border-t border-gray-700">
             <div>
-              {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING') && (
+              {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING' || transaction.status === 'IN_REVIEW') && (
                 <button
                   onClick={checkTransactionStatus}
                   disabled={isChecking}

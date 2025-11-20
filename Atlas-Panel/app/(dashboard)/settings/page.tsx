@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import { userService, profileService } from '@/app/lib/services';
-import api from '@/app/lib/api';
+import api, { API_URL } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
 import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Award } from 'lucide-react';
@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const [twoFAToken, setTwoFAToken] = useState('');
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState<{ [key: string]: boolean }>({});
 
   // Wallet State
   const [walletForm, setWalletForm] = useState({
@@ -165,12 +166,42 @@ export default function SettingsPage() {
     }
   };
 
-  const copyApiKey = (apiKey: string) => {
+  const copyApiKey = (apiKey: string | null | undefined) => {
+    if (!apiKey) {
+      toast.error('API Key não disponível para cópia', {
+        style: { background: '#ef4444', color: '#fff' },
+        duration: 2000,
+      });
+      return;
+    }
+
     navigator.clipboard.writeText(apiKey);
     toast.success('✓ API Key copiada!', {
       style: { background: '#10b981', color: '#fff' },
       duration: 2000,
     });
+  };
+
+  const toggleApiKeyVisibility = (apiKeyId: string) => {
+    setShowApiKeys(prev => ({
+      ...prev,
+      [apiKeyId]: !prev[apiKeyId]
+    }));
+  };
+
+  const formatApiKey = (apiKey: string | null | undefined, isVisible: boolean) => {
+    if (!apiKey) {
+      return 'API Key não disponível';
+    }
+
+    if (isVisible) {
+      return apiKey;
+    }
+    // Show first 8 and last 4 characters, censor the middle
+    if (apiKey.length <= 12) {
+      return '•'.repeat(apiKey.length);
+    }
+    return `${apiKey.substring(0, 8)}${'•'.repeat(Math.max(8, apiKey.length - 12))}${apiKey.substring(apiKey.length - 4)}`;
   };
 
   const loadUserProfile = async () => {
@@ -516,6 +547,27 @@ export default function SettingsPage() {
 
 
                 </div>
+
+                {/* API Key Quick Access */}
+                {apiKeyRequests.some(r => r.status === 'APPROVED') && (
+                  <div className="mt-8 p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Key className="w-5 h-5 text-green-400" />
+                        <div>
+                          <h4 className="text-sm font-medium text-white">API Key Ativa</h4>
+                          <p className="text-xs text-gray-400">Você possui acesso à nossa API</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('api')}
+                        className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                      >
+                        Ver API Key
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* User Limits Section */}
                 <div className="mt-8">
@@ -1052,13 +1104,111 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                 <Code className="text-purple-400" size={24} />
-                Solicitação de API Key
+                API & Integração
               </h2>
+
+              {/* Current API Keys Section - Always visible at top */}
+              <div className="p-6 bg-gradient-to-br from-green-900/20 via-blue-900/10 to-purple-900/10 rounded-xl border border-green-500/20 mb-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Key className="text-green-400" size={20} />
+                  Suas API Keys
+                </h3>
+
+                {apiKeyRequests.filter(r => r.status === 'APPROVED').length > 0 ? (
+                  <div className="space-y-4">
+                    {apiKeyRequests.filter(r => r.status === 'APPROVED').map((request) => (
+                      <div key={request.id} className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <span className="text-green-400 font-medium">API Key Ativa</span>
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            Criada em {new Date(request.createdAt).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+
+                        {request.generatedApiKey ? (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">Sua API Key:</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => toggleApiKeyVisibility(request.id)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                                  title={showApiKeys[request.id] ? "Ocultar API Key" : "Mostrar API Key"}
+                                >
+                                  {showApiKeys[request.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  {showApiKeys[request.id] ? "Ocultar" : "Mostrar"}
+                                </button>
+                                <button
+                                  onClick={() => copyApiKey(request.generatedApiKey)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                                  title="Copiar API Key"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="relative">
+                              <code className="block text-sm text-white font-mono break-all bg-gray-800 border border-gray-600 p-3 rounded">
+                                {formatApiKey(request.generatedApiKey, showApiKeys[request.id] || false)}
+                              </code>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                            <p className="text-yellow-400 text-sm">
+                              API Key ainda não foi gerada. Entre em contato com o suporte.
+                            </p>
+                          </div>
+                        )}
+
+                        {request.apiKeyExpiresAt && (
+                          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Expira em: {new Date(request.apiKeyExpiresAt).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+
+                        <div className="mt-3 text-xs text-gray-400">
+                          <p><span className="text-gray-300">Uso:</span> {request.usageReason}</p>
+                          <p><span className="text-gray-300">Serviço:</span> {request.serviceUrl}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Key className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">Nenhuma API Key Ativa</h4>
+                    <p className="text-gray-400 mb-4">
+                      Você ainda não possui uma API Key aprovada. Solicite uma abaixo para começar a integrar.
+                    </p>
+                    {!apiKeyRequests.some(r => r.status === 'PENDING') && (
+                      <button
+                        onClick={() => {
+                          // Scroll to request form
+                          const formElement = document.querySelector('[data-api-request-form]');
+                          formElement?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
+                      >
+                        Solicitar API Key
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Info Box */}
               <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg mb-6">
                 <p className="text-purple-400">
-                  Solicite acesso à API para integrar nossos serviços em sua aplicação.
+                  Integre nossos serviços de pagamento PIX em sua aplicação usando nossa API REST.
                 </p>
               </div>
 
@@ -1076,7 +1226,7 @@ export default function SettingsPage() {
                       <h4 className="text-sm font-semibold text-gray-300 mb-2">Base URL</h4>
                       <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
                         <code className="text-sm text-blue-400 font-mono">
-                          {typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api
+                          {API_URL}
                         </code>
                       </div>
                     </div>
@@ -1103,7 +1253,7 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/pix/create</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/create</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Criar uma transação PIX</p>
 
@@ -1116,10 +1266,18 @@ export default function SettingsPage() {
 {`{
   "amount": 100.50,
   "description": "Pagamento de teste",
-  "taxNumber": "12345678900",
-  "merchantOrderId": "ORDER-123"
+  "taxNumber": "12345678900", // Obrigatório para valores >= R$ 3000
+  "walletAddress": "your_wallet_address_here",
+  "merchantOrderId": "ORDER-123", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
 }`}
                               </pre>
+                              <p className="text-xs text-gray-400 mt-2">
+                                ℹ️ taxNumber é opcional para valores abaixo de R$ 3.000
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                ✅ Sem limites de tier para External API
+                              </p>
                             </div>
                           </details>
                         </div>
@@ -1128,7 +1286,7 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/pix/status/:id</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/status/:id</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Verificar status de uma transação</p>
 
@@ -1142,9 +1300,43 @@ export default function SettingsPage() {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "PENDING",
   "amount": 100.50,
+  "description": "Pagamento de teste",
+  "merchantOrderId": "ORDER-123",
   "qrCode": "00020126580014br.gov.bcb.pix...",
-  "expiresAt": "2024-01-15T23:59:59Z"
+  "qrCodeImage": "data:image/png;base64,...",
+  "createdAt": "2025-01-15T12:00:00Z",
+  "expiresAt": "2025-01-15T12:30:00Z"
 }`}
+                              </pre>
+                              <p className="text-xs text-gray-400 mt-2">
+                                ✅ QR Code gerado automaticamente na criação
+                              </p>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* List Transactions */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/transactions</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Listar transações com filtros</p>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver parâmetros disponíveis
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`Query Parameters:
+- status: PENDING | COMPLETED | FAILED | EXPIRED | CANCELLED
+- type: DEPOSIT | WITHDRAW | TRANSFER
+- startDate: ISO 8601 date
+- endDate: ISO 8601 date
+- merchantOrderId: string
+- page: number (default: 1)
+- limit: number (default: 20, max: 100)`}
                               </pre>
                             </div>
                           </details>
@@ -1154,59 +1346,107 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/payment-links</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
                           </div>
                           <p className="text-sm text-gray-400 mb-3">Criar um link de pagamento</p>
 
                           <details className="mt-2">
                             <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
-                              Ver exemplo de requisição
+                              Ver exemplo de requisição - Valor Fixo
                             </summary>
                             <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
                               <pre className="text-xs text-gray-300 overflow-x-auto">
-{`{
+{`// Link de pagamento com valor fixo
+{
   "title": "Produto Digital",
   "description": "Curso online",
   "amount": 199.90,
-  "maxUses": 100,
-  "expiresAt": "2024-12-31T23:59:59Z"
+  "isCustomAmount": false,
+  "walletAddress": "your_wallet_address_here",
+  "expiresAt": "2024-12-31T23:59:59Z", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
 }`}
                               </pre>
                             </div>
                           </details>
+
+                          <details className="mt-2">
+                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                              Ver exemplo de requisição - Valor Livre (Range)
+                            </summary>
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
+                              <pre className="text-xs text-gray-300 overflow-x-auto">
+{`// Link de pagamento com valor livre (cliente escolhe)
+{
+  "title": "Doação Flexível",
+  "description": "Contribua com o valor que desejar",
+  "isCustomAmount": true,
+  "minAmount": 10.00,    // Valor mínimo permitido
+  "maxAmount": 500.00,   // Valor máximo permitido (opcional)
+  "walletAddress": "your_wallet_address_here",
+  "maxUses": 1000,       // Opcional
+  "expiresAt": "2024-12-31T23:59:59Z", // Opcional
+  "webhookUrl": "https://example.com/webhook" // Opcional
+}`}
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+
+                        {/* Get Payment Link */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links/:id</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Obter detalhes de um link de pagamento</p>
                         </div>
 
                         {/* List Payment Links */}
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/payment-links</code>
+                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
                           </div>
-                          <p className="text-sm text-gray-400">Listar seus links de pagamento</p>
+                          <p className="text-sm text-gray-400 mb-3">Listar seus links de pagamento</p>
                         </div>
 
-                        {/* Webhook Configuration */}
+                        {/* Cancel PIX Transaction */}
                         <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/webhooks</code>
+                            <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded">DELETE</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/pix/cancel/:id</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Configurar webhook para notificações</p>
-
-                          <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
-                              Ver exemplo de requisição
-                            </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
-{`{
-  "url": "https://seusite.com/webhook",
-  "events": ["PAYMENT_CONFIRMED", "PAYMENT_FAILED"]
-}`}
-                              </pre>
-                            </div>
-                          </details>
+                          <p className="text-sm text-gray-400 mb-3">Cancelar transação PIX pendente</p>
                         </div>
+
+                        {/* API Usage Stats */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/stats/usage</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Estatísticas de uso da API</p>
+                        </div>
+
+                        {/* User Profile */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/profile</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Obter informações do perfil do usuário</p>
+                        </div>
+
+                        {/* Health Check */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/external/health</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Health check da API (sem autenticação)</p>
+                        </div>
+
                       </div>
                     </div>
 
@@ -1260,13 +1500,15 @@ export default function SettingsPage() {
                         <button
                           onClick={() => {
                             const approvedKey = apiKeyRequests.find(r => r.status === 'APPROVED');
-                            const curlCommand = `curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+                            const curlCommand = `curl -X POST ${API_URL}/external/pix/create \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${approvedKey?.apiKey || 'sua-api-key'}" \\
+  -H "X-API-Key: ${approvedKey?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
-    "taxNumber": "12345678900"
+    "taxNumber": "12345678900",
+    "walletAddress": "your_wallet_address_here",
+    "merchantOrderId": "ORDER-123"
   }'`;
                             navigator.clipboard.writeText(curlCommand);
                             toast.success('✓ Comando copiado!', {
@@ -1280,14 +1522,19 @@ export default function SettingsPage() {
                           <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
                         </button>
                         <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
-{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin.replace(/:\d+/, ':19997') : 'https://api.atlasdao.com'}/api/pix/create \\
+{`curl -X POST ${API_URL}/external/pix/create \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.apiKey || 'sua-api-key'}" \\
+  -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.generatedApiKey || 'sua-api-key'}" \\
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
-    "taxNumber": "12345678900"
-  }'`}
+    "taxNumber": "12345678900",
+    "walletAddress": "your_wallet_address_here",
+    "merchantOrderId": "ORDER-123"
+  }'
+
+# Note: taxNumber é opcional para valores < R$ 3000
+# merchantOrderId e webhookUrl também são campos opcionais`}
                         </pre>
                       </div>
                     </div>
@@ -1296,23 +1543,21 @@ export default function SettingsPage() {
               )}
 
 
-              {/* Existing Requests */}
-              {apiKeyRequests.length > 0 && (
+              {/* Request History - Show pending/rejected requests */}
+              {apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'REJECTED') && (
                 <div className="space-y-4 mb-6">
-                  <h3 className="text-lg font-semibold text-white">Suas Solicitações</h3>
-                  {apiKeyRequests.map((request) => (
+                  <h3 className="text-lg font-semibold text-white">Histórico de Solicitações</h3>
+                  {apiKeyRequests.filter(r => r.status !== 'APPROVED').map((request) => (
                     <div key={request.id} className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                               request.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' :
-                              request.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' :
                               request.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
                               'bg-gray-500/20 text-gray-400'
                             }`}>
                               {request.status === 'PENDING' ? 'Pendente' :
-                               request.status === 'APPROVED' ? 'Aprovada' :
                                request.status === 'REJECTED' ? 'Rejeitada' :
                                request.status}
                             </span>
@@ -1327,36 +1572,6 @@ export default function SettingsPage() {
                           <p className="text-sm text-gray-300">
                             <span className="text-gray-400">URL do Serviço:</span> {request.serviceUrl}
                           </p>
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">Volume Estimado:</span> {request.estimatedVolume}
-                          </p>
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">Tipo de Uso:</span>
-                            {request.usageType === 'SINGLE_CPF' ? ' CPF Único' : ' Múltiplos CPFs'}
-                          </p>
-
-                          {request.status === 'APPROVED' && request.apiKey && (
-                            <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-green-400">API Key:</span>
-                                <button
-                                  onClick={() => copyApiKey(request.apiKey)}
-                                  className="p-1.5 hover:bg-gray-700 rounded transition-colors"
-                                  title="Copiar API Key"
-                                >
-                                  <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
-                                </button>
-                              </div>
-                              <code className="block text-xs text-green-300 font-mono break-all bg-black/30 p-2 rounded">
-                                {request.apiKey}
-                              </code>
-                              {request.apiKeyExpiresAt && (
-                                <p className="text-xs text-gray-400 mt-2">
-                                  Expira em: {new Date(request.apiKeyExpiresAt).toLocaleDateString('pt-BR')}
-                                </p>
-                              )}
-                            </div>
-                          )}
 
                           {request.status === 'REJECTED' && request.rejectionReason && (
                             <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -1374,7 +1589,7 @@ export default function SettingsPage() {
 
               {/* Request Form - Only show if no pending or approved requests */}
               {!apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'APPROVED') && (
-                <div className="space-y-4">
+                <div className="space-y-4" data-api-request-form>
                   <h3 className="text-lg font-semibold text-white">Nova Solicitação</h3>
 
                   <div>
