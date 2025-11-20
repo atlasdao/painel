@@ -220,11 +220,55 @@ model PaymentLink {
   expiresAt         DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhooks          PaymentLinkWebhook[]
+  webhookEvents     PaymentLinkWebhookEvent[]
 
   @@index([shortCode])
   @@index([userId])
   @@index([isActive])
+}
+
+model PaymentLinkWebhook {
+  id               String                    @id @default(uuid())
+  paymentLinkId    String
+  name             String
+  url              String
+  events           String[]
+  secret           String?
+  active           Boolean                   @default(true)
+  lastTriggeredAt  DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  paymentLink      PaymentLink               @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  events_sent      PaymentLinkWebhookEvent[]
+
+  @@index([paymentLinkId])
+  @@index([active])
+}
+
+model PaymentLinkWebhookEvent {
+  id               String                     @id @default(uuid())
+  webhookId        String
+  paymentLinkId    String
+  eventType        String
+  payload          Json
+  status           WebhookEventStatus             @default(PENDING)
+  attempts         Int                        @default(0)
+  maxAttempts      Int                        @default(3)
+  responseCode     Int?
+  responseBody     String?
+  lastAttemptAt    DateTime?
+  nextRetryAt      DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  webhook          PaymentLinkWebhook         @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  paymentLink      PaymentLink                @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([paymentLinkId])
+  @@index([status])
+  @@index([nextRetryAt])
 }
 
 model UserReputation {
@@ -521,6 +565,7 @@ enum DonationMethod {
   BTC_LIGHTNING
   BTC_LIQUID
   USDT_ERC20
+  USDT_POLYGON
   XMR
 }
 

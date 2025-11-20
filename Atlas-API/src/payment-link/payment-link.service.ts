@@ -6,6 +6,7 @@ import {
 	PaymentLinkResponseDto,
 } from './dto/payment-link.dto';
 import { PixService } from '../pix/pix.service';
+import { WebhookService } from './webhook.service';
 import { nanoid } from 'nanoid';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class PaymentLinkService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly pixService: PixService,
+		private readonly webhookService: WebhookService,
 	) {}
 
 	async create(
@@ -556,6 +558,26 @@ export class PaymentLinkService {
 					qrCodeGeneratedAt: new Date(),
 				},
 			});
+
+			// Trigger "payment.created" webhook
+			const webhookPayload = {
+				paymentLinkId: link.id,
+				shortCode: link.shortCode,
+				amount,
+				qrCode: qrCodeData.qrCode,
+				walletAddress: link.walletAddress,
+				description: link.description,
+				expiresAt: expiresAt.toISOString(),
+				generatedAt: new Date().toISOString(),
+			};
+
+			this.logger.log(`🎯 Triggering payment.created webhook for ${link.shortCode}`);
+
+			// Fire and forget - don't await so QR generation isn't slowed down
+			this.webhookService.triggerWebhooks(link.id, 'payment.created', webhookPayload)
+				.catch(error => {
+					this.logger.error('Webhook trigger failed:', error);
+				});
 
 			return {
 				qrCode: qrCodeData.qrCode,

@@ -1279,6 +1279,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
           </div>
         </div>
       )}
+
     </div>
   );
 }

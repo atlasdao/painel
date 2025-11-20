@@ -215,7 +215,87 @@ curl -X POST ${apiBaseUrl}/external/pix/create \\
   }'
 
 # Note: taxNumber é opcional para valores < R$ 3000
-# merchantOrderId e webhookUrl também são campos opcionais`
+# merchantOrderId e webhookUrl também são campos opcionais`,
+
+    createWebhook: `// Criar webhook para payment link
+const response = await fetch('${apiBaseUrl}/payment-links/pl_123/webhooks', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'SUA_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    url: 'https://meusite.com/webhook',
+    events: [
+      'payment.created',
+      'payment.completed',
+      'payment.failed'
+    ],
+    secret: 'minha-chave-secreta-123'
+  })
+});
+
+const webhook = await response.json();
+console.log('Webhook criado:', webhook);`,
+
+    listWebhooks: `// Listar webhooks de um payment link
+const response = await fetch('${apiBaseUrl}/payment-links/pl_123/webhooks', {
+  headers: {
+    'X-API-Key': 'SUA_API_KEY'
+  }
+});
+
+const webhooks = await response.json();
+console.log('Webhooks:', webhooks);`,
+
+    testWebhook: `// Testar webhook
+const response = await fetch('${apiBaseUrl}/payment-links/pl_123/webhooks/wh_456/test', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'SUA_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    eventType: 'payment.completed',
+    testData: {
+      amount: 150.75,
+      customerName: 'João Silva',
+      productId: 'prod_123'
+    }
+  })
+});
+
+const result = await response.json();
+console.log('Teste executado:', result.success);
+console.log('Tempo de resposta:', result.responseTime, 'ms');`,
+
+    webhookSecurity: `// Verificação de assinatura HMAC-SHA256
+const crypto = require('crypto');
+
+function verifyWebhookSignature(payload, signature, secret) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const expectedSignature = 'sha256=' + hmac.digest('hex');
+
+  return signature === expectedSignature;
+}
+
+// Uso no seu endpoint webhook
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-atlas-signature'];
+  const payload = JSON.stringify(req.body);
+  const secret = 'seu-webhook-secret';
+
+  if (verifyWebhookSignature(payload, signature, secret)) {
+    console.log('Webhook válido:', req.body);
+
+    // Processar o webhook aqui
+
+    res.status(200).send('OK');
+  } else {
+    res.status(401).send('Unauthorized');
+  }
+});`
   });
 
   const codeExamples = getCodeExamples();
@@ -294,6 +374,48 @@ curl -X POST ${apiBaseUrl}/external/pix/create \\
       category: 'Payment Links'
     },
     {
+      method: 'POST',
+      path: '/api/v1/payment-links/:id/webhooks',
+      description: 'Criar webhook para payment link',
+      category: 'Webhooks'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/payment-links/:id/webhooks',
+      description: 'Listar webhooks de um payment link',
+      category: 'Webhooks'
+    },
+    {
+      method: 'PATCH',
+      path: '/api/v1/payment-links/:paymentLinkId/webhooks/:id',
+      description: 'Atualizar webhook existente',
+      category: 'Webhooks'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/payment-links/:paymentLinkId/webhooks/:id',
+      description: 'Deletar webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/payment-links/:paymentLinkId/webhooks/:id/test',
+      description: 'Testar envio de webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/payment-links/:id/webhooks/validate-url',
+      description: 'Validar URL de webhook',
+      category: 'Webhooks'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/payment-links/:id/webhooks/events',
+      description: 'Listar eventos disponíveis',
+      category: 'Webhooks'
+    },
+    {
       method: 'GET',
       path: '/api/v1/external/stats/usage',
       description: 'Estatísticas de uso da API',
@@ -305,6 +427,7 @@ curl -X POST ${apiBaseUrl}/external/pix/create \\
     { id: 'quick-start', title: 'Início Rápido', icon: Play },
     { id: 'authentication', title: 'Perfil & Stats', icon: Lock },
     { id: 'payment-links', title: 'Links de Pagamento', icon: Code2 },
+    { id: 'webhooks', title: 'Webhooks', icon: Globe },
     { id: 'examples', title: 'Exemplos', icon: Terminal },
     { id: 'testing', title: 'Testes', icon: Activity }
   ];
@@ -752,6 +875,171 @@ curl -X POST ${apiBaseUrl}/external/pix/create \\
             </div>
           )}
 
+          {activeSection === 'webhooks' && (
+            <div className="max-w-4xl">
+              <h2 className="text-3xl font-bold text-white mb-6">Webhooks</h2>
+              <p className="text-gray-300 mb-8">
+                Configure webhooks para receber notificações automáticas de eventos de pagamento.
+                Gerencie URLs, eventos e assinaturas de segurança programaticamente.
+              </p>
+
+              <div className="space-y-6">
+                {/* Criar Webhook */}
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                    <h3 className="text-xl font-semibold text-white">Criar Webhook</h3>
+                    <button
+                      onClick={() => handleCopyCode('createWebhook', codeExamples.createWebhook)}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedCode === 'createWebhook' ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-400" />
+                          <span className="text-sm">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-sm">Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="p-6 overflow-x-auto">
+                    <code className="text-sm text-gray-300 font-mono">
+                      {codeExamples.createWebhook}
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Listar Webhooks */}
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                    <h3 className="text-xl font-semibold text-white">Listar Webhooks</h3>
+                    <button
+                      onClick={() => handleCopyCode('listWebhooks', codeExamples.listWebhooks)}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedCode === 'listWebhooks' ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-400" />
+                          <span className="text-sm">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-sm">Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="p-6 overflow-x-auto">
+                    <code className="text-sm text-gray-300 font-mono">
+                      {codeExamples.listWebhooks}
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Testar Webhook */}
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                    <h3 className="text-xl font-semibold text-white">Testar Webhook</h3>
+                    <button
+                      onClick={() => handleCopyCode('testWebhook', codeExamples.testWebhook)}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedCode === 'testWebhook' ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-400" />
+                          <span className="text-sm">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-sm">Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="p-6 overflow-x-auto">
+                    <code className="text-sm text-gray-300 font-mono">
+                      {codeExamples.testWebhook}
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Eventos Disponíveis */}
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <h3 className="text-xl font-semibold text-white mb-4">Eventos Disponíveis</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-gray-900 rounded">
+                      <code className="text-blue-400">payment.created</code>
+                      <span className="text-gray-400 text-sm">Quando um novo pagamento é criado</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-900 rounded">
+                      <code className="text-green-400">payment.completed</code>
+                      <span className="text-gray-400 text-sm">Quando um pagamento é confirmado</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-900 rounded">
+                      <code className="text-red-400">payment.failed</code>
+                      <span className="text-gray-400 text-sm">Quando um pagamento falha</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-900 rounded">
+                      <code className="text-yellow-400">payment.expired</code>
+                      <span className="text-gray-400 text-sm">Quando um pagamento expira</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-900 rounded">
+                      <code className="text-purple-400">payment.refunded</code>
+                      <span className="text-gray-400 text-sm">Quando um pagamento é estornado</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Segurança HMAC */}
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                    <h3 className="text-xl font-semibold text-white">Verificação de Segurança (HMAC-SHA256)</h3>
+                    <button
+                      onClick={() => handleCopyCode('webhookSecurity', codeExamples.webhookSecurity)}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedCode === 'webhookSecurity' ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-400" />
+                          <span className="text-sm">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-sm">Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="p-6 overflow-x-auto">
+                    <code className="text-sm text-gray-300 font-mono">
+                      {codeExamples.webhookSecurity}
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Notas Importantes */}
+                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                  <h3 className="text-blue-400 font-semibold mb-2 flex items-center">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Notas Importantes sobre Webhooks
+                  </h3>
+                  <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                    <li>Todos os webhooks incluem header <code className="text-blue-400">X-Atlas-Signature</code> para verificação HMAC-SHA256</li>
+                    <li>O secret do webhook é criptografado e armazenado com segurança no banco de dados</li>
+                    <li>URLs devem responder com status 2xx para serem consideradas bem-sucedidas</li>
+                    <li>Webhooks com falhas consecutivas podem ser automaticamente desativados</li>
+                    <li>Use a função de teste para validar sua implementação antes de ativar</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeSection === 'examples' && (
             <div className="max-w-4xl">

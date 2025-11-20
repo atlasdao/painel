@@ -7,7 +7,7 @@ import { userService, profileService } from '@/app/lib/services';
 import api, { API_URL } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
-import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Award } from 'lucide-react';
+import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Award, Webhook } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 import { triggerConfetti } from '@/app/lib/confetti';
@@ -1447,6 +1447,175 @@ export default function SettingsPage() {
                           <p className="text-sm text-gray-400">Health check da API (sem autenticação)</p>
                         </div>
 
+                      </div>
+                    </div>
+
+                    {/* Webhook Management Section */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                        <Webhook className="w-4 h-4" />
+                        Gerenciamento de Webhooks
+                      </h4>
+                      <div className="space-y-3">
+
+                        {/* Create Webhook */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks</code>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">Criar webhook para payment link</p>
+                          <div className="p-3 bg-black/50 rounded border border-gray-700 text-xs font-mono text-gray-300">
+                            <div className="text-green-400">// Body da requisição</div>
+                            <div>{"{"}</div>
+                            <div className="ml-2">"url": "https://meusite.com/webhook",</div>
+                            <div className="ml-2">"events": ["payment.created", "payment.completed"],</div>
+                            <div className="ml-2">"secret": "minha-chave-secreta"</div>
+                            <div>{"}"}</div>
+                          </div>
+                        </div>
+
+                        {/* List Webhooks */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Listar webhooks de um payment link</p>
+                        </div>
+
+                        {/* Update Webhook */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded">PATCH</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Atualizar webhook existente</p>
+                        </div>
+
+                        {/* Delete Webhook */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded">DELETE</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Deletar webhook</p>
+                        </div>
+
+                        {/* Test Webhook */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId/test</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Testar webhook com dados de exemplo</p>
+                        </div>
+
+                        {/* Validate Webhook URL */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/validate-url</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Validar se URL do webhook está acessível</p>
+                        </div>
+
+                        {/* Get Available Events */}
+                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/events</code>
+                          </div>
+                          <p className="text-sm text-gray-400">Listar eventos disponíveis para webhooks</p>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Webhook Events Section */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Eventos Disponíveis
+                      </h4>
+                      <p className="text-sm text-gray-400 mb-3">
+                        Configure seu webhook para receber notificações dos seguintes eventos:
+                      </p>
+                      <div className="space-y-3">
+
+                        {/* Payment Created */}
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="text-sm text-green-400 font-mono">payment.created</code>
+                          </div>
+                          <p className="text-xs text-gray-400">Disparado quando um novo pagamento é criado no sistema</p>
+                        </div>
+
+                        {/* Payment Completed */}
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="text-sm text-green-400 font-mono">payment.completed</code>
+                          </div>
+                          <p className="text-xs text-gray-400">Disparado quando um pagamento é confirmado e processado com sucesso</p>
+                        </div>
+
+                        {/* Payment Failed */}
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="text-sm text-red-400 font-mono">payment.failed</code>
+                          </div>
+                          <p className="text-xs text-gray-400">Disparado quando um pagamento falha ou é rejeitado</p>
+                        </div>
+
+                        {/* Payment Expired */}
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="text-sm text-yellow-400 font-mono">payment.expired</code>
+                          </div>
+                          <p className="text-xs text-gray-400">Disparado quando um pagamento expira sem ser processado</p>
+                        </div>
+
+                        {/* Payment Refunded */}
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="text-sm text-purple-400 font-mono">payment.refunded</code>
+                          </div>
+                          <p className="text-xs text-gray-400">Disparado quando um pagamento é estornado ou reembolsado</p>
+                        </div>
+
+                      </div>
+
+                      {/* Example Events Array */}
+                      <div className="mt-4 p-3 bg-black/50 rounded border border-gray-700">
+                        <div className="text-xs font-mono text-gray-300">
+                          <div className="text-green-400">// Exemplo: Array de eventos no webhook</div>
+                          <div className="mt-1">"events": [</div>
+                          <div className="ml-4">"payment.created",</div>
+                          <div className="ml-4">"payment.completed",</div>
+                          <div className="ml-4">"payment.failed"</div>
+                          <div>]</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Webhook Security Section */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        Segurança dos Webhooks
+                      </h4>
+                      <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-sm text-gray-400 mb-3">
+                          Todos os webhooks incluem assinatura HMAC-SHA256 no header <code className="text-blue-400">X-Atlas-Signature</code>:
+                        </p>
+                        <div className="p-3 bg-black/50 rounded border border-gray-700 text-xs font-mono text-gray-300">
+                          <div className="text-green-400">// Verificar assinatura do webhook</div>
+                          <div>const crypto = require('crypto');</div>
+                          <div className="mt-1">const hmac = crypto.createHmac('sha256', webhookSecret);</div>
+                          <div>hmac.update(JSON.stringify(payload));</div>
+                          <div>const expectedSignature = 'sha256=' + hmac.digest('hex');</div>
+                          <div className="mt-1">const isValid = signature === expectedSignature;</div>
+                        </div>
                       </div>
                     </div>
 

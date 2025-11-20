@@ -3,6 +3,8 @@ import {
 	Logger,
 	NotFoundException,
 	BadRequestException,
+	Inject,
+	forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionRepository } from '../repositories/transaction.repository';
@@ -14,6 +16,7 @@ import {
 } from '../common/dto/webhook.dto';
 import { TransactionStatus } from '@prisma/client';
 import { BotSyncService } from '../common/services/bot-sync.service';
+import { WebhookService as PaymentLinkWebhookService } from '../payment-link/webhook.service';
 
 @Injectable()
 export class WebhookService {
@@ -24,6 +27,8 @@ export class WebhookService {
 		private readonly transactionRepository: TransactionRepository,
 		private readonly auditLogRepository: AuditLogRepository,
 		private readonly botSyncService: BotSyncService,
+		@Inject(forwardRef(() => PaymentLinkWebhookService))
+		private readonly paymentLinkWebhookService: PaymentLinkWebhookService,
 	) {}
 
 	/**
@@ -239,6 +244,33 @@ export class WebhookService {
 							transaction.id,
 							transaction.amount,
 						);
+
+						// Trigger payment.completed webhook for payment links
+						try {
+							this.logger.log(`  🎯 Triggering payment.completed webhook for payment link ${metadata.paymentLinkId}`);
+
+							const webhookPayload = {
+								paymentLinkId: metadata.paymentLinkId,
+								transactionId: transaction.id,
+								amount: transaction.amount / 100, // Convert from centavos to reais
+								status: 'COMPLETED',
+								externalId: transaction.externalId,
+								description: transaction.description,
+								processedAt: new Date().toISOString(),
+								metadata: metadata.webhookEvent || {},
+							};
+
+							await this.paymentLinkWebhookService.triggerWebhooks(
+								metadata.paymentLinkId,
+								'payment.completed',
+								webhookPayload
+							);
+
+							this.logger.log(`  ✅ Payment.completed webhook triggered successfully for ${metadata.paymentLinkId}`);
+						} catch (webhookError) {
+							this.logger.error(`  ❌ Failed to trigger payment.completed webhook:`, webhookError);
+							// Don't fail the main webhook processing if payment link webhook fails
+						}
 					} else {
 						this.logger.log(`  ℹ️ No paymentLinkId found in metadata`);
 					}

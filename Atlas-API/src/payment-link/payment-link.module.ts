@@ -8,10 +8,11 @@ import { PaymentLinkService } from './payment-link.service';
 import { WebhookService } from './webhook.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PixModule } from '../pix/pix.module';
+import { AuthModule } from '../auth/auth.module';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 
 @Module({
-	imports: [PrismaModule, PixModule, HttpModule, ConfigModule],
+	imports: [PrismaModule, PixModule, AuthModule, HttpModule.register({ timeout: 15000, maxRedirects: 5 }), ConfigModule],
 	controllers: [PaymentLinkController, PublicPaymentLinkController, WebhookController],
 	providers: [PaymentLinkService, WebhookService, EncryptionUtil],
 	exports: [PaymentLinkService, WebhookService],
