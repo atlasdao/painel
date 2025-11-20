@@ -195,3 +195,8 @@ vulnerability-report.*
 
 Atlas-API/docs/API_USAGE_EXAMPLES.md
 Atlas-API/docs/API_USAGE_EXAMPLES.md
+
+# --- Scripts de Migração e Pastas Confidenciais ---
+# Contêm informações sensíveis do banco de dados e configurações
+migration-scripts/
+/migration-scripts/*
