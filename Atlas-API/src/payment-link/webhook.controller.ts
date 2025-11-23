@@ -13,7 +13,7 @@ import {
 	Query,
 } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
 	CreateWebhookDto,
 	UpdateWebhookDto,
@@ -33,7 +33,7 @@ import {
 
 @ApiTags('Payment Link Webhooks')
 @Controller('payment-links/:paymentLinkId/webhooks')
-@UseGuards(ApiKeyGuard)
+@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class WebhookController {
 	constructor(private readonly webhookService: WebhookService) {}

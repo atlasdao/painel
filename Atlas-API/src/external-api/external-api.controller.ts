@@ -19,10 +19,12 @@ import {
   ApiSecurity,
   ApiQuery,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ExternalApiService } from './external-api.service';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { Public } from '../common/decorators/public.decorator';
+import { CreatePixDto, CreatePixResponseDto } from './dto/create-pix.dto';
 
 @ApiTags('External API')
 @ApiSecurity('api_key')
@@ -35,13 +37,19 @@ export class ExternalApiController {
 
   @Post('pix/create')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a PIX transaction' })
-  @ApiResponse({ status: 201, description: 'Transaction created successfully' })
+  @ApiOperation({ summary: 'Create a PIX transaction with optional webhook configuration' })
+  @ApiBody({ type: CreatePixDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Transaction created successfully',
+    type: CreatePixResponseDto
+  })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
   @ApiResponse({ status: 401, description: 'Invalid API Key' })
   @ApiResponse({ status: 403, description: 'Forbidden - Check API Key permissions' })
-  async createPixTransaction(@Req() req: any, @Body() body: any) {
+  async createPixTransaction(@Req() req: any, @Body() body: CreatePixDto) {
     const userId = req.user.id;
+    const apiKeyId = req.apiKeyId; // This should be set by the ApiKeyGuard
 
     // Validate required fields
     if (!body.amount || body.amount <= 0) {
@@ -53,7 +61,7 @@ export class ExternalApiController {
       throw new BadRequestException('Tax number (CPF/CNPJ) is required for amounts equal to or above R$ 3000');
     }
 
-    return this.externalApiService.createPixTransaction(userId, body);
+    return this.externalApiService.createPixTransaction(userId, apiKeyId, body);
   }
 
   @Get('pix/status/:id')

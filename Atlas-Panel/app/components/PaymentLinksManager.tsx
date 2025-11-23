@@ -47,6 +47,8 @@ interface PaymentLink {
   totalPayments: number;
   totalAmount: number;
   isActive: boolean;
+  requiresTaxNumber?: boolean;
+  minAmountForTaxNumber?: number;
   createdAt: string;
   updatedAt: string;
   viewCount?: number;
@@ -87,6 +89,65 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
   });
   const [showWebhookConfig, setShowWebhookConfig] = useState<string | null>(null);
 
+  // Scroll to top when webhook modal opens
+  useEffect(() => {
+    if (showWebhookConfig) {
+      // Scroll the page to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // NOTE: Temporarily disabled body scroll lock to fix issues
+      // document.body.style.overflow = 'hidden';
+    } else {
+      // Always ensure scroll is enabled
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+    }
+
+    // Cleanup function - ALWAYS restore scroll on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+    };
+  }, [showWebhookConfig]);
+
+  // Additional failsafe to ensure scroll is restored on component mount AND unmount
+  useEffect(() => {
+    // Reset overflow immediately when component mounts (fixes stuck scroll from previous sessions)
+    document.body.style.overflow = 'unset';
+    document.body.style.overflowY = 'auto';
+    document.body.style.position = 'static';
+
+    return () => {
+      // Also reset overflow when component unmounts
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+      document.body.style.position = 'static';
+    };
+  }, []);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [linksPerPage] = useState(9);
+
+  // Calculate pagination
+  const indexOfLastLink = currentPage * linksPerPage;
+  const indexOfFirstLink = indexOfLastLink - linksPerPage;
+  const currentLinks = paymentLinks.slice(indexOfFirstLink, indexOfLastLink);
+  const totalPages = Math.ceil(paymentLinks.length / linksPerPage);
+
+  // Debug: Mostrar informações de paginação no console
+  useEffect(() => {
+    console.log('📄 Paginação:', {
+      totalLinks: paymentLinks.length,
+      linksPerPage,
+      currentPage,
+      totalPages,
+      indexOfFirstLink,
+      indexOfLastLink,
+      currentLinksCount: currentLinks.length,
+      showPagination: paymentLinks.length > linksPerPage
+    });
+  }, [paymentLinks.length, currentPage, linksPerPage, totalPages, indexOfFirstLink, indexOfLastLink, currentLinks.length]);
+
   // Session storage keys
   const FORM_STORAGE_KEY = 'payment-links-form-data';
   const EDIT_FORM_STORAGE_KEY = 'payment-links-edit-form-data';
@@ -100,7 +161,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
           const parsedData = JSON.parse(saved);
           return {
             ...parsedData,
-            walletAddress: defaultWallet || parsedData.walletAddress || '',
+            walletAddress: parsedData.walletAddress || defaultWallet || '',
           };
         }
       } catch (error) {
@@ -114,10 +175,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       minAmount: '',
       maxAmount: '',
       walletAddress: defaultWallet || '',
-      useDefaultWallet: true,
-      selectedWalletType: 'LIQUID' as 'LIQUID',
-      showAdvancedConfigs: false,
-      customWalletAddress: ''
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
     };
   };
 
@@ -140,7 +199,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       minAmount: '',
       maxAmount: '',
       walletAddress: '',
-      isActive: true
+      isActive: true,
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
     };
   };
 
@@ -186,10 +247,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       minAmount: '',
       maxAmount: '',
       walletAddress: defaultWallet || '',
-      useDefaultWallet: true,
-      selectedWalletType: 'LIQUID' as 'LIQUID',
-      showAdvancedConfigs: false,
-      customWalletAddress: ''
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
     };
 
     setFormDataState(defaultData);
@@ -212,7 +271,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       minAmount: '',
       maxAmount: '',
       walletAddress: '',
-      isActive: true
+      isActive: true,
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
     };
 
     setEditFormDataState(defaultData);
@@ -237,6 +298,42 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     checkValidationStatus();
     loadPaymentLinks();
   }, []);
+
+  // Auto-enable/disable tax number requirement based on amount
+  useEffect(() => {
+    const amount = parseFloat(formData.amount || '0');
+    const maxAmount = parseFloat(formData.maxAmount || '0');
+
+    if (amount > 3000 || maxAmount > 3000) {
+      // Auto-enable when amount > 3000
+      if (!formData.requiresTaxNumber) {
+        setFormData({ ...formData, requiresTaxNumber: true });
+      }
+    } else if (amount <= 3000 && maxAmount <= 3000) {
+      // Auto-disable when amount <= 3000
+      if (formData.requiresTaxNumber) {
+        setFormData({ ...formData, requiresTaxNumber: false });
+      }
+    }
+  }, [formData.amount, formData.maxAmount]);
+
+  // Auto-enable/disable tax number requirement based on amount in edit form
+  useEffect(() => {
+    const amount = parseFloat(editFormData.amount || '0');
+    const maxAmount = parseFloat(editFormData.maxAmount || '0');
+
+    if (amount > 3000 || maxAmount > 3000) {
+      // Auto-enable when amount > 3000
+      if (!editFormData.requiresTaxNumber) {
+        setEditFormData({ ...editFormData, requiresTaxNumber: true });
+      }
+    } else if (amount <= 3000 && maxAmount <= 3000) {
+      // Auto-disable when amount <= 3000
+      if (editFormData.requiresTaxNumber) {
+        setEditFormData({ ...editFormData, requiresTaxNumber: false });
+      }
+    }
+  }, [editFormData.amount, editFormData.maxAmount]);
 
   const checkValidationStatus = async () => {
     setLoadingValidation(true);
@@ -336,27 +433,17 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     }
 
     // Enhanced wallet validation
-    const selectedWallet = formData.showAdvancedConfigs && !formData.useDefaultWallet
-      ? formData.customWalletAddress
-      : defaultWallet;
-
-    if (!selectedWallet || selectedWallet.trim().length === 0) {
-      toast.error('Configure uma carteira para recebimento');
+    if (!formData.walletAddress || formData.walletAddress.trim().length === 0) {
+      toast.error('Digite um endereço de carteira para recebimento');
       return;
     }
 
-    // Validate wallet address format based on selected type
-    if (formData.showAdvancedConfigs && !formData.useDefaultWallet) {
-      if (!formData.customWalletAddress.trim()) {
-        toast.error('Digite um endereço de carteira válido');
-        return;
-      }
-      // Basic validation for LIQUID wallet address
-      const walletAddress = formData.customWalletAddress.trim();
-      // Add any LIQUID-specific validation here if needed
-    }
-
     try {
+      // Determine if tax number is required (forced for amounts > 3000)
+      const requiresTaxNumber = formData.requiresTaxNumber ||
+        (formData.amount && parseFloat(formData.amount) > 3000) ||
+        (formData.maxAmount && parseFloat(formData.maxAmount) > 3000);
+
       // Sanitize all numeric inputs before sending to API
       const payload = {
         amount: formData.isCustomAmount ? undefined : sanitizeNumber(formData.amount),
@@ -364,7 +451,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
         minAmount: formData.isCustomAmount ? sanitizeNumber(formData.minAmount) : undefined,
         maxAmount: formData.isCustomAmount ? sanitizeNumber(formData.maxAmount) : undefined,
         description: formData.description || undefined,
-        walletAddress: selectedWallet.trim()
+        walletAddress: formData.walletAddress.trim(),
+        requiresTaxNumber,
+        minAmountForTaxNumber: sanitizeNumber(formData.minAmountForTaxNumber) || 3000
       };
 
 
@@ -380,6 +469,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
       // Add to list
       setPaymentLinks(prev => [response.data, ...prev]);
+
+      // Reset to first page to show the new link
+      setCurrentPage(1);
 
       // Reset form and clear session storage
       clearFormData();
@@ -452,7 +544,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       minAmount: link.minAmount ? link.minAmount.toString() : '',
       maxAmount: link.maxAmount ? link.maxAmount.toString() : '',
       walletAddress: link.walletAddress,
-      isActive: link.isActive
+      isActive: link.isActive,
+      requiresTaxNumber: link.requiresTaxNumber || false,
+      minAmountForTaxNumber: link.minAmountForTaxNumber ? link.minAmountForTaxNumber.toString() : '3000'
     });
     setShowEditForm(true);
   };
@@ -499,6 +593,11 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     }
 
     try {
+      // Determine if tax number is required (forced for amounts > 3000)
+      const requiresTaxNumber = editFormData.requiresTaxNumber ||
+        (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
+        (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000);
+
       // Sanitize all numeric inputs before sending to API
       const payload = {
         amount: editFormData.isCustomAmount ? undefined : sanitizeNumber(editFormData.amount),
@@ -507,7 +606,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
         maxAmount: editFormData.isCustomAmount ? sanitizeNumber(editFormData.maxAmount) : undefined,
         description: editFormData.description || undefined,
         walletAddress: editFormData.walletAddress.trim(),
-        isActive: editFormData.isActive
+        isActive: editFormData.isActive,
+        requiresTaxNumber,
+        minAmountForTaxNumber: sanitizeNumber(editFormData.minAmountForTaxNumber) || 3000
       };
 
 
@@ -687,8 +788,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 </div>
               </div>
               <p className="text-gray-300 text-sm">
-                Crie links personalizados para receber pagamentos. Cada link gera um QR Code PIX
-                que é renovado automaticamente a cada 28 minutos ou após cada pagamento.
+                Crie links personalizados para receber pagamentos PIX de até R$ 5.000 de múltiplos CPF/CNPJ diretamente em Depix
               </p>
               {validationStatus?.limits && (
                 <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/30 rounded">
@@ -809,93 +909,113 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
               />
             </div>
 
-            {/* Advanced Configurations Section */}
-            <div className="border-t border-gray-700 pt-5">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, showAdvancedConfigs: !formData.showAdvancedConfigs })}
-                className="flex items-center justify-between w-full p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-all duration-200 touch-target"
-              >
+            {/* Wallet Configuration Section - Always Visible */}
+            <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Wallet className="text-blue-400" size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Carteira para Recebimento</h4>
+                  <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
+                </div>
+              </div>
+
+              {defaultWallet && (
+                <div className="mb-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                  <p className="text-xs text-green-400 font-medium mb-1">Carteira padrão configurada:</p>
+                  <code className="text-xs text-green-300">
+                    {defaultWallet.substring(0, 10)}...{defaultWallet.substring(defaultWallet.length - 9)}
+                  </code>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Endereço da Carteira {!defaultWallet && <span className="text-red-400">*</span>}
+                </label>
+                <input
+                  type="text"
+                  value={formData.walletAddress}
+                  onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
+                  placeholder={defaultWallet ? "Usar carteira padrão ou digite outro endereço" : "Digite o endereço da carteira Liquid"}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                  style={{ fontSize: '16px' }}
+                />
+                {!defaultWallet && (
+                  <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                    <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                    <span>Configure uma carteira padrão nas configurações para tornar este campo opcional</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* CPF/CNPJ Toggle Section */}
+            <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
-                    <Wallet className="text-blue-400" size={18} />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="text-white font-medium">Configurações Avançadas</h4>
-                    <p className="text-gray-400 text-sm">Selecionar carteira e opções extras</p>
+                  <input
+                    type="checkbox"
+                    id="requiresTaxNumber"
+                    checked={formData.requiresTaxNumber}
+                    disabled={(formData.amount && parseFloat(formData.amount) > 3000) ||
+                             (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)}
+                    onChange={(e) => setFormData({ ...formData, requiresTaxNumber: e.target.checked })}
+                    className={`w-5 h-5 ${
+                      (formData.amount && parseFloat(formData.amount) > 3000) ||
+                      (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)
+                        ? 'bg-purple-700 border-purple-600 cursor-not-allowed'
+                        : 'text-purple-600 bg-gray-700 border-gray-600'
+                    } rounded focus:ring-purple-500`}
+                  />
+                  <div>
+                    <label htmlFor="requiresTaxNumber" className={`font-medium ${
+                      formData.requiresTaxNumber
+                        ? 'text-purple-300'
+                        : 'text-gray-300'
+                    }`}>
+                      Exigir CPF/CNPJ do pagador
+                    </label>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      Obrigatório para valores acima de R$ 3.000
+                    </p>
                   </div>
                 </div>
-                {formData.showAdvancedConfigs ? (
-                  <ChevronUp className="text-gray-400" size={20} />
-                ) : (
-                  <ChevronDown className="text-gray-400" size={20} />
-                )}
-              </button>
+                <Shield className={`${
+                  formData.requiresTaxNumber
+                    ? 'text-purple-400'
+                    : 'text-gray-500'
+                }`} size={20} />
+              </div>
 
-              {/* Collapsible Advanced Content */}
-              {formData.showAdvancedConfigs && (
-                <div className="mt-4 space-y-4 animate-slide-down">
-                  {/* Use Default Wallet Toggle */}
-                  <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                    <div className="flex items-center gap-3 mb-3">
-                      <input
-                        type="checkbox"
-                        id="useDefaultWallet"
-                        checked={formData.useDefaultWallet}
-                        onChange={(e) => setFormData({ ...formData, useDefaultWallet: e.target.checked, customWalletAddress: '' })}
-                        className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
-                      />
-                      <label htmlFor="useDefaultWallet" className="text-gray-300 font-medium">
-                        Usar carteira padrão
-                      </label>
+              {/* Info Box */}
+              {(formData.requiresTaxNumber ||
+                (formData.amount && parseFloat(formData.amount) > 3000) ||
+                (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)) && (
+                <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                  <div className="flex items-start gap-2">
+                    <div className="p-1 bg-yellow-500/20 rounded mt-0.5">
+                      <Shield className="text-yellow-400" size={14} />
                     </div>
-                    {defaultWallet && formData.useDefaultWallet && (
-                      <div className="text-sm text-gray-400 bg-gray-900/50 p-3 rounded border">
-                        <strong>Carteira Padrão:</strong> {defaultWallet.substring(0, 20)}...
-                      </div>
-                    )}
+                    <div className="text-sm space-y-1">
+                      <p className="text-yellow-400 font-medium">Importante:</p>
+                      <ul className="text-gray-300 space-y-0.5">
+                        <li className="flex items-start gap-1">
+                          <span className="text-yellow-400 mt-0.5">•</span>
+                          <span>O pagador deverá informar o CPF/CNPJ antes de gerar o QR Code</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-yellow-400 mt-0.5">•</span>
+                          <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-yellow-400 mt-0.5">•</span>
+                          <span>Permite pagamentos até R$ 5.000 por transação</span>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
-
-                  {/* Custom Wallet Configuration */}
-                  {!formData.useDefaultWallet && (
-                    <div className="space-y-4">
-                      {/* LIQUID Wallet Type Info */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-3">
-                          Tipo de Carteira
-                        </label>
-                        <div className="p-4 border-2 border-blue-500 bg-blue-500/10 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-500/20 rounded-lg">
-                              <Wallet className="text-blue-400" size={20} />
-                            </div>
-                            <div>
-                              <p className="text-blue-300 font-medium">Liquid Bitcoin</p>
-                              <p className="text-blue-400/80 text-sm">Carteira Liquid Network</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Custom Wallet Address */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">
-                          Endereço da Carteira
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.customWalletAddress}
-                          onChange={(e) => setFormData({ ...formData, customWalletAddress: e.target.value })}
-                          placeholder="Digite o endereço da carteira"
-                          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
-                          style={{ fontSize: '16px' }}
-                        />
-                        <p className="text-xs text-gray-500 mt-2">
-                          Endereço da carteira para recebimento dos pagamentos
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -923,9 +1043,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
       {/* Enhanced Edit Form Modal */}
       {showEditForm && editingLink && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="glass-card-premium max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="glass-card-premium max-w-2xl w-full my-8 animate-slide-up">
+            <div className="p-6 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
                   <Edit className="text-blue-400" size={20} />
@@ -1055,21 +1175,103 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 </div>
 
                 {/* Wallet Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Endereço da Carteira
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.walletAddress}
-                    onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
-                    placeholder="Digite o endereço da carteira"
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
-                    style={{ fontSize: '16px' }}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    ⚠️ Alterar a carteira invalidará o QR Code atual
-                  </p>
+                <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Wallet className="text-blue-400" size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-white font-medium">Carteira para Recebimento</h4>
+                      <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Endereço da Carteira <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.walletAddress}
+                      onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
+                      placeholder="Digite o endereço da carteira Liquid"
+                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                      style={{ fontSize: '16px' }}
+                    />
+                    <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                      <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                      <span>⚠️ Alterar a carteira invalidará o QR Code atual</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* CPF/CNPJ Toggle Section */}
+                <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="editRequiresTaxNumber"
+                        checked={editFormData.requiresTaxNumber}
+                        disabled={(editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
+                                 (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)}
+                        onChange={(e) => setEditFormData({ ...editFormData, requiresTaxNumber: e.target.checked })}
+                        className={`w-5 h-5 ${
+                          (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
+                          (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)
+                            ? 'bg-purple-700 border-purple-600 cursor-not-allowed'
+                            : 'text-purple-600 bg-gray-700 border-gray-600'
+                        } rounded focus:ring-purple-500`}
+                      />
+                      <div>
+                        <label htmlFor="editRequiresTaxNumber" className={`font-medium ${
+                          editFormData.requiresTaxNumber
+                            ? 'text-purple-300'
+                            : 'text-gray-300'
+                        }`}>
+                          Exigir CPF/CNPJ do pagador
+                        </label>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                          Obrigatório para valores acima de R$ 3.000
+                        </p>
+                      </div>
+                    </div>
+                    <Shield className={`${
+                      editFormData.requiresTaxNumber
+                        ? 'text-purple-400'
+                        : 'text-gray-500'
+                    }`} size={20} />
+                  </div>
+
+                  {/* Info Box */}
+                  {(editFormData.requiresTaxNumber ||
+                    (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
+                    (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)) && (
+                    <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                      <div className="flex items-start gap-2">
+                        <div className="p-1 bg-yellow-500/20 rounded mt-0.5">
+                          <Shield className="text-yellow-400" size={14} />
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <p className="text-yellow-400 font-medium">Importante:</p>
+                          <ul className="text-gray-300 space-y-0.5">
+                            <li className="flex items-start gap-1">
+                              <span className="text-yellow-400 mt-0.5">•</span>
+                              <span>O pagador deverá informar o CPF/CNPJ antes de gerar o QR Code</span>
+                            </li>
+                            <li className="flex items-start gap-1">
+                              <span className="text-yellow-400 mt-0.5">•</span>
+                              <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                            </li>
+                            <li className="flex items-start gap-1">
+                              <span className="text-yellow-400 mt-0.5">•</span>
+                              <span>Permite pagamentos até R$ 5.000 por transação</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -1099,18 +1301,19 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       )}
 
       {/* Payment Links Grid */}
-      {validationStatus?.isValidated ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paymentLinks.length === 0 ? (
-            <div className="col-span-full glass-card p-12 text-center">
-              <Link className="mx-auto h-12 w-12 text-gray-500 mb-4" />
-              <p className="text-gray-400">Nenhum link de pagamento criado</p>
-              <p className="text-gray-500 text-sm mt-2">
-                Clique em "Criar Novo Link" para criar seu primeiro link de pagamento
-              </p>
-            </div>
-          ) : (
-            paymentLinks.map((link) => (
+      {validationStatus?.isValidated && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paymentLinks.length === 0 ? (
+              <div className="col-span-full glass-card p-12 text-center">
+                <Link className="mx-auto h-12 w-12 text-gray-500 mb-4" />
+                <p className="text-gray-400">Nenhum link de pagamento criado</p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Clique em "Criar Novo Link" para criar seu primeiro link de pagamento
+                </p>
+              </div>
+            ) : (
+              currentLinks.map((link) => (
               <div key={link.id} className="glass-card p-6">
                 {/* QR Code */}
                 <div className="flex justify-center mb-4">
@@ -1212,24 +1415,24 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 flex-wrap">
                       <button
                         onClick={() => setShowWebhookConfig(link.id)}
-                        className="px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg transition-colors touch-target"
+                        className="p-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg transition-colors"
                         title="Configurar webhooks"
                       >
                         <Webhook size={16} />
                       </button>
                       <button
                         onClick={() => handleEditLink(link)}
-                        className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors touch-target"
+                        className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors"
                         title="Editar link"
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => downloadQRCode(link)}
-                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors touch-target"
+                        className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
                         title="Baixar QR Code"
                       >
                         <Download size={16} />
@@ -1237,7 +1440,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                       <button
                         onClick={() => handleDeleteLink(link.id)}
                         disabled={deletingId === link.id}
-                        className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors touch-target"
+                        className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
                         title="Excluir link"
                       >
                         {deletingId === link.id ? (
@@ -1250,32 +1453,136 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   </div>
                 </div>
               </div>
-            ))
+              ))
+            )}
+          </div>
+
+          {/* Pagination Controls */}
+          {paymentLinks.length > linksPerPage && (
+          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-gradient-to-r from-purple-600/30 to-blue-600/30 border-2 border-purple-500 p-4 rounded-lg shadow-lg shadow-purple-500/20">
+              <div className="text-sm text-gray-400">
+                Mostrando {indexOfFirstLink + 1} - {Math.min(indexOfLastLink, paymentLinks.length)} de {paymentLinks.length} links
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    currentPage === 1
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
+                  }`}
+                >
+                  Anterior
+                </button>
+
+                {/* Page numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNumber => {
+                    // Show first page, last page, current page, and pages around current
+                    const showPage =
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1);
+
+                    const showEllipsis =
+                      pageNumber === currentPage - 2 && currentPage > 3 ||
+                      pageNumber === currentPage + 2 && currentPage < totalPages - 2;
+
+                    if (showEllipsis) {
+                      return <span key={pageNumber} className="text-gray-500 px-2">...</span>;
+                    }
+
+                    if (!showPage) return null;
+
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => setCurrentPage(pageNumber)}
+                        className={`min-w-[32px] h-8 px-2 rounded-lg transition-colors ${
+                          currentPage === pageNumber
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    currentPage === totalPages
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
+                  }`}
+                >
+                  Próximo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination info - always show for debugging */}
+          {paymentLinks.length > 0 && paymentLinks.length <= linksPerPage && (
+            <div className="mt-6 text-center text-gray-500 text-sm p-2 bg-gray-800/30 rounded">
+              Mostrando todos os {paymentLinks.length} links (paginação aparece com mais de {linksPerPage} links)
+            </div>
           )}
         </div>
-      ) : null}
+      )}
 
       {/* Webhook Configuration Modal */}
       {showWebhookConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">Configuração de Webhooks</h2>
-              <button
-                onClick={() => setShowWebhookConfig(null)}
-                className="p-2 hover:bg-zinc-800 rounded transition-colors"
-              >
-                <X className="h-5 w-5 text-zinc-400" />
-              </button>
-            </div>
+        <div
+          className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm"
+          onClick={(e) => {
+            // Close modal if clicking on backdrop
+            if (e.target === e.currentTarget) {
+              setShowWebhookConfig(null);
+              // Force restore scroll when closing via backdrop
+              document.body.style.overflow = 'unset';
+              document.body.style.overflowY = 'auto';
+              document.body.style.position = 'static';
+            }
+          }}
+        >
+          <div className="absolute top-0 left-0 right-0 flex justify-center pt-4">
+            <div
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white">Configuração de Webhooks</h2>
+                <button
+                  onClick={() => {
+                    setShowWebhookConfig(null);
+                    // Explicitly restore scroll
+                    document.body.style.overflow = 'unset';
+                    document.body.style.overflowY = 'auto';
+                    document.body.style.position = 'static';
+                  }}
+                  className="p-2 hover:bg-zinc-800 rounded transition-colors"
+                  title="Fechar"
+                >
+                  <X className="h-5 w-5 text-zinc-400" />
+                </button>
+              </div>
 
-            <WebhookConfiguration
-              paymentLinkId={showWebhookConfig}
-              onWebhookChange={() => {
-                // Optionally reload payment links or show a success message
-                toast.success('Webhook configurado com sucesso!');
-              }}
-            />
+              {showWebhookConfig && (
+                <WebhookConfiguration
+                  key={`webhook-${showWebhookConfig}-${Date.now()}`}
+                  paymentLinkId={showWebhookConfig}
+                  onWebhookChange={() => {
+                    // Optionally reload payment links or show a success message
+                    console.log('Webhook changed for payment link:', showWebhookConfig);
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

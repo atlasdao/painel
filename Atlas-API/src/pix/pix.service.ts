@@ -78,6 +78,7 @@ export class PixService {
 				pixKey: depositDto.pixKey,
 				pixKeyType: depositDto.pixKeyType,
 				description: depositDto.description,
+				buyerName: depositDto.buyerName,
 				externalId: depositDto.externalId,
 			});
 
@@ -160,6 +161,7 @@ export class PixService {
 				pixKey: withdrawDto.pixKey,
 				pixKeyType: withdrawDto.pixKeyType,
 				description: withdrawDto.description,
+				buyerName: withdrawDto.buyerName,
 				externalId: withdrawDto.externalId,
 			});
 
@@ -369,6 +371,7 @@ export class PixService {
 					isAccountValidated: true,
 					verifiedTaxNumber: true,
 					apiKey: true,
+					whitelistDepix: true,
 					userLevel: {
 						select: {
 							level: true,
@@ -613,19 +616,26 @@ export class PixService {
 			});
 
 			// Call Eulen API to generate QR Code
+			// Check if user is whitelisted and add whitelist parameter if needed
+			const isWhitelisted = user.whitelistDepix === true;
+
 			this.logger.log(
 				`Calling Eulen API to generate QR Code with data: ${JSON.stringify({
 					amount: data.amount,
 					depixAddress: data.depixAddress,
 					description: data.description,
+					whitelist: isWhitelisted,
 				})}`,
 			);
+
+			this.logger.log(`🔍 WHITELIST STATUS: User ${userId} whitelist status = ${isWhitelisted}`);
 
 			const eulenResponse = await this.eulenClient.generatePixQRCode({
 				amount: data.amount,
 				depixAddress: data.depixAddress, // Pass DePix address from frontend
 				description: data.description,
 				userTaxNumber: data.payerCpfCnpj, // Pass tax number as EUID
+				whitelist: isWhitelisted, // Pass whitelist parameter to Eulen API
 			});
 
 			this.logger.log('✅ EULEN API responded successfully');
@@ -845,7 +855,7 @@ export class PixService {
 
 				// Update transaction if status changed
 				if (newStatus !== transaction.status) {
-					// If we have payer info, save it in metadata
+					// If we have payer info, save it in metadata AND buyerName field
 					if (payerInfo) {
 						const currentMetadata = transaction.metadata
 							? JSON.parse(transaction.metadata)
@@ -853,6 +863,7 @@ export class PixService {
 						await this.transactionRepository.update(transaction.id, {
 							status: newStatus,
 							processedAt: new Date(),
+							buyerName: payerInfo.payerName, // Save payer name to buyerName field
 							metadata: JSON.stringify({
 								...currentMetadata,
 								payerInfo,
@@ -1117,6 +1128,7 @@ export class PixService {
 			pixKeyType: transaction.pixKeyType,
 			externalId: transaction.externalId,
 			description: transaction.description,
+			buyerName: transaction.buyerName,
 			metadata: transaction.metadata,
 			errorMessage: transaction.errorMessage,
 			currency: transaction.currency,

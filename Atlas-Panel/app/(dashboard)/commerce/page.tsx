@@ -566,10 +566,10 @@ export default function CommercePage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white -m-6 pb-12">
+    <>
       <Toaster position="top-right" />
-
-      <div className="w-full">
+      <div className="bg-gray-900 text-white -m-6 pb-12">
+        <div className="w-full">
         {/* Optimized Compact Header */}
         <div className="mb-6 pt-6 px-4 md:px-6 animate-fade-in-down">
           <div className="flex items-center gap-4 mb-4">
@@ -606,6 +606,7 @@ export default function CommercePage() {
         ) : !userProfile?.isAccountValidated ? (
           <div className="px-4 md:px-6">
             <CommerceLockScreen
+              defaultWalletAddress={userProfile?.defaultWalletAddress}
               isAccountValidated={userProfile?.isAccountValidated}
               commerceMode={userProfile?.commerceMode}
             />
@@ -613,6 +614,7 @@ export default function CommercePage() {
         ) : !hasCommerceAccess ? (
           <div className="px-4 md:px-6">
             <CommerceLockScreen
+              defaultWalletAddress={userProfile?.defaultWalletAddress}
               isAccountValidated={userProfile?.isAccountValidated}
               commerceMode={userProfile?.commerceMode}
             />
@@ -813,7 +815,8 @@ export default function CommercePage() {
 
         {/* Celebration Animation */}
         <ConfettiCelebration isActive={showCelebration} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

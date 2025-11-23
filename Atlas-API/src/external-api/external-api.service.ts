@@ -9,6 +9,8 @@ import { PixService } from '../pix/pix.service';
 import { PaymentLinkService } from '../payment-link/payment-link.service';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { CreatePixDto } from './dto/create-pix.dto';
+import { ExternalWebhookService } from './external-webhook.service';
 
 @Injectable()
 export class ExternalApiService {
@@ -16,9 +18,10 @@ export class ExternalApiService {
     private prisma: PrismaService,
     private pixService: PixService,
     private paymentLinkService: PaymentLinkService,
+    private webhookService: ExternalWebhookService,
   ) {}
 
-  async createPixTransaction(userId: string, data: any) {
+  async createPixTransaction(userId: string, apiKeyId: string, data: CreatePixDto) {
     // Validate user has commerce mode for external API usage
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -56,8 +59,8 @@ export class ExternalApiService {
       );
     }
 
-    // Support both depixAddress and walletAddress field names
-    const depixAddress = data.depixAddress || data.walletAddress;
+    // Get depixAddress from data
+    const depixAddress = data.depixAddress;
 
     // If depixAddress is provided, generate QR code through PixService
     if (depixAddress) {
@@ -75,13 +78,49 @@ export class ExternalApiService {
             apiKeyRequestId: apiKeyRequest.id,
             merchantOrderId: merchantOrderId,
             taxNumber: data.taxNumber,
-            webhookUrl: data.webhookUrl,
+            webhookUrl: data.webhookUrl || data.webhook?.url, // Support both formats
             ...data.metadata,
           },
         });
 
+        // Register webhook if provided
+        let webhookInfo: any = null;
+        if (data.webhook) {
+          try {
+            // Validate webhook URL if provided
+            if (data.webhook.url) {
+              const isValid = await this.webhookService.validateWebhookUrl(data.webhook.url);
+              if (!isValid) {
+                console.warn(`[EXTERNAL_API] Webhook URL validation failed for ${data.webhook.url}`);
+                // Continue without failing the transaction
+              }
+            }
+
+            webhookInfo = await this.webhookService.registerTransactionWebhook(
+              qrCodeData.transactionId,
+              apiKeyId,
+              data.webhook,
+            );
+
+            // Trigger transaction.created event
+            await this.webhookService.triggerTransactionCreated(
+              qrCodeData.transactionId,
+              {
+                amount: data.amount,
+                merchantOrderId: merchantOrderId,
+                qrCode: qrCodeData.qrCode,
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+              },
+            );
+          } catch (webhookError) {
+            console.error('[EXTERNAL_API] Failed to register webhook:', webhookError);
+            // Continue without webhook - don't fail the transaction
+          }
+        }
+
         // Return the QR code data along with transaction info
-        return {
+        const response: any = {
           id: qrCodeData.transactionId,
           status: 'PENDING',
           amount: data.amount,
@@ -92,6 +131,13 @@ export class ExternalApiService {
           createdAt: new Date(),
           expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
         };
+
+        // Add webhook info if registered
+        if (webhookInfo) {
+          response.webhook = webhookInfo;
+        }
+
+        return response;
       } catch (error) {
         console.error('[EXTERNAL_API] Failed to generate QR code:', error);
         throw new BadRequestException('Failed to generate PIX QR code');
@@ -99,6 +145,8 @@ export class ExternalApiService {
     }
 
     // Fallback: Create transaction without QR code if no wallet address provided
+    const merchantOrderId = data.merchantOrderId || uuidv4();
+
     const transaction = await this.prisma.transaction.create({
       data: {
         userId: userId,
@@ -111,23 +159,65 @@ export class ExternalApiService {
         metadata: JSON.stringify({
           source: 'EXTERNAL_API',
           apiKeyRequestId: apiKeyRequest.id,
-          merchantOrderId: data.merchantOrderId || uuidv4(),
+          merchantOrderId: merchantOrderId,
           taxNumber: data.taxNumber,
-          webhookUrl: data.webhookUrl,
+          webhookUrl: data.webhookUrl || data.webhook?.url,
           ...data.metadata,
         }),
       },
     });
 
-    return {
+    // Register webhook if provided (even without QR code)
+    let webhookInfo: any = null;
+    if (data.webhook) {
+      try {
+        // Validate webhook URL if provided
+        if (data.webhook.url) {
+          const isValid = await this.webhookService.validateWebhookUrl(data.webhook.url);
+          if (!isValid) {
+            console.warn(`[EXTERNAL_API] Webhook URL validation failed for ${data.webhook.url}`);
+          }
+        }
+
+        webhookInfo = await this.webhookService.registerTransactionWebhook(
+          transaction.id,
+          apiKeyId,
+          data.webhook,
+        );
+
+        // Trigger transaction.created event
+        await this.webhookService.triggerTransactionCreated(
+          transaction.id,
+          {
+            amount: data.amount,
+            merchantOrderId: merchantOrderId,
+            qrCode: null, // No QR code in fallback
+            createdAt: transaction.createdAt,
+            expiresAt: new Date(transaction.createdAt.getTime() + 30 * 60 * 1000),
+          },
+        );
+      } catch (webhookError) {
+        console.error('[EXTERNAL_API] Failed to register webhook (fallback):', webhookError);
+        // Continue without webhook - don't fail the transaction
+      }
+    }
+
+    const response: any = {
       id: transaction.id,
       status: transaction.status,
       amount: transaction.amount,
       description: transaction.description,
-      merchantOrderId: data.merchantOrderId || transaction.id,
+      merchantOrderId: merchantOrderId,
       createdAt: transaction.createdAt,
       expiresAt: new Date(transaction.createdAt.getTime() + 30 * 60 * 1000), // 30 minutes expiry
     };
+
+    // Add webhook info if registered
+    if (webhookInfo) {
+      response.webhook = webhookInfo;
+    }
+
+    return response;
   }
 
   async getTransactionStatus(userId: string, transactionId: string) {

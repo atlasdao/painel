@@ -52,6 +52,8 @@ interface User {
   apiMonthlyLimit?: number;
   commerceMode?: boolean;
   commerceModeActivatedAt?: string;
+  whitelistDepix?: boolean;
+  whitelistDepixActivatedAt?: string;
 }
 
 interface UserStats {
@@ -90,6 +92,7 @@ export default function AdminUsersPage() {
     apiDailyLimit: 6000,
     apiMonthlyLimit: 180000,
     commerceMode: false,
+    whitelistDepix: false,
   });
 
   useEffect(() => {
@@ -225,6 +228,7 @@ export default function AdminUsersPage() {
       apiDailyLimit: user.apiDailyLimit || 6000,
       apiMonthlyLimit: user.apiMonthlyLimit || 180000,
       commerceMode: user.commerceMode || false,
+      whitelistDepix: user.whitelistDepix || false,
     });
     setShowEditModal(true);
   };
@@ -858,6 +862,33 @@ export default function AdminUsersPage() {
                     }`}>
                       <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
                         editUserData.commerceMode ? 'translate-x-6' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-4">
+                <label className="flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-green-500 transition-colors">
+                  <div className="flex items-center">
+                    <Shield className="w-5 h-5 text-green-400 mr-3" />
+                    <div>
+                      <span className="text-sm font-medium text-gray-200">Whitelist Depix</span>
+                      <p className="text-xs text-gray-400 mt-1">Remove limitação de R$ 500 na primeira compra</p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={editUserData.whitelistDepix}
+                      onChange={(e) => setEditUserData({ ...editUserData, whitelistDepix: e.target.checked })}
+                    />
+                    <div className={`w-12 h-6 rounded-full transition-colors ${
+                      editUserData.whitelistDepix ? 'bg-green-500' : 'bg-gray-600'
+                    }`}>
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                        editUserData.whitelistDepix ? 'translate-x-6' : 'translate-x-0'
                       }`} />
                     </div>
                   </div>

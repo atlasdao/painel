@@ -42,7 +42,10 @@ export const authService = {
       roles: user.roles || [user.role || 'USER'],
       isActive: user.isActive !== undefined ? user.isActive : true,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      commerceMode: user.commerceMode || false,
+      paymentLinksEnabled: user.paymentLinksEnabled || false,
+      commerceModeActivatedAt: user.commerceModeActivatedAt || null
     };
 
     Cookies.set('access_token', access_token, {
@@ -94,7 +97,10 @@ export const authService = {
       roles: user.roles || [user.role || 'USER'],
       isActive: user.isActive !== undefined ? user.isActive : true,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      commerceMode: user.commerceMode || false,
+      paymentLinksEnabled: user.paymentLinksEnabled || false,
+      commerceModeActivatedAt: user.commerceModeActivatedAt || null
     };
 
     Cookies.set('access_token', accessToken, {
@@ -151,7 +157,10 @@ export const authService = {
       roles: user.roles || [user.role || 'USER'],
       isActive: user.isActive !== undefined ? user.isActive : true,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      commerceMode: user.commerceMode || false,
+      paymentLinksEnabled: user.paymentLinksEnabled || false,
+      commerceModeActivatedAt: user.commerceModeActivatedAt || null
     };
 
     Cookies.set('access_token', access_token, {
@@ -202,7 +211,10 @@ export const authService = {
       roles: user.roles || [user.role || 'USER'],
       isActive: user.isActive !== undefined ? user.isActive : true,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      commerceMode: user.commerceMode || false,
+      paymentLinksEnabled: user.paymentLinksEnabled || false,
+      commerceModeActivatedAt: user.commerceModeActivatedAt || null
     };
 
     Cookies.set('access_token', accessToken, {
@@ -297,7 +309,10 @@ export const authService = {
           profilePicture: user.profilePicture || null,
           defaultWalletAddress: user.defaultWalletAddress || null,
           defaultWalletType: user.defaultWalletType || null,
-          pixKey: user.pixKey || null
+          pixKey: user.pixKey || null,
+          commerceMode: user.commerceMode || false,
+          paymentLinksEnabled: user.paymentLinksEnabled || false,
+          commerceModeActivatedAt: user.commerceModeActivatedAt || null
         };
 
         console.log('[Auth] Updating user cookie with:', userData);
@@ -363,7 +378,10 @@ export const authService = {
           profilePicture: user.profilePicture || null,
           defaultWalletAddress: user.defaultWalletAddress || null,
           defaultWalletType: user.defaultWalletType || null,
-          pixKey: user.pixKey || null
+          pixKey: user.pixKey || null,
+          commerceMode: user.commerceMode || false,
+          paymentLinksEnabled: user.paymentLinksEnabled || false,
+          commerceModeActivatedAt: user.commerceModeActivatedAt || null
         };
 
         console.log('[Auth] Background refresh: updating user cookie');

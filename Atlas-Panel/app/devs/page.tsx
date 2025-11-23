@@ -104,7 +104,7 @@ console.log('Link de pagamento:', paymentLink.paymentUrl);
 console.log('Range permitido: R$', paymentLink.minAmount, '- R$', paymentLink.maxAmount);`,
 
 
-    generateQR: `// Gerar QR Code PIX
+    generateQR: `// Gerar QR Code PIX com webhook configurado
 const response = await fetch('${apiBaseUrl}/external/pix/create', {
   method: 'POST',
   headers: {
@@ -114,18 +114,32 @@ const response = await fetch('${apiBaseUrl}/external/pix/create', {
   body: JSON.stringify({
     amount: 99.90,
     description: 'Pagamento teste',
+    depixAddress: 'your_wallet_address_here', // opcional - se omitido, cria transação sem QR
     taxNumber: '12345678900', // opcional para valores < R$ 3000
-    walletAddress: 'your_wallet_address_here',
     merchantOrderId: 'ORDER-123', // opcional
-    webhookUrl: 'https://example.com/webhook' // opcional
+
+    // NOVO: Configuração de webhook
+    webhook: {
+      url: 'https://meusite.com/webhook',
+      events: [
+        'transaction.created',  // Quando PIX é gerado
+        'transaction.paid',      // Quando pagamento é confirmado
+        'transaction.failed',    // Quando pagamento falha
+        'transaction.expired'    // Quando PIX expira
+      ],
+      secret: 'minha-chave-secreta-min-16-chars', // opcional (min 16 caracteres)
+      headers: {  // Headers customizados (opcional)
+        'X-Custom-Header': 'valor'
+      }
+    }
   })
 });
 
 const pixData = await response.json();
-// Resposta inclui QR code automaticamente:
-// { id, status, amount, qrCode, qrCodeImage, expiresAt, ... }
+// Resposta inclui QR code e webhook info:
+// { id, status, amount, qrCode, qrCodeImage, expiresAt, webhook: { id, url, events, secretHint } }
 console.log('QR Code:', pixData.qrCode);
-console.log('QR Code Image:', pixData.qrCodeImage);`,
+console.log('Webhook ID:', pixData.webhook?.id);`,
 
     authentication: `// Obter informações do perfil
 const profileResponse = await fetch('${apiBaseUrl}/external/profile', {
@@ -202,20 +216,25 @@ curl -X POST ${apiBaseUrl}/external/payment-links \\
     "walletAddress": "your_wallet_address_here"
   }'
 
-# Criar transação PIX (retorna QR code imediatamente)
+# Criar transação PIX com webhook configurado
 curl -X POST ${apiBaseUrl}/external/pix/create \\
   -H "X-API-Key: SUA_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "amount": 99.90,
     "description": "Pagamento teste",
-    "taxNumber": "12345678900",
-    "walletAddress": "your_wallet_address_here",
-    "merchantOrderId": "ORDER-123"
+    "depixAddress": "your_wallet_address",
+    "merchantOrderId": "ORDER-123",
+    "webhook": {
+      "url": "https://meusite.com/webhook",
+      "events": ["transaction.created", "transaction.paid"],
+      "secret": "minha-chave-secreta-min-16-chars"
+    }
   }'
 
-# Note: taxNumber é opcional para valores < R$ 3000
-# merchantOrderId e webhookUrl também são campos opcionais`,
+# Note: depixAddress é opcional - se omitido, cria transação sem QR
+# taxNumber é opcional para valores < R$ 3000
+# webhook é opcional mas permite receber notificações em tempo real`,
 
     createWebhook: `// Criar webhook para payment link
 const response = await fetch('${apiBaseUrl}/payment-links/pl_123/webhooks', {

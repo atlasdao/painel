@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa', '/devs', '/status', '/termos', '/privacidade'];
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/');
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/') || pathname.startsWith('/payment-confirmation/');
   
   // Auth routes that should redirect logged-in users
   const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];

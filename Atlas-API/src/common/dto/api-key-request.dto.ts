@@ -41,6 +41,14 @@ export class CreateApiKeyRequestDto {
 	})
 	@IsEnum(ApiKeyUsageType)
 	usageType: ApiKeyUsageType;
+
+	@ApiPropertyOptional({
+		description: 'Contact information (Telegram or SimpleX)',
+		example: '@myusername or SimpleX address',
+	})
+	@IsString()
+	@IsOptional()
+	contactInfo?: string;
 }
 
 export class ApproveApiKeyRequestDto {
@@ -94,6 +102,7 @@ export class ApiKeyRequestResponseDto {
 	serviceUrl: string;
 	estimatedVolume: string;
 	usageType: ApiKeyUsageType;
+	contactInfo?: string;
 	status: ApiKeyRequestStatus;
 	approvedBy?: string;
 	approvalNotes?: string;

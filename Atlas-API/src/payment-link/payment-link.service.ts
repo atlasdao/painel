@@ -4,10 +4,14 @@ import {
 	CreatePaymentLinkDto,
 	UpdatePaymentLinkDto,
 	PaymentLinkResponseDto,
+	GenerateQRWithTaxNumberDto,
+	QRCodeResponseDto,
 } from './dto/payment-link.dto';
 import { PixService } from '../pix/pix.service';
 import { WebhookService } from './webhook.service';
 import { nanoid } from 'nanoid';
+import { validateTaxNumber } from './utils/tax-number-validator';
+import { PixKeyType } from '@prisma/client';
 
 @Injectable()
 export class PaymentLinkService {
@@ -40,9 +44,10 @@ export class PaymentLinkService {
 			);
 		}
 
-		// Commerce mode limits: min 1 real, max 3000 reais
+		// Commerce mode limits: min 1 real, max 3000 reais (or 5000 with tax number)
 		const COMMERCE_MIN_AMOUNT = 1.00;
-		const COMMERCE_MAX_AMOUNT = 3000.00;
+		const COMMERCE_MAX_AMOUNT_BASIC = 3000.00;
+		const COMMERCE_MAX_AMOUNT_WITH_TAX = 5000.00;
 
 		// Comprehensive validation with NaN checks and Portuguese error messages
 		if (!dto.isCustomAmount && (!dto.amount || isNaN(dto.amount))) {
@@ -94,6 +99,9 @@ export class PaymentLinkService {
 			);
 		}
 
+		// Determine the max amount based on whether tax number is required
+		const commerceMaxAmount = dto.requiresTaxNumber ? COMMERCE_MAX_AMOUNT_WITH_TAX : COMMERCE_MAX_AMOUNT_BASIC;
+
 		// Commerce mode amount validations
 		if (user.commerceMode) {
 			if (dto.amount && dto.amount < COMMERCE_MIN_AMOUNT) {
@@ -103,9 +111,9 @@ export class PaymentLinkService {
 				);
 			}
 
-			if (dto.amount && dto.amount > COMMERCE_MAX_AMOUNT) {
+			if (dto.amount && dto.amount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
@@ -117,16 +125,16 @@ export class PaymentLinkService {
 				);
 			}
 
-			if (dto.maxAmount && dto.maxAmount > COMMERCE_MAX_AMOUNT) {
+			if (dto.maxAmount && dto.maxAmount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor máximo não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor máximo não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
 
-			if (dto.minAmount && dto.minAmount > COMMERCE_MAX_AMOUNT) {
+			if (dto.minAmount && dto.minAmount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor mínimo não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor mínimo não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
@@ -164,6 +172,20 @@ export class PaymentLinkService {
 		// Generate unique short code
 		const shortCode = nanoid(8);
 
+		// Auto-activate tax number requirement for amounts above 5000
+		let requiresTaxNumber = dto.requiresTaxNumber || false;
+		const minAmountForTaxNumber = dto.minAmountForTaxNumber || 3000.00;
+
+		// If the fixed amount is above 5000, force tax number requirement
+		if (dto.amount && dto.amount > 5000) {
+			requiresTaxNumber = true;
+		}
+
+		// For custom amounts, if max amount is above 5000, force tax number requirement
+		if (dto.isCustomAmount && dto.maxAmount && dto.maxAmount > 5000) {
+			requiresTaxNumber = true;
+		}
+
 		try {
 			const paymentLink = await this.prisma.paymentLink.create({
 				data: {
@@ -176,6 +198,8 @@ export class PaymentLinkService {
 					walletAddress: dto.walletAddress.trim(),
 					description: dto.description || null,
 					expiresAt: dto.expiresAt || null,
+					requiresTaxNumber,
+					minAmountForTaxNumber,
 				},
 			});
 
@@ -290,9 +314,10 @@ export class PaymentLinkService {
 			);
 		}
 
-		// Commerce mode limits: min 1 real, max 3000 reais
+		// Commerce mode limits: min 1 real, max 3000 reais (or 5000 with tax number)
 		const COMMERCE_MIN_AMOUNT = 1.00;
-		const COMMERCE_MAX_AMOUNT = 3000.00;
+		const COMMERCE_MAX_AMOUNT_BASIC = 3000.00;
+		const COMMERCE_MAX_AMOUNT_WITH_TAX = 5000.00;
 
 		// Validate numeric fields if provided
 		if (dto.amount !== undefined && (isNaN(dto.amount) || dto.amount <= 0)) {
@@ -316,6 +341,9 @@ export class PaymentLinkService {
 			);
 		}
 
+		// Determine the max amount based on whether tax number is required
+		const commerceMaxAmount = (dto.requiresTaxNumber !== undefined ? dto.requiresTaxNumber : existingLink.requiresTaxNumber) ? COMMERCE_MAX_AMOUNT_WITH_TAX : COMMERCE_MAX_AMOUNT_BASIC;
+
 		// Commerce mode amount validations
 		if (user.commerceMode) {
 			if (dto.amount !== undefined && dto.amount < COMMERCE_MIN_AMOUNT) {
@@ -325,9 +353,9 @@ export class PaymentLinkService {
 				);
 			}
 
-			if (dto.amount !== undefined && dto.amount > COMMERCE_MAX_AMOUNT) {
+			if (dto.amount !== undefined && dto.amount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
@@ -339,16 +367,16 @@ export class PaymentLinkService {
 				);
 			}
 
-			if (dto.maxAmount !== undefined && dto.maxAmount > COMMERCE_MAX_AMOUNT) {
+			if (dto.maxAmount !== undefined && dto.maxAmount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor máximo não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor máximo não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
 
-			if (dto.minAmount !== undefined && dto.minAmount > COMMERCE_MAX_AMOUNT) {
+			if (dto.minAmount !== undefined && dto.minAmount > commerceMaxAmount) {
 				throw new HttpException(
-					`O valor mínimo não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+					`O valor mínimo não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 					HttpStatus.BAD_REQUEST,
 				);
 			}
@@ -429,6 +457,26 @@ export class PaymentLinkService {
 			if (dto.description !== undefined) updateData.description = dto.description;
 			if (dto.expiresAt !== undefined) updateData.expiresAt = dto.expiresAt;
 			if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+			if (dto.minAmountForTaxNumber !== undefined) updateData.minAmountForTaxNumber = dto.minAmountForTaxNumber;
+
+			// Auto-activate tax number requirement for amounts above 5000
+			let requiresTaxNumber = dto.requiresTaxNumber;
+
+			// If amount is being updated and is above 5000, force tax number requirement
+			if (dto.amount !== undefined && dto.amount > 5000) {
+				requiresTaxNumber = true;
+			}
+
+			// For custom amounts, if max amount is above 5000, force tax number requirement
+			if ((dto.isCustomAmount === true || existingLink.isCustomAmount) &&
+				((dto.maxAmount !== undefined && dto.maxAmount > 5000) ||
+				 (dto.maxAmount === undefined && existingLink.maxAmount && existingLink.maxAmount > 5000))) {
+				requiresTaxNumber = true;
+			}
+
+			if (requiresTaxNumber !== undefined) {
+				updateData.requiresTaxNumber = requiresTaxNumber;
+			}
 
 			// Clear QR code when updating since the payment details may have changed
 			if (dto.amount !== undefined || dto.walletAddress !== undefined || dto.description !== undefined) {
@@ -455,7 +503,7 @@ export class PaymentLinkService {
 	async generateQRCode(
 		shortCode: string,
 		customAmount?: number,
-	): Promise<{ qrCode: string; expiresAt: Date }> {
+	): Promise<QRCodeResponseDto> {
 		const link = await this.prisma.paymentLink.findUnique({
 			where: { shortCode },
 			include: {
@@ -476,9 +524,10 @@ export class PaymentLinkService {
 			);
 		}
 
-		// Commerce mode limits: min 1 real, max 3000 reais
+		// Commerce mode limits: min 1 real, max 3000 reais (or 5000 with tax number)
 		const COMMERCE_MIN_AMOUNT = 1.00;
-		const COMMERCE_MAX_AMOUNT = 3000.00;
+		const COMMERCE_MAX_AMOUNT_BASIC = 3000.00;
+		const COMMERCE_MAX_AMOUNT_WITH_TAX = 5000.00;
 
 		// Determine the amount to use
 		let amount: number;
@@ -504,15 +553,16 @@ export class PaymentLinkService {
 
 			// Additional commerce mode validation for custom amounts
 			if (link.user.commerceMode) {
+				const commerceMaxAmount = link.requiresTaxNumber ? COMMERCE_MAX_AMOUNT_WITH_TAX : COMMERCE_MAX_AMOUNT_BASIC;
 				if (customAmount < COMMERCE_MIN_AMOUNT) {
 					throw new HttpException(
 						`O valor deve ser pelo menos R$ ${COMMERCE_MIN_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
 						HttpStatus.BAD_REQUEST,
 					);
 				}
-				if (customAmount > COMMERCE_MAX_AMOUNT) {
+				if (customAmount > commerceMaxAmount) {
 					throw new HttpException(
-						`O valor não pode exceder R$ ${COMMERCE_MAX_AMOUNT.toFixed(2)} para usuários do modo comércio.`,
+						`O valor não pode exceder R$ ${commerceMaxAmount.toFixed(2)} para usuários do modo comércio.`,
 						HttpStatus.BAD_REQUEST,
 					);
 				}
@@ -527,6 +577,20 @@ export class PaymentLinkService {
 				);
 			}
 			amount = link.amount;
+		}
+
+		// Check if tax number is required
+		const needsTaxNumber = link.requiresTaxNumber ||
+			(amount >= (link.minAmountForTaxNumber || 3000));
+
+		if (needsTaxNumber) {
+			// Return indication that tax number is needed
+			return {
+				qrCode: '',
+				expiresAt: new Date(),
+				transactionId: '',
+				needsTaxNumber: true,
+			};
 		}
 
 		try {
@@ -582,6 +646,7 @@ export class PaymentLinkService {
 			return {
 				qrCode: qrCodeData.qrCode,
 				expiresAt,
+				transactionId: qrCodeData.transactionId || '',
 			};
 		} catch (error) {
 			this.logger.error(`Failed to generate QR code for ${shortCode}:`, error);
@@ -592,6 +657,200 @@ export class PaymentLinkService {
 		}
 	}
 
+	async generateQRCodeWithTaxNumber(
+		shortCode: string,
+		dto: GenerateQRWithTaxNumberDto,
+	): Promise<QRCodeResponseDto> {
+		const link = await this.prisma.paymentLink.findUnique({
+			where: { shortCode },
+			include: {
+				user: {
+					select: { commerceMode: true },
+				},
+			},
+		});
+
+		if (!link) {
+			throw new HttpException('Link de pagamento não encontrado', HttpStatus.NOT_FOUND);
+		}
+
+		if (!link.isActive) {
+			throw new HttpException(
+				'Link de pagamento está inativo',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		// Validate tax number
+		const taxValidation = validateTaxNumber(dto.taxNumber);
+		if (!taxValidation.isValid) {
+			throw new HttpException(
+				'CPF/CNPJ inválido',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		// Determine the amount
+		let amount: number;
+		if (link.isCustomAmount) {
+			if (!dto.amount) {
+				throw new HttpException(
+					'Valor é obrigatório para links de valor customizado',
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+			if (link.minAmount && dto.amount < link.minAmount) {
+				throw new HttpException(
+					`O valor deve ser pelo menos R$ ${link.minAmount.toFixed(2)}`,
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+			if (link.maxAmount && dto.amount > link.maxAmount) {
+				throw new HttpException(
+					`O valor não pode exceder R$ ${link.maxAmount.toFixed(2)}`,
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+			amount = dto.amount;
+		} else {
+			if (!link.amount) {
+				throw new HttpException(
+					'Link de pagamento não possui valor configurado',
+					HttpStatus.INTERNAL_SERVER_ERROR,
+				);
+			}
+			amount = link.amount;
+		}
+
+		// Ensure amount doesn't exceed 5000 for tax number payments
+		if (amount > 5000) {
+			throw new HttpException(
+				'Valor máximo para pagamentos com CPF/CNPJ é R$ 5.000,00',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		try {
+			// Create payment session
+			const sessionToken = nanoid(32);
+			const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+			await this.prisma.paymentLinkSession.create({
+				data: {
+					paymentLinkId: link.id,
+					sessionToken,
+					payerTaxNumber: taxValidation.formatted,
+					payerTaxNumberType: taxValidation.type === 'CPF' ? PixKeyType.CPF : PixKeyType.CNPJ,
+					amount,
+					expiresAt,
+				},
+			});
+
+			// Generate PIX QR Code with tax number
+			this.logger.log(`🔗 PAYMENT LINK: Generating QR code with tax number for link ${link.id} (${link.shortCode})`);
+			this.logger.log(`  Amount: ${amount}, Tax Number: ${taxValidation.type}`);
+
+			const metadata = {
+				paymentLinkId: link.id,
+				shortCode: link.shortCode,
+				payerTaxNumber: taxValidation.formatted,
+				sessionToken,
+			};
+
+			const qrCodeData = await this.pixService.generatePixQRCode(link.userId, {
+				amount,
+				depixAddress: link.walletAddress,
+				description: link.description || `Pagamento ${shortCode}`,
+				metadata,
+				// This will be passed to Eulen API as userTaxNumber
+				payerCpfCnpj: taxValidation.formatted,
+			});
+
+			// Update session with QR code
+			await this.prisma.paymentLinkSession.update({
+				where: { sessionToken },
+				data: {
+					qrCode: qrCodeData.qrCode,
+					qrCodeGeneratedAt: new Date(),
+				},
+			});
+
+			// Update link with new QR code
+			await this.prisma.paymentLink.update({
+				where: { id: link.id },
+				data: {
+					currentQrCode: qrCodeData.qrCode,
+					qrCodeGeneratedAt: new Date(),
+				},
+			});
+
+			// Trigger webhook with tax number info
+			const webhookPayload = {
+				paymentLinkId: link.id,
+				shortCode: link.shortCode,
+				amount,
+				qrCode: qrCodeData.qrCode,
+				walletAddress: link.walletAddress,
+				description: link.description,
+				expiresAt: expiresAt.toISOString(),
+				generatedAt: new Date().toISOString(),
+				payerTaxNumber: taxValidation.type === 'CPF' ?
+					`***.${taxValidation.formatted.slice(3, 6)}.${taxValidation.formatted.slice(6, 9)}-**` :
+					`**.***.***/****-${taxValidation.formatted.slice(12, 14)}`,
+				payerTaxNumberType: taxValidation.type,
+			};
+
+			this.logger.log(`🎯 Triggering payment.created webhook with tax number for ${link.shortCode}`);
+
+			// Fire and forget
+			this.webhookService.triggerWebhooks(link.id, 'payment.created', webhookPayload)
+				.catch(error => {
+					this.logger.error('Webhook trigger failed:', error);
+				});
+
+			return {
+				qrCode: qrCodeData.qrCode,
+				expiresAt,
+				transactionId: qrCodeData.transactionId || '',
+				sessionToken,
+			};
+		} catch (error) {
+			this.logger.error(`Failed to generate QR code with tax number for ${shortCode}:`, error);
+			if (error instanceof HttpException) {
+				throw error;
+			}
+			throw new HttpException(
+				'Falha ao gerar código de pagamento',
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			);
+		}
+	}
+
+	async checkPaymentStatus(transactionId: string): Promise<{ status: string; paid: boolean }> {
+		try {
+			const transaction = await this.prisma.transaction.findFirst({
+				where: {
+					OR: [
+						{ id: transactionId },
+						{ externalId: transactionId },
+					],
+				},
+			});
+
+			if (!transaction) {
+				return { status: 'not_found', paid: false };
+			}
+
+			const isPaid = transaction.status === 'COMPLETED';
+			return {
+				status: isPaid ? 'paid' : transaction.status.toLowerCase(),
+				paid: isPaid,
+			};
+		} catch (error) {
+			this.logger.error(`Error checking payment status for ${transactionId}:`, error);
+			return { status: 'error', paid: false };
+		}
+	}
 
 	async handlePaymentCompleted(transactionId: string, amount: number) {
 		// Find payment link by amount and recent QR code generation
@@ -645,6 +904,8 @@ export class PaymentLinkService {
 			totalAmount: link.totalAmount,
 			isActive: link.isActive,
 			expiresAt: link.expiresAt,
+			requiresTaxNumber: link.requiresTaxNumber || false,
+			minAmountForTaxNumber: link.minAmountForTaxNumber || 3000,
 			createdAt: link.createdAt,
 			updatedAt: link.updatedAt,
 		};

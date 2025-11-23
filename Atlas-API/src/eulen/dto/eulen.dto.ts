@@ -65,6 +65,15 @@ export class DepositDto {
 	@IsOptional()
 	@IsUrl()
 	webhookUrl?: string;
+
+	@ApiPropertyOptional({
+		description: 'Nome do cliente/comprador',
+		example: 'João Silva',
+	})
+	@IsOptional()
+	@IsString()
+	@Transform(({ value }) => value?.trim())
+	buyerName?: string;
 }
 
 export class WithdrawDto extends DepositDto {}
@@ -130,6 +139,12 @@ export class TransactionResponseDto {
 		example: 'Payment for services',
 	})
 	description?: string;
+
+	@ApiPropertyOptional({
+		description: 'Nome do cliente/comprador',
+		example: 'João Silva',
+	})
+	buyerName?: string;
 
 	@ApiPropertyOptional({
 		description: 'Transaction metadata',

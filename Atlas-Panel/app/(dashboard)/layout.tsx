@@ -10,7 +10,6 @@ import api from '@/app/lib/api';
 import { User } from '@/app/types';
 import { UserRole, isAdmin } from '@/app/types/user-role';
 import ProfileDropdown from '@/components/ProfileDropdown';
-import LevelBadge from '@/components/LevelBadge';
 import DonationModal from '@/app/components/DonationModal';
 import {
   Home,
@@ -183,9 +182,9 @@ export default function DashboardLayout({
         api.get('/donations/admin/pending-count') // Get pending donations count
       ]);
 
-      // Count commerce applications that need attention (PENDING, UNDER_REVIEW, DEPOSIT_PENDING)
+      // Count commerce applications that need attention (only PENDING, as shown in the requests page)
       const pendingCommerceRequests = commerceRequestsRes.data?.data?.filter(
-        (app: any) => ['PENDING', 'UNDER_REVIEW', 'DEPOSIT_PENDING'].includes(app.status)
+        (app: any) => app.status === 'PENDING'
       ).length || 0;
 
       const pendingDonations = donationsRes.data?.data?.pendingDonations || 0;
@@ -248,7 +247,7 @@ export default function DashboardLayout({
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-75 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/10 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -364,7 +363,6 @@ export default function DashboardLayout({
                 <p className="text-sm font-medium text-white">
                   {user.username}
                 </p>
-                <p className="text-xs text-gray-400">{user.role}</p>
               </div>
             </Link>
             <button
@@ -416,7 +414,6 @@ export default function DashboardLayout({
               <Heart className="w-4 h-4" />
               <span className="text-sm">Doar</span>
             </button>
-            <LevelBadge size="sm" className="flex-shrink-0" />
             <button
               ref={profileButtonRef}
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}

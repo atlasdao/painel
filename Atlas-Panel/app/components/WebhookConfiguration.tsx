@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/app/lib/api';
 import { toast } from 'sonner';
-import { Save, Trash2, Plus, Globe, Lock, AlertCircle, CheckCircle, Clock, Shuffle, Edit, X } from 'lucide-react';
+import { Save, Trash2, Plus, Globe, Lock, AlertCircle, CheckCircle, Clock, Shuffle, Edit, X, RefreshCw } from 'lucide-react';
 
 interface WebhookConfigurationProps {
   paymentLinkId: string;
@@ -46,20 +46,39 @@ export default function WebhookConfiguration({ paymentLinkId, onWebhookChange }:
   });
 
   useEffect(() => {
-    loadWebhooks();
+    // Sempre recarregar webhooks quando o componente montar ou quando paymentLinkId mudar
+    if (paymentLinkId) {
+      console.log('🔄 Loading webhooks for payment link:', paymentLinkId);
+      loadWebhooks();
+    }
+
+    // Cleanup function to reset state when component unmounts
+    return () => {
+      console.log('🧹 Cleaning up webhook configuration');
+      setWebhooks([]);
+      setShowAddForm(false);
+      setEditingWebhook(null);
+    };
   }, [paymentLinkId]);
 
   const loadWebhooks = async () => {
     try {
       setLoading(true);
+      console.log('📡 Fetching webhooks from API for payment link:', paymentLinkId);
       const response = await api.get(`/payment-links/${paymentLinkId}/webhooks`);
+      console.log('✅ Webhooks loaded successfully:', response.data?.length || 0, 'webhooks');
       setWebhooks(response.data || []);
     } catch (error: any) {
-      console.error('Error loading webhooks:', error);
+      console.error('❌ Error loading webhooks:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        message: error.response?.data?.message || error.message
+      });
       // If webhooks endpoint doesn't exist, show empty state
       setWebhooks([]);
     } finally {
       setLoading(false);
+      console.log('🏁 Loading complete, webhook count:', webhooks.length);
     }
   };
 
@@ -220,13 +239,25 @@ export default function WebhookConfiguration({ paymentLinkId, onWebhookChange }:
           <h3 className="text-lg font-semibold text-white">Webhooks Configurados</h3>
           <p className="text-sm text-gray-400">Receba notificações em tempo real sobre eventos de pagamento</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Adicionar Webhook
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadWebhooks()}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white rounded-lg transition-colors"
+            title="Recarregar webhooks"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Recarregar</span>
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Adicionar Webhook</span>
+            <span className="sm:hidden">Adicionar</span>
+          </button>
+        </div>
       </div>
 
       {/* Existing Webhooks */}

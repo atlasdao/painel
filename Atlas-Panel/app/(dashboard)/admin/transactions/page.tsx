@@ -19,9 +19,11 @@ import {
   Eye,
   X,
   Copy,
+  FileText,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
+import { formatBuyerName } from '@/app/lib/format-buyer-name';
 
 export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -499,6 +501,9 @@ export default function AdminTransactionsPage() {
                       Usuário
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                      Cliente
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
                       Data
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
@@ -547,21 +552,35 @@ export default function AdminTransactionsPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4">
+                        <span className="text-sm text-gray-300">
+                          {formatBuyerName(transaction.buyerName)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
                         <span className="text-sm text-gray-400">
                           {formatDate(transaction.createdAt)}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <button 
-                          onClick={() => {
-                            setSelectedTransaction(transaction);
-                            setShowModal(true);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Ver detalhes
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              setSelectedTransaction(transaction);
+                              setShowModal(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 transition-colors"
+                            title="Ver detalhes"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
+                            className="text-gray-400 hover:text-blue-400 transition-colors"
+                            title="Ver comprovante"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

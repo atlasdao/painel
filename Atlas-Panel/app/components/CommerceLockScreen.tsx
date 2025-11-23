@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { Lock, ShieldCheck, AlertCircle, ChevronRight, Store, CheckCircle, Coins, FileText } from 'lucide-react';
-import Link from 'next/link';
 import { toast } from 'sonner';
 import { accountValidationService } from '@/app/lib/services';
 import CommerceApplicationForm from './CommerceApplicationForm';
+import AccountValidationModal from './AccountValidationModal';
 
 interface CommerceLockScreenProps {
   isAccountValidated?: boolean;
   commerceMode?: boolean;
+  defaultWalletAddress?: string | null;
 }
 
 export default function CommerceLockScreen({
   isAccountValidated = false,
-  commerceMode = false
+  commerceMode = false,
+  defaultWalletAddress = null
 }: CommerceLockScreenProps) {
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationAmount, setValidationAmount] = useState<number>(2.0);
 
   // Fetch dynamic validation amount on component mount
@@ -157,14 +160,14 @@ export default function CommerceLockScreen({
           {/* Action Buttons */}
           <div className="flex flex-col gap-4">
             {!isAccountValidated && (
-              <Link
-                href="/settings?tab=profile"
+              <button
+                onClick={() => setShowValidationModal(true)}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
               >
                 <ShieldCheck className="w-5 h-5" />
                 Validar Conta
                 <ChevronRight className="w-5 h-5" />
-              </Link>
+              </button>
             )}
 
             {isAccountValidated && !commerceMode && (
@@ -181,6 +184,19 @@ export default function CommerceLockScreen({
 
         </div>
       </div>
+
+      {/* Validation Modal */}
+      {showValidationModal && (
+        <AccountValidationModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          onSuccess={() => {
+            setShowValidationModal(false);
+            toast.success('Conta validada com sucesso!');
+          }}
+          defaultWallet={defaultWalletAddress}
+        />
+      )}
 
       {/* Application Form Modal */}
       {showApplicationForm && (

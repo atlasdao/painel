@@ -48,10 +48,14 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
   const [showQrCode, setShowQrCode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [showPixCode, setShowPixCode] = useState(false);
+  const [showPixCode, setShowPixCode] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [mobileStep, setMobileStep] = useState<'info' | 'payment'>('payment');
   const [isExpired, setIsExpired] = useState(false);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [showTaxNumberForm, setShowTaxNumberForm] = useState(false);
+  const [taxNumber, setTaxNumber] = useState('');
+  const [taxNumberError, setTaxNumberError] = useState('');
 
   useEffect(() => {
     if (!initialData && shortCode) {
@@ -62,17 +66,52 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     }
   }, [shortCode, initialData]);
 
-  // Trigger confetti when payment is successful
+  // Redirect when payment is successful
   useEffect(() => {
-    if (paymentSuccess) {
-      // Trigger epic confetti for successful payment
-      triggerConfetti.success();
-      // Additional money confetti after a short delay
+    if (paymentSuccess && transactionId) {
+      // Redirect to payment confirmation page after showing success
       setTimeout(() => {
-        triggerConfetti.money();
-      }, 1000);
+        window.location.href = `/payment-confirmation/${transactionId}`;
+      }, 2000);
     }
-  }, [paymentSuccess]);
+  }, [paymentSuccess, transactionId]);
+
+  // Poll for payment status
+  useEffect(() => {
+    console.log('🔍 Polling check:', { qrCode: !!qrCode, transactionId, isExpired, paymentSuccess });
+    if (!qrCode || !transactionId || isExpired || paymentSuccess) return;
+
+    const checkPaymentStatus = async () => {
+      try {
+        const url = `${process.env.NEXT_PUBLIC_API_URL}/pay/${shortCode}/status/${transactionId}`;
+        console.log('🔎 Checking payment status:', url);
+        const response = await fetch(url);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Payment status response:', data);
+          if (data.status === 'paid' || data.status === 'completed') {
+            console.log('🎉 Payment detected as paid! Setting success...');
+            setPaymentSuccess(true);
+          }
+        } else {
+          console.warn('⚠️ Status check failed:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error checking payment status:', error);
+      }
+    };
+
+    // Check immediately, then every 3 seconds
+    console.log('🚀 Starting payment polling...');
+    checkPaymentStatus();
+    const interval = setInterval(checkPaymentStatus, 3000);
+
+    return () => {
+      console.log('🛑 Stopping payment polling');
+      clearInterval(interval);
+    };
+  }, [qrCode, transactionId, isExpired, paymentSuccess, shortCode]);
 
   useEffect(() => {
     if (qrCode && timeLeft > 0 && !isExpired) {
@@ -128,6 +167,109 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     }
   };
 
+  // Generate QR code with tax number
+  const generateWithTaxNumber = async () => {
+    if (!validateTaxNumber(taxNumber)) {
+      setTaxNumberError('CPF/CNPJ inválido');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pay/${shortCode}/validate-tax-number`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: paymentData.isCustomAmount ? parseFloat(customAmount) : undefined,
+            taxNumber: taxNumber.replace(/\D/g, ''),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao validar CPF/CNPJ');
+      }
+
+      const data = await response.json();
+      console.log('📦 QR Code with tax number generated:', data);
+
+      setQrCode(data.qrCode);
+      setShowTaxNumberForm(false);
+
+      // Store transaction ID
+      if (data.transactionId) {
+        setTransactionId(data.transactionId);
+      }
+
+      // Generate QR Code image
+      if (data.qrCode) {
+        try {
+          const dataUrl = await QRCode.toDataURL(data.qrCode, {
+            type: 'image/png',
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+            width: 400,
+          });
+          setQrCodeDataUrl(dataUrl);
+        } catch (qrError) {
+          console.error('Error generating QR code image:', qrError);
+        }
+      }
+
+      setTimeLeft(29 * 60 + 50);
+      setIsExpired(false);
+      setIsGenerating(false);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error generating QR code with tax number:', error);
+      setTaxNumberError('Erro ao validar CPF/CNPJ. Tente novamente.');
+      setIsGenerating(false);
+    }
+  };
+
+  // CPF/CNPJ formatting function
+  const formatTaxNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+
+    if (numbers.length <= 11) {
+      // CPF: 000.000.000-00
+      return numbers
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+    } else {
+      // CNPJ: 00.000.000/0000-00
+      return numbers
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})/, '$1-$2')
+        .substring(0, 18);
+    }
+  };
+
+  // CPF/CNPJ validation function
+  const validateTaxNumber = (value: string): boolean => {
+    const numbers = value.replace(/\D/g, '');
+
+    if (numbers.length === 11) {
+      // Basic CPF validation
+      if (/^(\d)\1{10}$/.test(numbers)) return false;
+      return true; // Simplified validation for now
+    } else if (numbers.length === 14) {
+      // Basic CNPJ validation
+      if (/^(\d)\1{13}$/.test(numbers)) return false;
+      return true; // Simplified validation for now
+    }
+
+    return false;
+  };
+
   const generateNewQRCode = async (amount?: number) => {
     try {
       setIsGenerating(true);
@@ -146,7 +288,24 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       }
 
       const data = await response.json();
+      console.log('📦 QR Code response:', data);
+
+      // Check if tax number is required
+      if (data.needsTaxNumber) {
+        setShowTaxNumberForm(true);
+        setIsGenerating(false);
+        return;
+      }
+
       setQrCode(data.qrCode);
+
+      // Store transaction ID for payment confirmation
+      if (data.transactionId) {
+        console.log('💾 Setting transactionId:', data.transactionId);
+        setTransactionId(data.transactionId);
+      } else {
+        console.warn('⚠️ No transactionId in response!');
+      }
 
       if (data.qrCode) {
         try {
@@ -191,12 +350,18 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     }).format(value);
   };
 
+  // Helper function to safely parse amount with comma or period as decimal separator
+  const parseAmount = (value: string): number => {
+    if (!value) return 0;
+    // Replace comma with period for parseFloat to work correctly
+    const normalizedValue = value.replace(',', '.');
+    return parseFloat(normalizedValue) || 0;
+  };
+
   const handleCopyCode = () => {
     if (qrCode && !isExpired) {
       navigator.clipboard.writeText(qrCode);
       setCopied(true);
-      // Add a small celebration when copying
-      triggerConfetti.basic();
       setTimeout(() => setCopied(false), 3000);
     }
   };
@@ -205,7 +370,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     if (isExpired) {
       setIsGenerating(true);
       setIsExpired(false);
-      await generateNewQRCode(paymentData?.isCustomAmount ? parseFloat(customAmount) : undefined);
+      await generateNewQRCode(paymentData?.isCustomAmount ? parseAmount(customAmount) : undefined);
       setTimeLeft(29 * 60 + 50);
       setIsGenerating(false);
     }
@@ -213,13 +378,15 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
   const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value) || value === '') {
+    // Accept both comma and period as decimal separator
+    if (/^\d*[.,]?\d*$/.test(value) || value === '') {
       setCustomAmount(value);
     }
   };
 
   const handleGenerateQR = async () => {
-    const amount = parseFloat(customAmount);
+    // Use helper function to parse amount safely
+    const amount = parseAmount(customAmount);
     if (!amount || amount <= 0) return;
 
     if (paymentData.minAmount && amount < paymentData.minAmount) {
@@ -323,7 +490,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             <p className="text-slate-300 mb-4 text-sm sm:text-base">Transação realizada com sucesso</p>
             <div className="inline-block px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl mb-6">
               <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                {formatCurrency(paymentData?.isCustomAmount ? parseFloat(customAmount) : (paymentData?.amount || 0))}
+                {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
               </p>
             </div>
             <div className="p-4 bg-slate-800/50 rounded-2xl">
@@ -466,7 +633,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       <div className="text-center mb-6">
                         <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Valor Total</p>
                         <p className="text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
-                          {formatCurrency(paymentData?.isCustomAmount ? parseFloat(customAmount) : (paymentData?.amount || 0))}
+                          {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
                         </p>
                       </div>
 
@@ -705,7 +872,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
                         <button
                           onClick={handleGenerateQR}
-                          disabled={!customAmount || parseFloat(customAmount) <= 0 || isGenerating}
+                          disabled={!customAmount || parseAmount(customAmount) <= 0 || isGenerating}
                           className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -777,7 +944,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400 uppercase tracking-wider">Valor Total</span>
                   <span className="text-2xl font-bold text-white">
-                    {formatCurrency(paymentData?.isCustomAmount ? parseFloat(customAmount) : (paymentData?.amount || 0))}
+                    {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
                   </span>
                 </div>
               </div>
@@ -1007,7 +1174,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
               <button
                 onClick={handleGenerateQR}
-                disabled={!customAmount || parseFloat(customAmount) <= 0 || isGenerating}
+                disabled={!customAmount || parseAmount(customAmount) <= 0 || isGenerating}
                 className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
               >
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-75" />
@@ -1073,6 +1240,80 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           </div>
         </div>
       </div>
+
+      {/* Tax Number Modal */}
+      {showTaxNumberForm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-slate-700/50 shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <Shield className="text-purple-400" size={24} />
+                Identificação Necessária
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Este pagamento exige CPF ou CNPJ.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-white text-sm font-medium mb-2 block">
+                  CPF ou CNPJ
+                </label>
+                <input
+                  type="text"
+                  value={taxNumber}
+                  onChange={(e) => {
+                    setTaxNumber(formatTaxNumber(e.target.value));
+                    setTaxNumberError('');
+                  }}
+                  placeholder="000.000.000-00"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none transition-all"
+                  maxLength={18}
+                  style={{ fontSize: '16px' }}
+                />
+                {taxNumberError && (
+                  <p className="text-red-400 text-sm mt-1">{taxNumberError}</p>
+                )}
+              </div>
+
+              <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="text-yellow-400 mt-0.5" size={16} />
+                  <div className="text-xs text-gray-300">
+                    <p className="font-medium text-yellow-400 mb-1">Importante:</p>
+                    <p>Use o mesmo CPF/CNPJ da conta bancária que fará o pagamento.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={generateWithTaxNumber}
+                  disabled={!taxNumber || isGenerating}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-700 disabled:to-gray-700 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <Loader className="animate-spin mx-auto" size={20} />
+                  ) : (
+                    'Continuar'
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTaxNumberForm(false);
+                    setTaxNumber('');
+                    setTaxNumberError('');
+                  }}
+                  className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -256,6 +256,7 @@ export class EulenClientService {
 		description?: string;
 		userFullName?: string;
 		userTaxNumber?: string;
+		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
 	}): Promise<DepositResponse> {
 		return this.rateLimiter.executeWithRateLimit('deposit', async () => {
 			try {
@@ -282,6 +283,12 @@ export class EulenClientService {
 				// Only add optional fields if they are provided
 				if (data.userFullName) {
 					requestData.endUserFullName = data.userFullName;
+				}
+
+				// Add whitelist parameter if provided
+				if (data.whitelist === true) {
+					requestData.whitelist = true;
+					this.logger.log(`✅ Whitelist enabled for this transaction`);
 				}
 
 				// Format and validate CPF/CNPJ
@@ -467,6 +474,7 @@ export class EulenClientService {
 		depixAddress?: string; // PIX key (CPF, CNPJ, email, phone, or EVP) - OPTIONAL
 		description?: string;
 		userTaxNumber?: string; // Tax number (CPF/CNPJ) for EUID restriction
+		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
 	}): Promise<any> {
 		// Use the deposit endpoint to generate QR code
 		try {
@@ -490,6 +498,7 @@ export class EulenClientService {
 				pixKey: data.depixAddress || '', // Use provided PIX key or empty string (API will use default)
 				description: data.description,
 				userTaxNumber: data.userTaxNumber, // Pass tax number for EUID restriction
+				whitelist: data.whitelist, // Pass whitelist parameter to bypass first purchase limit
 			});
 
 			// Check if we got the expected response structure

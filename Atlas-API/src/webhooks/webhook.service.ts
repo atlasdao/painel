@@ -17,6 +17,7 @@ import {
 import { TransactionStatus } from '@prisma/client';
 import { BotSyncService } from '../common/services/bot-sync.service';
 import { WebhookService as PaymentLinkWebhookService } from '../payment-link/webhook.service';
+import { ExternalWebhookService } from '../external-api/external-webhook.service';
 
 @Injectable()
 export class WebhookService {
@@ -29,6 +30,8 @@ export class WebhookService {
 		private readonly botSyncService: BotSyncService,
 		@Inject(forwardRef(() => PaymentLinkWebhookService))
 		private readonly paymentLinkWebhookService: PaymentLinkWebhookService,
+		@Inject(forwardRef(() => ExternalWebhookService))
+		private readonly externalWebhookService: ExternalWebhookService,
 	) {}
 
 	/**
@@ -168,6 +171,7 @@ export class WebhookService {
 				data: {
 					status: newStatus,
 					metadata: JSON.stringify(updatedMetadata),
+					buyerName: eventData.payerName, // Save payer name to buyerName field
 					processedAt:
 						newStatus === TransactionStatus.COMPLETED
 							? new Date()
@@ -273,6 +277,38 @@ export class WebhookService {
 						}
 					} else {
 						this.logger.log(`  ℹ️ No paymentLinkId found in metadata`);
+					}
+
+					// Check if this transaction is from External API
+					if (metadata.source === 'EXTERNAL_API' && transaction.id) {
+						this.logger.log(`  🔗 External API transaction detected: ${transaction.id}`);
+
+						try {
+							// Prepare payment data for webhook
+							const paymentData = {
+								amount: transaction.amount / 100, // Convert from centavos to reais
+								merchantOrderId: metadata.merchantOrderId,
+								processedAt: new Date().toISOString(),
+								payerName: metadata.webhookEvent?.payerName || eventData.payerName,
+								payerTaxNumber: metadata.webhookEvent?.payerTaxNumber || eventData.payerTaxNumber,
+								metadata: {
+									blockchainTxID: metadata.webhookEvent?.blockchainTxID || eventData.blockchainTxID,
+									depixAddress: metadata.depixAddress,
+									...metadata.webhookEvent,
+								},
+							};
+
+							// Trigger transaction.paid webhook
+							await this.externalWebhookService.triggerTransactionPaid(
+								transaction.id,
+								paymentData
+							);
+
+							this.logger.log(`  ✅ External API webhook triggered successfully for transaction ${transaction.id}`);
+						} catch (webhookError) {
+							this.logger.error(`  ❌ Failed to trigger External API webhook:`, webhookError);
+							// Don't fail the main webhook processing if external webhook fails
+						}
 					}
 				} catch (error) {
 					this.logger.error(

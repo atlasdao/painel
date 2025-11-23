@@ -38,6 +38,7 @@ export interface Transaction {
   pixKeyType?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM_KEY';
   externalId?: string;
   description?: string;
+  buyerName?: string; // Nome do cliente/comprador
   metadata?: string; // JSON string
   errorMessage?: string;
   processedAt?: string;

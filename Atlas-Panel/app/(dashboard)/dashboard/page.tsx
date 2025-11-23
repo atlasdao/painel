@@ -24,11 +24,14 @@ import {
   Award,
   ChevronRight,
   PiggyBank,
-  AlertCircle
+  AlertCircle,
+  Store,
+  FileText
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
 import { DashboardSkeleton } from '@/components/ui/LoadingSkeleton';
+import { formatBuyerName } from '@/app/lib/format-buyer-name';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -129,6 +132,11 @@ export default function DashboardPage() {
 
       setUser(currentUser);
       setGreeting(getPersonalizedGreeting(currentUser?.username));
+      console.log('🔍 Dashboard: User commerceMode status:', {
+        username: currentUser?.username,
+        commerceMode: currentUser?.commerceMode,
+        isAdmin: isAdmin(currentUser?.role)
+      });
 
       if (isAdmin(currentUser?.role)) {
         console.log('👨‍💼 Dashboard: Loading admin dashboard...');
@@ -348,6 +356,33 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {/* Commerce Mode Warning */}
+      {!isAdminUser && user && user.commerceMode !== true && (
+        <div className={`mb-8 bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-6 ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '100ms' }}>
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <AlertCircle className="w-6 h-6 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-400 mb-2">
+                Modo Comércio Desativado
+              </h3>
+              <p className="text-yellow-200/80 mb-4">
+                Você precisa habilitar o Modo Comércio para ter acesso completo a todas as funcionalidades do painel, incluindo recebimento de múltiplos CPF/CNPJ, Links de Pagamento, geração de pagamentos especiais, API, webhooks, etc.
+              </p>
+              <a
+                href="/commerce"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 btn-pop"
+              >
+                <Store className="w-4 h-4" />
+                <span>Habilitar Modo Comércio</span>
+                <ChevronRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       {!isAdminUser && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -536,108 +571,198 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Recent Transactions Table */}
+      {/* Recent Transactions */}
       <div className={`glass-card ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '600ms' }}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white flex items-center">
-            <Activity className="mr-2" />
-            {isAdminUser ? 'Transações Recentes do Sistema' : 'Suas Transações Recentes'}
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-700">
+          <h2 className="text-lg md:text-xl font-bold text-white flex items-center">
+            <Activity className="mr-2 w-5 h-5 md:w-6 md:h-6" />
+            <span className="hidden sm:inline">{isAdminUser ? 'Transações Recentes do Sistema' : 'Suas Transações Recentes'}</span>
+            <span className="sm:hidden">Transações</span>
           </h2>
           <a
             href="/transactions"
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors btn-pop"
+            className="text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors btn-pop"
           >
             Ver todas →
           </a>
         </div>
 
         {recentTransactions.length === 0 ? (
-          <div className="p-12 text-center">
-            <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">Nenhuma transação encontrada</p>
+          <div className="p-8 md:p-12 text-center">
+            <Activity className="w-10 h-10 md:w-12 md:h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400 text-sm md:text-base">Nenhuma transação encontrada</p>
             {!isAdminUser && (
               <a
                 href="/deposit"
-                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors btn-pop"
+                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors btn-pop text-sm md:text-base"
               >
                 Fazer primeiro depósito
               </a>
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-900/50">
-                <tr>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  {isAdminUser && (
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Usuário
-                    </th>
-                  )}
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Data/Hora
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {recentTransactions.map((transaction, index) => {
-                  const typeInfo = getTransactionTypeInfo(transaction.type);
-                  const statusInfo = getStatusInfo(transaction.status);
+          <>
+            {/* Mobile View - Cards */}
+            <div className="block md:hidden divide-y divide-gray-700">
+              {recentTransactions.map((transaction, index) => {
+                const typeInfo = getTransactionTypeInfo(transaction.type);
+                const statusInfo = getStatusInfo(transaction.status);
 
-                  return (
-                    <tr
-                      key={transaction.id}
-                      className={`hover:bg-gray-700/30 transition-colors ${
-                        showWelcome ? 'animate-slide-up' : 'opacity-0'
-                      }`}
-                      style={{ animationDelay: `${700 + index * 50}ms` }}
-                    >
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
+                return (
+                  <div
+                    key={transaction.id}
+                    className={`p-4 hover:bg-gray-700/30 transition-colors ${
+                      showWelcome ? 'animate-slide-up' : 'opacity-0'
+                    }`}
+                    style={{ animationDelay: `${700 + index * 50}ms` }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={typeInfo.color}>
                           {typeInfo.icon}
-                          <span className={`font-medium ${typeInfo.color}`}>
-                            {typeInfo.label}
-                          </span>
                         </div>
-                      </td>
+                        <button
+                          onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
+                          className="text-gray-400 hover:text-blue-400 transition-colors"
+                          title="Ver comprovante"
+                        >
+                          <FileText className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                        {statusInfo.icon}
+                        <span className="ml-1">{statusInfo.label}</span>
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-400">Valor:</span>
+                        <span className="text-base font-bold text-white">
+                          {formatCurrency(transaction.amount)}
+                        </span>
+                      </div>
+
                       {isAdminUser && (
-                        <td className="py-4 px-6">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-400">Usuário:</span>
                           <span className="text-sm text-gray-300">
                             {transaction.user?.username || transaction.userId?.slice(0, 8) || '-'}
                           </span>
-                        </td>
+                        </div>
                       )}
-                      <td className="py-4 px-6">
-                        <span className="text-sm font-semibold text-white">
-                          {formatCurrency(transaction.amount)}
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-400">Cliente:</span>
+                        <span className="text-sm text-gray-300 truncate ml-2 max-w-[180px]">
+                          {formatBuyerName(transaction.buyerName)}
                         </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} btn-pop`}>
-                          {statusInfo.icon}
-                          <span className="ml-1">{statusInfo.label}</span>
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-400">
+                      </div>
+
+                      <div className="flex justify-between items-center pt-1 border-t border-gray-700">
+                        <span className="text-xs text-gray-400">Data:</span>
+                        <span className="text-xs text-gray-400">
                           {formatDate(transaction.createdAt)}
                         </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop View - Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-900/50">
+                  <tr>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    {isAdminUser && (
+                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Usuário
+                      </th>
+                    )}
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Valor
+                    </th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Data/Hora
+                    </th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Comprovante
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {recentTransactions.map((transaction, index) => {
+                    const typeInfo = getTransactionTypeInfo(transaction.type);
+                    const statusInfo = getStatusInfo(transaction.status);
+
+                    return (
+                      <tr
+                        key={transaction.id}
+                        className={`hover:bg-gray-700/30 transition-colors ${
+                          showWelcome ? 'animate-slide-up' : 'opacity-0'
+                        }`}
+                        style={{ animationDelay: `${700 + index * 50}ms` }}
+                      >
+                        <td className="py-4 px-6">
+                          <div className={`flex items-center ${typeInfo.color}`}>
+                            {typeInfo.icon}
+                          </div>
+                        </td>
+                        {isAdminUser && (
+                          <td className="py-4 px-6">
+                            <span className="text-sm text-gray-300">
+                              {transaction.user?.username || transaction.userId?.slice(0, 8) || '-'}
+                            </span>
+                          </td>
+                        )}
+                        <td className="py-4 px-6">
+                          <span className="text-sm text-gray-300">
+                            {formatBuyerName(transaction.buyerName)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-sm font-semibold text-white">
+                            {formatCurrency(transaction.amount)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} btn-pop`}>
+                            {statusInfo.icon}
+                            <span className="ml-1">{statusInfo.label}</span>
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-sm text-gray-400">
+                            {formatDate(transaction.createdAt)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <button
+                            onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
+                            className="text-gray-400 hover:text-blue-400 transition-colors btn-pop"
+                            title="Ver comprovante"
+                          >
+                            <FileText className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

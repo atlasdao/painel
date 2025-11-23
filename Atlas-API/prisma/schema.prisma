@@ -24,6 +24,8 @@ model User {
   verifiedTaxNumber       String?
   commerceMode            Boolean              @default(false)
   commerceModeActivatedAt DateTime?
+  whitelistDepix          Boolean              @default(false)
+  whitelistDepixActivatedAt DateTime?
   paymentLinksEnabled     Boolean              @default(false)
   apiDailyLimit           Float                @default(10000)
   apiMonthlyLimit         Float                @default(50000)
@@ -74,6 +76,9 @@ model Transaction {
   pixKeyType    PixKeyType?
   externalId    String?           @unique
   description   String?
+  buyerName     String?           // Nome do cliente/comprador
+  payerTaxNumber String?          // CPF/CNPJ do pagador
+  payerTaxNumberType PixKeyType?   // Tipo do documento (CPF ou CNPJ)
   metadata      String?
   errorMessage  String?
   processedAt   DateTime?
@@ -88,6 +93,7 @@ model Transaction {
   @@index([type])
   @@index([externalId])
   @@index([createdAt])
+  @@index([payerTaxNumber])
 }
 
 model WebhookEvent {
@@ -184,6 +190,7 @@ model ApiKeyRequest {
   serviceUrl      String
   estimatedVolume String
   usageType       ApiKeyUsageType     @default(SINGLE_CPF)
+  contactInfo     String?
   status          ApiKeyRequestStatus @default(PENDING)
   approvedBy      String?
   approvalNotes   String?
@@ -218,20 +225,43 @@ model PaymentLink {
   totalAmount       Float     @default(0)
   isActive          Boolean   @default(true)
   expiresAt         DateTime?
+  requiresTaxNumber Boolean   @default(false)
+  minAmountForTaxNumber Float @default(3000.00)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   webhooks          PaymentLinkWebhook[]
   webhookEvents     PaymentLinkWebhookEvent[]
+  sessions          PaymentLinkSession[]
 
   @@index([shortCode])
   @@index([userId])
   @@index([isActive])
+  @@index([requiresTaxNumber])
+}
+
+model PaymentLinkSession {
+  id                String       @id @default(uuid())
+  paymentLinkId     String
+  sessionToken      String       @unique
+  payerTaxNumber    String?
+  payerTaxNumberType PixKeyType?
+  amount            Float?
+  qrCode            String?
+  qrCodeGeneratedAt DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  paymentLink       PaymentLink  @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken])
+  @@index([paymentLinkId])
+  @@index([expiresAt])
 }
 
 model PaymentLinkWebhook {
   id               String                    @id @default(uuid())
-  paymentLinkId    String
+  paymentLinkId    String?                   // Now optional to support external API
   name             String
   url              String
   events           String[]
@@ -240,17 +270,25 @@ model PaymentLinkWebhook {
   lastTriggeredAt  DateTime?
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
-  paymentLink      PaymentLink               @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+
+  // New fields for External API integration
+  apiKeyId         String?                   // Links to API key for external API webhooks
+  transactionId    String?                   // Links to specific transaction
+  headers          Json?                     // Custom headers for webhook requests
+
+  paymentLink      PaymentLink?              @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
   events_sent      PaymentLinkWebhookEvent[]
 
   @@index([paymentLinkId])
   @@index([active])
+  @@index([apiKeyId, transactionId])
+  @@index([transactionId])
 }
 
 model PaymentLinkWebhookEvent {
   id               String                     @id @default(uuid())
   webhookId        String
-  paymentLinkId    String
+  paymentLinkId    String?                    // Now optional to support external API
   eventType        String
   payload          Json
   status           WebhookEventStatus             @default(PENDING)
@@ -263,7 +301,7 @@ model PaymentLinkWebhookEvent {
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
   webhook          PaymentLinkWebhook         @relation(fields: [webhookId], references: [id], onDelete: Cascade)
-  paymentLink      PaymentLink                @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  paymentLink      PaymentLink?               @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
 
   @@index([webhookId])
   @@index([paymentLinkId])

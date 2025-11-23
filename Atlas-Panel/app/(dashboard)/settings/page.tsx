@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import { userService, profileService } from '@/app/lib/services';
 import api, { API_URL } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
-import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Award, Webhook } from 'lucide-react';
+import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Webhook } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 import { triggerConfetti } from '@/app/lib/confetti';
@@ -17,29 +17,21 @@ import UserLimitsDisplay from '@/app/components/UserLimitsDisplay';
 import ErrorBoundary from '@/app/components/ErrorBoundary';
 import dynamic from 'next/dynamic';
 
-// Dynamically import the levels page to avoid SSR issues
-const LevelsPage = dynamic(() => import('./levels/page'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <Loader className="w-12 h-12 animate-spin text-purple-500 mx-auto mb-4" />
-        <p className="text-gray-400">Carregando níveis...</p>
-      </div>
-    </div>
-  )
-});
-
 export default function SettingsPage() {
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'wallet' | 'notifications' | 'api' | 'levels'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'wallet' | 'notifications' | 'api'>('profile');
   const [loading, setLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Tab scroll indicators
+  const [showLeftGradient, setShowLeftGradient] = useState(false);
+  const [showRightGradient, setShowRightGradient] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Profile State
   const [profile, setProfile] = useState({
@@ -99,12 +91,13 @@ export default function SettingsPage() {
     serviceUrl: '',
     estimatedVolume: '',
     usageType: 'SINGLE_CPF' as 'SINGLE_CPF' | 'MULTIPLE_CPF',
+    contactInfo: '',
   });
   const [loadingApiKey, setLoadingApiKey] = useState(false);
 
   // Set active tab from URL
   useEffect(() => {
-    if (tabFromUrl && ['profile', 'security', 'wallet', 'notifications', 'api', 'levels'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['profile', 'security', 'wallet', 'notifications', 'api'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl as any);
     }
   }, [tabFromUrl]);
@@ -119,6 +112,43 @@ export default function SettingsPage() {
     init();
   }, []);
 
+  // Scroll detection for tab navigation gradients
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const checkScroll = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      // Show left gradient if scrolled right
+      setShowLeftGradient(scrollLeft > 10);
+      // Show right gradient if there's more content to the right
+      setShowRightGradient(scrollLeft < scrollWidth - clientWidth - 10);
+    };
+
+    // Initial check
+    checkScroll();
+
+    // Add scroll listener
+    container.addEventListener('scroll', checkScroll);
+    window.addEventListener('resize', checkScroll);
+
+    // Optional: Initial hint animation - scroll a bit to show it's scrollable
+    const hintTimeout = setTimeout(() => {
+      if (container.scrollWidth > container.clientWidth) {
+        container.scrollTo({ left: 30, behavior: 'smooth' });
+        setTimeout(() => {
+          container.scrollTo({ left: 0, behavior: 'smooth' });
+        }, 600);
+      }
+    }, 300);
+
+    return () => {
+      container.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+      clearTimeout(hintTimeout);
+    };
+  }, [isPageLoading]); // Re-run when page loading completes
+
   const loadApiKeyRequests = async () => {
     try {
       const response = await api.get('/api-key-requests/my-requests');
@@ -129,7 +159,7 @@ export default function SettingsPage() {
   };
 
   const handleApiKeyRequest = async () => {
-    if (!apiKeyForm.usageReason || !apiKeyForm.serviceUrl || !apiKeyForm.estimatedVolume) {
+    if (!apiKeyForm.usageReason || !apiKeyForm.serviceUrl || !apiKeyForm.estimatedVolume || !apiKeyForm.contactInfo) {
       toast.error('Por favor, preencha todos os campos');
       return;
     }
@@ -151,6 +181,7 @@ export default function SettingsPage() {
         serviceUrl: '',
         estimatedVolume: '',
         usageType: 'SINGLE_CPF',
+        contactInfo: '',
       });
       await loadApiKeyRequests();
     } catch (error: any) {
@@ -453,7 +484,6 @@ export default function SettingsPage() {
     { id: 'profile', label: 'Perfil', icon: User },
     { id: 'security', label: 'Segurança', icon: Shield },
     { id: 'wallet', label: 'Carteira', icon: Wallet },
-    { id: 'levels', label: 'Níveis', icon: Award },
     { id: 'api', label: 'API', icon: Code },
     { id: 'notifications', label: 'Notificações', icon: Bell },
   ];
@@ -479,24 +509,44 @@ export default function SettingsPage() {
         <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent animate-slide-up">Configurações</h1>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 mb-8 p-1 bg-gray-800/50 rounded-xl backdrop-blur-xl animate-bounce-in" style={{ animationDelay: '100ms' }}>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 font-medium group ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50 hover:scale-105'
-                }`}
-              >
-                <Icon className={`w-5 h-5 transition-transform ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        <div className="mb-8 animate-bounce-in relative" style={{ animationDelay: '100ms' }}>
+          <div className="relative bg-gray-800/50 rounded-xl backdrop-blur-xl p-1">
+            {/* Left Gradient Indicator */}
+            {showLeftGradient && (
+              <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full animate-pulse" />
+              </div>
+            )}
+
+            {/* Right Gradient Indicator */}
+            {showRightGradient && (
+              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full animate-pulse" />
+              </div>
+            )}
+
+            <div ref={scrollContainerRef} className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1 min-w-max md:min-w-0 md:grid md:grid-cols-5">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-3 rounded-lg transition-all duration-300 font-medium group whitespace-nowrap ${
+                        activeTab === tab.id
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50 hover:scale-105'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform flex-shrink-0 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`} />
+                      <span className="text-sm sm:text-base">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Content Container */}
@@ -1266,10 +1316,24 @@ export default function SettingsPage() {
 {`{
   "amount": 100.50,
   "description": "Pagamento de teste",
+  "depixAddress": "your_wallet_address", // Opcional - omitir para criar sem QR
   "taxNumber": "12345678900", // Obrigatório para valores >= R$ 3000
-  "walletAddress": "your_wallet_address_here",
   "merchantOrderId": "ORDER-123", // Opcional
-  "webhookUrl": "https://example.com/webhook" // Opcional
+
+  // NOVO: Configuração de webhook (opcional)
+  "webhook": {
+    "url": "https://meusite.com/webhook",
+    "events": [
+      "transaction.created",  // Quando PIX é gerado
+      "transaction.paid",      // Quando pagamento é confirmado
+      "transaction.failed",    // Quando pagamento falha
+      "transaction.expired"    // Quando PIX expira
+    ],
+    "secret": "minha-chave-min-16-chars", // Min 16 chars
+    "headers": {
+      "X-Custom-Header": "valor" // Headers customizados
+    }
+  }
 }`}
                               </pre>
                               <p className="text-xs text-gray-400 mt-2">
@@ -1305,7 +1369,13 @@ export default function SettingsPage() {
   "qrCode": "00020126580014br.gov.bcb.pix...",
   "qrCodeImage": "data:image/png;base64,...",
   "createdAt": "2025-01-15T12:00:00Z",
-  "expiresAt": "2025-01-15T12:30:00Z"
+  "expiresAt": "2025-01-15T12:30:00Z",
+  "webhook": {
+    "id": "webhook-uuid",
+    "url": "https://meusite.com/webhook",
+    "events": ["transaction.created", "transaction.paid"],
+    "secretHint": "minh"
+  }
 }`}
                               </pre>
                               <p className="text-xs text-gray-400 mt-2">
@@ -1364,7 +1434,9 @@ export default function SettingsPage() {
   "isCustomAmount": false,
   "walletAddress": "your_wallet_address_here",
   "expiresAt": "2024-12-31T23:59:59Z", // Opcional
-  "webhookUrl": "https://example.com/webhook" // Opcional
+
+  // Webhooks para Payment Links (em breve)
+  // Use endpoint /api/v1/payment-links/:id/webhooks após criar o link
 }`}
                               </pre>
                             </div>
@@ -1386,7 +1458,9 @@ export default function SettingsPage() {
   "walletAddress": "your_wallet_address_here",
   "maxUses": 1000,       // Opcional
   "expiresAt": "2024-12-31T23:59:59Z", // Opcional
-  "webhookUrl": "https://example.com/webhook" // Opcional
+
+  // Webhooks para Payment Links (em breve)
+  // Use endpoint /api/v1/payment-links/:id/webhooks após criar o link
 }`}
                               </pre>
                             </div>
@@ -1675,9 +1749,14 @@ export default function SettingsPage() {
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
+    "depixAddress": "your_wallet_address",
     "taxNumber": "12345678900",
-    "walletAddress": "your_wallet_address_here",
-    "merchantOrderId": "ORDER-123"
+    "merchantOrderId": "ORDER-123",
+    "webhook": {
+      "url": "https://seu-site.com/webhook",
+      "events": ["transaction.created", "transaction.paid"],
+      "secret": "sua-chave-secreta-min-16-chars"
+    }
   }'`;
                             navigator.clipboard.writeText(curlCommand);
                             toast.success('✓ Comando copiado!', {
@@ -1697,13 +1776,22 @@ export default function SettingsPage() {
   -d '{
     "amount": 100.50,
     "description": "Teste de pagamento",
-    "taxNumber": "12345678900",
-    "walletAddress": "your_wallet_address_here",
-    "merchantOrderId": "ORDER-123"
+    "depixAddress": "your_wallet_address",  # Opcional - omitir para criar sem QR
+    "taxNumber": "12345678900",              # Obrigatório apenas para valores >= R$ 3000
+    "merchantOrderId": "ORDER-123",
+    "webhook": {
+      "url": "https://seu-site.com/webhook",
+      "events": ["transaction.created", "transaction.paid"],
+      "secret": "sua-chave-secreta-min-16-chars",
+      "headers": {
+        "X-Custom-Header": "valor-customizado"
+      }
+    }
   }'
 
-# Note: taxNumber é opcional para valores < R$ 3000
-# merchantOrderId e webhookUrl também são campos opcionais`}
+# NOVO: Webhook configurável por transação!
+# depixAddress é opcional - sem ele, cria transação sem QR code
+# webhook é opcional mas permite notificações em tempo real`}
                         </pre>
                       </div>
                     </div>
@@ -1827,6 +1915,22 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Contato (Telegram ou SimpleX) *
+                    </label>
+                    <input
+                      type="text"
+                      value={apiKeyForm.contactInfo}
+                      onChange={(e) => setApiKeyForm({ ...apiKeyForm, contactInfo: e.target.value })}
+                      placeholder="Ex: @seuusuario ou endereço SimpleX"
+                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Informe seu usuário do Telegram ou endereço SimpleX para contato
+                    </p>
+                  </div>
+
                   <button
                     onClick={handleApiKeyRequest}
                     disabled={
@@ -1834,6 +1938,7 @@ export default function SettingsPage() {
                       !apiKeyForm.usageReason ||
                       !apiKeyForm.serviceUrl ||
                       !apiKeyForm.estimatedVolume ||
+                      !apiKeyForm.contactInfo ||
                       (apiKeyForm.usageType === 'MULTIPLE_CPF' && !profile.commerceMode)
                     }
                     className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
@@ -1869,11 +1974,6 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Levels Tab */}
-          {activeTab === 'levels' && (
-            <LevelsPage />
           )}
 
           {/* Notifications Tab */}

@@ -12,7 +12,7 @@ interface DonationModalProps {
   onClose: () => void;
 }
 
-type PaymentMethod = 'PIX' | 'DEPIX_LIQUID' | 'DEPIX_LIGHTNING' | 'BTC_ONCHAIN' | 'BTC_LIGHTNING' | 'BTC_LIQUID' | 'USDT_ERC20' | 'XMR';
+type PaymentMethod = 'PIX' | 'DEPIX_LIQUID' | 'DEPIX_LIGHTNING' | 'BTC_ONCHAIN' | 'BTC_LIGHTNING' | 'BTC_LIQUID' | 'USDT_ERC20' | 'USDT_POLYGON' | 'XMR';
 
 interface DonationData {
   amount: number;
@@ -93,11 +93,12 @@ const PAYMENT_GROUPS = [
   {
     id: 'usdt',
     name: 'USDT',
-    description: 'Tether na rede ERC-20',
+    description: 'Tether em múltiplas redes',
     icon: UsdtIcon,
     color: 'from-purple-600 to-indigo-500',
     methods: [
-      { id: 'USDT_ERC20' as PaymentMethod, name: 'ERC-20', instantConfirm: false }
+      { id: 'USDT_ERC20' as PaymentMethod, name: 'ERC-20 (Ethereum)', instantConfirm: false },
+      { id: 'USDT_POLYGON' as PaymentMethod, name: 'Polygon', instantConfirm: false }
     ]
   },
   {
@@ -122,6 +123,7 @@ const WALLET_ADDRESSES = {
   BTC_LIGHTNING: 'AtlasDAO@coinos.io',
   BTC_LIQUID: 'lq1qqf8r6wkf79radjyv8gdepsswz3fr4n890awknxkjn2gfr62tvww6u5fxudl2g022ww8puvzalsplqrsud3566ys0luftxua5r',
   USDT_ERC20: '0x4711cca8bc0d17b0184dDF5928f5b929F9B2e63D',
+  USDT_POLYGON: '0xbebc3fabfc17de89d6b80d6beb136002be17d310',
   XMR: '857nbuTDLTUiDDFpQ2Fz6xEez482zBG4rSF2pLJy9a9aRuVeVzmxZ1YJtdxkD4mBeuewrwfyCia5f5h9ARuMetwrBcNVohP'
 };
 
@@ -134,13 +136,14 @@ const AMOUNT_SUGGESTIONS = {
   BTC_LIGHTNING: [5000, 15000, 50000], // sats
   BTC_LIQUID: [5000, 15000, 50000], // sats
   USDT_ERC20: [10, 50, 100],
+  USDT_POLYGON: [10, 50, 100],
   XMR: [0.02, 0.05, 0.15]
 };
 
 const getCurrencySymbol = (method: PaymentMethod) => {
   if (method.startsWith('BTC_')) return ' sats';
   if (method.startsWith('DEPIX_') || method === 'PIX') return '';
-  if (method === 'USDT_ERC20') return ' USDT';
+  if (method.startsWith('USDT_')) return ' USDT';
   if (method === 'XMR') return ' XMR';
   return '';
 };

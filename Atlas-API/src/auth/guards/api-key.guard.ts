@@ -64,17 +64,20 @@ export class ApiKeyGuard implements CanActivate {
         },
       });
 
+      let validApiKeyRequest: any = null;
       for (const req of approvedRequests) {
         if (req.generatedApiKey) {
           // For new plain API keys (starting with atlas_)
           if (req.generatedApiKey === apiKey) {
             validUser = req.user;
+            validApiKeyRequest = req;
             break;
           }
           // For hashed API keys (backward compatibility)
           const isValid = await bcrypt.compare(apiKey, req.generatedApiKey).catch(() => false);
           if (isValid) {
             validUser = req.user;
+            validApiKeyRequest = req;
             break;
           }
         }
@@ -97,6 +100,7 @@ export class ApiKeyGuard implements CanActivate {
       // Attach user to request for use in controllers
       request.user = validUser;
       request.apiKeyUsed = true;
+      request.apiKeyId = validApiKeyRequest?.id || approvedRequests.find(r => r.user.id === validUser.id)?.id;
 
       // Log API key usage
       await this.prisma.apiKeyUsageLog.create({

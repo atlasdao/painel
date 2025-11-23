@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   FileText,
   Key,
@@ -140,6 +140,11 @@ export default function AdminRequestsPage() {
   const [apiView, setApiView] = useState<'pending' | 'history'>('pending');
   const [commerceView, setCommerceView] = useState<'pending' | 'history'>('pending');
   const [donationView, setDonationView] = useState<'pending' | 'history'>('pending');
+
+  // Tab scroll indicators
+  const [showLeftGradient, setShowLeftGradient] = useState(false);
+  const [showRightGradient, setShowRightGradient] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalRequest[]>([]);
   const [apiRequests, setApiRequests] = useState<ApiKeyRequest[]>([]);
@@ -206,6 +211,43 @@ export default function AdminRequestsPage() {
       }
     }
   }, [activeTab, withdrawalView, apiView, commerceView, donationView, statusFilter, apiStatusFilter, commerceStatusFilter, donationStatusFilter, currentPage, apiCurrentPage, commerceCurrentPage, donationCurrentPage]);
+
+  // Scroll detection for tab navigation gradients
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const checkScroll = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      // Show left gradient if scrolled right
+      setShowLeftGradient(scrollLeft > 10);
+      // Show right gradient if there's more content to the right
+      setShowRightGradient(scrollLeft < scrollWidth - clientWidth - 10);
+    };
+
+    // Initial check
+    checkScroll();
+
+    // Add scroll listener
+    container.addEventListener('scroll', checkScroll);
+    window.addEventListener('resize', checkScroll);
+
+    // Optional: Initial hint animation - scroll a bit to show it's scrollable
+    const hintTimeout = setTimeout(() => {
+      if (container.scrollWidth > container.clientWidth) {
+        container.scrollTo({ left: 30, behavior: 'smooth' });
+        setTimeout(() => {
+          container.scrollTo({ left: 0, behavior: 'smooth' });
+        }, 600);
+      }
+    }, 300);
+
+    return () => {
+      container.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+      clearTimeout(hintTimeout);
+    };
+  }, [loading]); // Re-run when loading completes
 
   const fetchWithdrawals = async () => {
     // Prevent concurrent fetches
@@ -778,65 +820,86 @@ export default function AdminRequestsPage() {
       <h1 className="text-3xl font-bold gradient-text mb-8 text-white">Gerenciamento de Solicitações</h1>
 
       {/* Main Tab Navigation */}
-      <div className="flex space-x-4 mb-6">
-        <button
-          onClick={() => setActiveTab('withdrawals')}
-          className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all ${
-            activeTab === 'withdrawals'
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          <DollarSign size={20} />
-          <div className="text-left">
-            <div className="text-sm">Saques</div>
-            <div className="text-xs opacity-80">{withdrawals.length} pendentes</div>
-          </div>
-        </button>
+      <div className="mb-8 relative">
+        <div className="relative bg-gray-800/50 rounded-xl backdrop-blur-xl p-1">
+          {/* Left Gradient Indicator */}
+          {showLeftGradient && (
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
+              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full animate-pulse" />
+            </div>
+          )}
 
-        <button
-          onClick={() => setActiveTab('api')}
-          className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all ${
-            activeTab === 'api'
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          <Key size={20} />
-          <div className="text-left">
-            <div className="text-sm">Chaves API</div>
-            <div className="text-xs opacity-80">{apiRequests.length} pendentes</div>
-          </div>
-        </button>
+          {/* Right Gradient Indicator */}
+          {showRightGradient && (
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
+              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full animate-pulse" />
+            </div>
+          )}
 
-        <button
-          onClick={() => setActiveTab('commerce')}
-          className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all ${
-            activeTab === 'commerce'
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          <Store size={20} />
-          <div className="text-left">
-            <div className="text-sm">Comércio</div>
-            <div className="text-xs opacity-80">{commerceApplications.length} pendentes</div>
+          <div ref={scrollContainerRef} className="overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 min-w-max md:min-w-0 md:grid md:grid-cols-4">
+              <button
+                onClick={() => setActiveTab('withdrawals')}
+                className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'withdrawals'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <DollarSign size={20} />
+                <div className="text-left">
+                  <div className="text-sm">Saques</div>
+                  <div className="text-xs opacity-80">{withdrawals.length} pendentes</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('api')}
+                className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'api'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <Key size={20} />
+                <div className="text-left">
+                  <div className="text-sm">Chaves API</div>
+                  <div className="text-xs opacity-80">{apiRequests.length} pendentes</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('commerce')}
+                className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'commerce'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <Store size={20} />
+                <div className="text-left">
+                  <div className="text-sm">Comércio</div>
+                  <div className="text-xs opacity-80">{commerceApplications.length} pendentes</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('donations')}
+                className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'donations'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <Heart size={20} />
+                <div className="text-left">
+                  <div className="text-sm">Doações</div>
+                  <div className="text-xs opacity-80">{donations.length} pendentes</div>
+                </div>
+              </button>
+            </div>
           </div>
-        </button>
-        <button
-          onClick={() => setActiveTab('donations')}
-          className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all ${
-            activeTab === 'donations'
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          <Heart size={20} />
-          <div className="text-left">
-            <div className="text-sm">Doações</div>
-            <div className="text-xs opacity-80">{donations.length} pendentes</div>
-          </div>
-        </button>
+        </div>
       </div>
 
       {/* Tab Content */}
