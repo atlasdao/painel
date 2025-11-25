@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader, CheckCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader, CheckCircle, XCircle, Circle } from 'lucide-react';
 import api from '@/app/lib/api';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -20,6 +20,18 @@ function ResetPasswordContent() {
   
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Password strength criteria
+  const passwordCriteria = {
+    minLength: newPassword.length >= 8,
+    hasLowercase: /[a-z]/.test(newPassword),
+    hasUppercase: /[A-Z]/.test(newPassword),
+    hasNumber: /\d/.test(newPassword),
+    hasSpecial: /[@$!%*?&]/.test(newPassword),
+    passwordsMatch: newPassword === confirmPassword && confirmPassword.length > 0,
+  };
+
+  const allCriteriaMet = Object.values(passwordCriteria).every(Boolean);
 
   useEffect(() => {
     const emailParam = searchParams.get('email');
@@ -296,18 +308,83 @@ function ResetPasswordContent() {
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-900/20 border border-blue-600 rounded-lg">
-                <p className="text-xs text-blue-300">
-                  A senha deve conter pelo menos 8 caracteres, incluindo:
-                  <br />• 1 letra minúscula • 1 letra maiúscula
-                  <br />• 1 número • 1 caractere especial
-                </p>
+              {/* Password Strength Criteria */}
+              <div className="p-4 bg-gray-900/50 border border-gray-600 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-gray-300 mb-3">Critérios de segurança:</p>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="flex items-center gap-2">
+                    {passwordCriteria.minLength ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.minLength ? 'text-green-400' : 'text-gray-400'}`}>
+                      Mínimo 8 caracteres
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {passwordCriteria.hasLowercase ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.hasLowercase ? 'text-green-400' : 'text-gray-400'}`}>
+                      1 letra minúscula
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {passwordCriteria.hasUppercase ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.hasUppercase ? 'text-green-400' : 'text-gray-400'}`}>
+                      1 letra maiúscula
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {passwordCriteria.hasNumber ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.hasNumber ? 'text-green-400' : 'text-gray-400'}`}>
+                      1 número
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {passwordCriteria.hasSpecial ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.hasSpecial ? 'text-green-400' : 'text-gray-400'}`}>
+                      1 caractere especial (@$!%*?&)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-gray-700 mt-1">
+                    {passwordCriteria.passwordsMatch ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className={`text-sm ${passwordCriteria.passwordsMatch ? 'text-green-400' : 'text-gray-400'}`}>
+                      Senhas coincidem
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div>
                 <button
                   type="submit"
-                  disabled={loading || !newPassword || !confirmPassword}
+                  disabled={loading || !allCriteriaMet}
                   className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
                 >
                   {loading ? (

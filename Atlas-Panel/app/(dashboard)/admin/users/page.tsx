@@ -362,15 +362,15 @@ export default function AdminUsersPage() {
             <option value="inactive">Inativos</option>
           </select>
 
-          {/* Validation Filter */}
+          {/* Email Verification Filter */}
           <select
             value={filterValidated}
             onChange={(e) => setFilterValidated(e.target.value)}
             className="px-3 py-2 input-modern"
           >
-            <option value="all">Toda Validação</option>
-            <option value="validated">Validados</option>
-            <option value="not-validated">Não Validados</option>
+            <option value="all">Todos os Emails</option>
+            <option value="validated">Verificados</option>
+            <option value="not-validated">Não Verificados</option>
           </select>
 
           {/* Sort By */}
@@ -408,6 +408,9 @@ export default function AdminUsersPage() {
                 </th>
                 <th className="text-left">
                   Status
+                </th>
+                <th className="text-left">
+                  Email Verificado
                 </th>
                 <th className="text-left">
                   Validação
@@ -472,13 +475,26 @@ export default function AdminUsersPage() {
                   <td>
                     {user.isAccountValidated ? (
                       <span className="badge badge-success">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Validado
+                        <Mail className="w-3 h-3 mr-1" />
+                        Verificado
                       </span>
                     ) : (
                       <span className="badge badge-warning">
                         <AlertCircle className="w-3 h-3 mr-1" />
                         Pendente
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {user.validatedAt ? (
+                      <span className="badge badge-success">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Validado
+                      </span>
+                    ) : (
+                      <span className="badge badge-secondary">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Não Validado
                       </span>
                     )}
                   </td>
@@ -594,9 +610,15 @@ export default function AdminUsersPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Validação</label>
+                  <label className="text-sm text-gray-400">Email Verificado</label>
                   <p className={selectedUser.isAccountValidated ? 'text-green-400' : 'text-yellow-400'}>
-                    {selectedUser.isAccountValidated ? 'Validado' : 'Não Validado'}
+                    {selectedUser.isAccountValidated ? 'Verificado' : 'Pendente'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-400">Validação</label>
+                  <p className={selectedUser.validatedAt ? 'text-green-400' : 'text-gray-400'}>
+                    {selectedUser.validatedAt ? 'Validado' : 'Não Validado'}
                   </p>
                 </div>
                 <div>

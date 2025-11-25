@@ -9,6 +9,7 @@ import {
 	Req,
 	Delete,
 	Query,
+	Patch,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
@@ -132,6 +133,19 @@ export class AuthController {
 		return user;
 	}
 
+	@Patch('notification-settings')
+	@UseGuards(JwtAuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: 'Update notification settings' })
+	@ApiResponse({ status: 200, description: 'Notification settings updated' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	async updateNotificationSettings(
+		@Req() req: any,
+		@Body() settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean },
+	) {
+		return this.authService.updateNotificationSettings(req.user.id, settings);
+	}
+
 	@Public()
 	@Post('validate')
 	@HttpCode(HttpStatus.OK)
@@ -176,5 +190,27 @@ export class AuthController {
 	@ApiResponse({ status: 400, description: 'Invalid code or request' })
 	async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
 		return this.authService.resetPassword(resetPasswordDto);
+	}
+
+	// ===== EMAIL VERIFICATION ENDPOINTS =====
+
+	@Public()
+	@Get('verify-email')
+	@ApiOperation({ summary: 'Verify email with token' })
+	@ApiQuery({ name: 'token', required: true, description: 'Email verification token' })
+	@ApiResponse({ status: 200, description: 'Email verified successfully' })
+	@ApiResponse({ status: 400, description: 'Invalid or expired token' })
+	async verifyEmail(@Query('token') token: string) {
+		return this.authService.verifyEmail(token);
+	}
+
+	@Public()
+	@Post('resend-verification')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ summary: 'Resend email verification' })
+	@ApiResponse({ status: 200, description: 'Verification email sent if account exists' })
+	@ApiResponse({ status: 400, description: 'Account already verified' })
+	async resendVerification(@Body('email') email: string) {
+		return this.authService.resendVerificationEmail(email);
 	}
 }

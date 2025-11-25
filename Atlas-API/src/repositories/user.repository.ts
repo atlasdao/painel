@@ -106,4 +106,10 @@ export class UserRepository extends AbstractBaseRepository<User> {
 			},
 		});
 	}
+
+	async findByEmailVerificationToken(token: string): Promise<User | null> {
+		return this.prisma.user.findFirst({
+			where: { emailVerificationToken: token },
+		});
+	}
 }

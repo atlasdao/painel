@@ -23,9 +23,10 @@ interface Webhook {
 
 const AVAILABLE_EVENTS = [
   { value: 'payment.created', label: 'Pagamento Criado', description: 'Quando um cliente acessa o link e gera um QR/PIX para pagamento' },
-  { value: 'payment.confirmed', label: 'Pagamento Confirmado', description: 'Quando o pagamento é confirmado e processado' },
+  { value: 'payment.completed', label: 'Pagamento Confirmado', description: 'Quando o pagamento é confirmado e processado' },
   { value: 'payment.failed', label: 'Pagamento Falhado', description: 'Quando um pagamento falha ou é rejeitado' },
-  { value: 'payment.expired', label: 'Pagamento Expirado', description: 'Quando um pagamento expira sem ser processado' }
+  { value: 'payment.expired', label: 'Pagamento Expirado', description: 'Quando um pagamento expira sem ser processado' },
+  { value: 'payment.refunded', label: 'Pagamento Estornado', description: 'Quando um pagamento é estornado/reembolsado' }
 ];
 
 export default function WebhookConfiguration({ paymentLinkId, onWebhookChange }: WebhookConfigurationProps) {

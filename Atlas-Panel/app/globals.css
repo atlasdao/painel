@@ -2096,7 +2096,6 @@ input, textarea, [contenteditable] {
   box-shadow:
     0 25px 50px rgba(0, 0, 0, 0.25),
     0 0 40px rgba(99, 102, 241, 0.1);
-  overflow: hidden;
   position: relative;
 }
 
@@ -2420,7 +2419,7 @@ input, textarea, [contenteditable] {
 html {
   /* Prevent iOS bounce */
   height: 100%;
-  overflow: hidden;
+  /* REMOVED: overflow: hidden - was blocking modal scroll */
   -webkit-overflow-scrolling: touch;
   /* Optimize for PWA */
   -webkit-touch-callout: none;

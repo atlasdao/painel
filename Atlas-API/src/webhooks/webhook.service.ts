@@ -18,6 +18,7 @@ import { TransactionStatus } from '@prisma/client';
 import { BotSyncService } from '../common/services/bot-sync.service';
 import { WebhookService as PaymentLinkWebhookService } from '../payment-link/webhook.service';
 import { ExternalWebhookService } from '../external-api/external-webhook.service';
+import { EmailService } from '../services/email.service';
 
 @Injectable()
 export class WebhookService {
@@ -32,6 +33,7 @@ export class WebhookService {
 		private readonly paymentLinkWebhookService: PaymentLinkWebhookService,
 		@Inject(forwardRef(() => ExternalWebhookService))
 		private readonly externalWebhookService: ExternalWebhookService,
+		private readonly emailService: EmailService,
 	) {}
 
 	/**
@@ -231,6 +233,38 @@ export class WebhookService {
 					// Don't fail the webhook processing if bot sync fails
 				}
 
+				// Send email notification to merchant if enabled
+				try {
+					const user = await this.prisma.user.findUnique({
+						where: { id: transaction.userId },
+						select: {
+							email: true,
+							username: true,
+							notifyApprovedSales: true,
+						},
+					});
+
+					if (user && user.notifyApprovedSales) {
+						const metadata = JSON.parse(transaction.metadata || '{}');
+						await this.emailService.sendApprovedSaleEmail(
+							user.email,
+							user.username,
+							{
+								productName: transaction.description || 'Pagamento PIX',
+								amount: transaction.amount, // Already in reais
+								buyerName: eventData.payerName || metadata.webhookEvent?.payerName,
+								transactionId: transaction.id,
+								paymentMethod: 'PIX',
+								createdAt: new Date(),
+							}
+						);
+						this.logger.log(`📧 SALE EMAIL: Notification sent to ${user.email}`);
+					}
+				} catch (error) {
+					this.logger.error(`Failed to send sale notification email:`, error);
+					// Don't fail the webhook processing if email fails
+				}
+
 				// Check if this transaction is associated with a payment link
 				try {
 					this.logger.log(`  📊 Checking for payment link metadata...`);
@@ -314,6 +348,41 @@ export class WebhookService {
 					this.logger.error(
 						`Failed to update payment link counters: ${error.message}`,
 					);
+				}
+			}
+
+			// Send email notification for IN_REVIEW transactions ONLY
+			if (newStatus === TransactionStatus.IN_REVIEW) {
+				this.logger.log(`⚠️ TRANSACTION IN REVIEW: ${transaction.id}`);
+				try {
+					const user = await this.prisma.user.findUnique({
+						where: { id: transaction.userId },
+						select: {
+							email: true,
+							username: true,
+							notifyReviewSales: true,
+						},
+					});
+
+					if (user && user.notifyReviewSales) {
+						const metadata = JSON.parse(transaction.metadata || '{}');
+						await this.emailService.sendReviewSaleEmail(
+							user.email,
+							user.username,
+							{
+								productName: transaction.description || 'Pagamento PIX',
+								amount: transaction.amount, // Already in reais
+								buyerName: eventData.payerName || metadata.webhookEvent?.payerName,
+								transactionId: transaction.id,
+								paymentMethod: 'PIX',
+								createdAt: new Date(),
+							}
+						);
+						this.logger.log(`📧 REVIEW EMAIL: Notification sent to ${user.email}`);
+					}
+				} catch (error) {
+					this.logger.error(`Failed to send review notification email:`, error);
+					// Don't fail the webhook processing if email fails
 				}
 			}
 

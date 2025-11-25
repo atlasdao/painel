@@ -82,6 +82,8 @@ export default function SettingsPage() {
     transactionAlerts: true,
     securityAlerts: true,
     marketingEmails: false,
+    notifyApprovedSales: true,
+    notifyReviewSales: true,
   });
 
   // API Key Request State
@@ -264,6 +266,13 @@ export default function SettingsPage() {
           type: user.defaultWalletType || 'LIQUID',
           pixKey: user.pixKey || '',
         });
+
+        // Set notification settings from user profile
+        setNotifications(prev => ({
+          ...prev,
+          notifyApprovedSales: user.notifyApprovedSales ?? true,
+          notifyReviewSales: user.notifyReviewSales ?? true,
+        }));
       }
     } catch (error) {
       console.error('[LOAD] Error loading profile:', error);
@@ -923,6 +932,21 @@ export default function SettingsPage() {
                 <p className="text-blue-400">
                   Configure suas formas de recebimento para pagamentos e saques.
                 </p>
+              </div>
+
+              {/* Warning about Payment Links */}
+              <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-yellow-400 flex-shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <h4 className="text-yellow-400 font-semibold mb-2">Importante sobre Links de Pagamento</h4>
+                    <p className="text-gray-300 text-sm leading-relaxed">
+                      Alterar a carteira aqui <strong className="text-white">não afeta links de pagamento já criados</strong>.
+                      Cada link mantém a carteira configurada no momento da sua criação ou última edição.
+                      Para atualizar a carteira de um link existente, edite o link diretamente na seção "Links de Pagamento".
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Current Settings Display */}
@@ -1981,31 +2005,79 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white mb-6">Preferências de Notificação</h2>
 
-              <div className="space-y-4">
-                {Object.entries({
-                  emailNotifications: 'Notificações por Email',
-                  transactionAlerts: 'Alertas de Transação',
-                  securityAlerts: 'Alertas de Segurança',
-                  marketingEmails: 'Emails de Marketing',
-                }).map(([key, label]) => (
-                  <label key={key} className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-700/70 transition-colors">
-                    <span className="text-white">{label}</span>
+              {/* Sales Notifications - Connected to API */}
+              <div className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <span className="text-green-400">💰</span> Notificações de Vendas
+                </h3>
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-gray-700/30 p-3 rounded-lg transition-colors">
+                    <div>
+                      <span className="text-white font-medium">Compras Aprovadas</span>
+                      <p className="text-sm text-gray-400 mt-1">Receba um email quando uma venda for aprovada</p>
+                    </div>
                     <input
                       type="checkbox"
-                      checked={notifications[key as keyof typeof notifications]}
-                      onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
+                      checked={notifications.notifyApprovedSales}
+                      onChange={async (e) => {
+                        const newValue = e.target.checked;
+                        setNotifications({ ...notifications, notifyApprovedSales: newValue });
+                        try {
+                          await api.patch('/auth/notification-settings', { notifyApprovedSales: newValue });
+                          toast.success(newValue ? 'Notificações de vendas aprovadas ativadas!' : 'Notificações de vendas aprovadas desativadas');
+                        } catch (error) {
+                          console.error('Error updating notification settings:', error);
+                          toast.error('Erro ao salvar preferência');
+                          setNotifications({ ...notifications, notifyApprovedSales: !newValue });
+                        }
+                      }}
+                      className="w-5 h-5 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-gray-700/30 p-3 rounded-lg transition-colors">
+                    <div>
+                      <span className="text-white font-medium">Compras em Revisão</span>
+                      <p className="text-sm text-gray-400 mt-1">Receba um email quando uma transação entrar em revisão</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.notifyReviewSales}
+                      onChange={async (e) => {
+                        const newValue = e.target.checked;
+                        setNotifications({ ...notifications, notifyReviewSales: newValue });
+                        try {
+                          await api.patch('/auth/notification-settings', { notifyReviewSales: newValue });
+                          toast.success(newValue ? 'Notificações de revisão ativadas!' : 'Notificações de revisão desativadas');
+                        } catch (error) {
+                          console.error('Error updating notification settings:', error);
+                          toast.error('Erro ao salvar preferência');
+                          setNotifications({ ...notifications, notifyReviewSales: !newValue });
+                        }
+                      }}
+                      className="w-5 h-5 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Other Notifications - Future implementation */}
+              <div className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <span className="text-blue-400">🔔</span> Outras Notificações
+                </h3>
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-700/30 transition-colors">
+                    <span className="text-white">Emails de Marketing</span>
+                    <input
+                      type="checkbox"
+                      checked={notifications.marketingEmails}
+                      onChange={(e) => setNotifications({ ...notifications, marketingEmails: e.target.checked })}
                       className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                     />
                   </label>
-                ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Estas preferências serão implementadas em breve.</p>
               </div>
-
-              <button
-                onClick={() => toast.success('Preferências de notificação salvas!')}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
-              >
-                Salvar Preferências
-              </button>
             </div>
           )}
         </div>

@@ -23,7 +23,7 @@ export default function Footer() {
     suporte: [
       { label: 'Central de Ajuda', href: '#', icon: HelpCircle },
       { label: 'Telegram', href: 'https://t.me/atlasDAO_support', external: true },
-      { label: 'Email', href: 'mailto:suporte@atlas.com.br' },
+      { label: 'Email', href: 'mailto:contato@atlasdao.info' },
       { label: 'Termos de Uso', href: '#' }
     ]
   };
@@ -68,7 +68,7 @@ export default function Footer() {
                 <MessageCircle className="w-5 h-5" />
               </a>
               <a
-                href="mailto:contato@atlas.com.br"
+                href="mailto:contato@atlasdao.info"
                 className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors"
                 aria-label="Email"
               >

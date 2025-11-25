@@ -93,12 +93,19 @@ export class AuthService {
 		// Hash password
 		const hashedPassword = await bcrypt.hash(password, 10);
 
-		// Create user with default 'user' role
+		// Generate email verification token
+		const verificationToken = uuidv4();
+		const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+		// Create user with default 'user' role and verification token
 		const user = await this.userRepository.createWithRoles(
 			{
 				email,
 				username,
 				password: hashedPassword,
+				isAccountValidated: false,
+				emailVerificationToken: verificationToken,
+				emailVerificationExpires: verificationExpires,
 			},
 			[], // Will be assigned default role by the service
 		);
@@ -106,15 +113,77 @@ export class AuthService {
 		// Generate tokens
 		const authResponse = await this.generateAuthResponse(user);
 
-		// Send welcome email (non-blocking)
+		// Send email verification (non-blocking)
 		try {
-			await this.emailService.sendWelcomeEmail(user.email, user.username);
+			await this.emailService.sendEmailVerification(user.email, user.username, verificationToken);
+			this.logger.log(`[REGISTER] Email verification sent to ${user.email}`);
 		} catch (error) {
-			console.error('Failed to send welcome email:', error);
+			this.logger.error('Failed to send email verification:', error);
 			// Don't fail registration if email fails
 		}
 
 		return authResponse;
+	}
+
+	async verifyEmail(token: string): Promise<{ message: string; success: boolean }> {
+		// Find user by verification token
+		const user = await this.userRepository.findByEmailVerificationToken(token);
+
+		if (!user) {
+			throw new BadRequestException('Token de verificação inválido ou expirado.');
+		}
+
+		// Check if token is expired
+		if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
+			throw new BadRequestException('Token de verificação expirado. Solicite um novo email de verificação.');
+		}
+
+		// Update user as verified
+		await this.userRepository.update(user.id, {
+			isAccountValidated: true,
+			emailVerificationToken: null,
+			emailVerificationExpires: null,
+			validatedAt: new Date(),
+		});
+
+		this.logger.log(`[VERIFY EMAIL] Email verified for user ${user.email}`);
+
+		return {
+			message: 'Email verificado com sucesso! Sua conta está ativa.',
+			success: true,
+		};
+	}
+
+	async resendVerificationEmail(email: string): Promise<{ message: string }> {
+		const user = await this.userRepository.findByEmail(email);
+
+		if (!user) {
+			// Return success even if user doesn't exist (security best practice)
+			return { message: 'Se o email existir, um novo link de verificação foi enviado.' };
+		}
+
+		if (user.isAccountValidated) {
+			throw new BadRequestException('Esta conta já está verificada.');
+		}
+
+		// Generate new verification token
+		const verificationToken = uuidv4();
+		const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+		await this.userRepository.update(user.id, {
+			emailVerificationToken: verificationToken,
+			emailVerificationExpires: verificationExpires,
+		});
+
+		// Send email verification
+		try {
+			await this.emailService.sendEmailVerification(user.email, user.username, verificationToken);
+		} catch (error) {
+			this.logger.error('Failed to resend email verification:', error);
+			throw new BadRequestException('Falha ao enviar email. Tente novamente.');
+		}
+
+		return { message: 'Se o email existir, um novo link de verificação foi enviado.' };
 	}
 
 	async login(loginDto: LoginDto): Promise<AuthResponseDto | { requiresTwoFactor: boolean; sessionToken: string; message: string; user?: { email: string } }> {
@@ -435,12 +504,47 @@ export class AuthService {
 			defaultWalletType: user.defaultWalletType || null,
 			pixKey: user.pixKey || null,
 			pixKeyType: user.pixKeyType || null,
+			notifyApprovedSales: user.notifyApprovedSales ?? true,
+			notifyReviewSales: user.notifyReviewSales ?? true,
 		};
 
 		this.logger.log(
 			`[AUTH GET PROFILE] Returning profile with profilePicture: ${!!result.profilePicture}`,
 		);
 		return result;
+	}
+
+	async updateNotificationSettings(
+		userId: string,
+		settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean },
+	): Promise<any> {
+		this.logger.log(
+			`[AUTH] Updating notification settings for user: ${userId}`,
+		);
+
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new UnauthorizedException('Usuário não encontrado');
+		}
+
+		const updateData: any = {};
+		if (settings.notifyApprovedSales !== undefined) {
+			updateData.notifyApprovedSales = settings.notifyApprovedSales;
+		}
+		if (settings.notifyReviewSales !== undefined) {
+			updateData.notifyReviewSales = settings.notifyReviewSales;
+		}
+
+		const updatedUser = await this.userRepository.update(userId, updateData);
+
+		this.logger.log(
+			`[AUTH] Notification settings updated - notifyApprovedSales: ${updatedUser.notifyApprovedSales}, notifyReviewSales: ${updatedUser.notifyReviewSales}`,
+		);
+
+		return {
+			notifyApprovedSales: updatedUser.notifyApprovedSales,
+			notifyReviewSales: updatedUser.notifyReviewSales,
+		};
 	}
 
 	async validateRefreshToken(token: string): Promise<JwtPayload> {
@@ -518,7 +622,7 @@ export class AuthService {
 
 		// Generate 6-digit code
 		const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-		const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+		const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
 		this.logger.log('[FORGOT-PASSWORD] Generated reset code:', resetCode);
 		this.logger.log(

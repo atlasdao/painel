@@ -1051,6 +1051,16 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           {/* Custom Amount Input for Mobile */}
           {paymentData?.isCustomAmount && !showQrCode && (
             <div className="space-y-4">
+              {/* Payment Description for Mobile */}
+              {paymentData?.description && (
+                <div className="bg-slate-900/60 backdrop-blur rounded-xl p-4 border border-slate-700/30">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-slate-400 leading-relaxed">{paymentData.description}</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-3">
                   Digite o valor do pagamento

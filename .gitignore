@@ -200,3 +200,23 @@ Atlas-API/docs/API_USAGE_EXAMPLES.md
 # Contêm informações sensíveis do banco de dados e configurações
 migration-scripts/
 /migration-scripts/*
+
+# --- Arquivos de Backup Temporários ---
+*.backup.*
+*.tar.gz
+*.sql
+!prisma/migrations/*.sql
+
+# --- Scripts e Documentação Temporária ---
+*_SUMMARY*.md
+*_GUIDE*.md
+deploy-production.sh
+push-to-github.sh
+fix-scroll.js
+force-fix-scroll.js
+
+# --- Service Worker Desabilitado ---
+sw.js.disabled
+
+# --- Checksums de Backup ---
+backup-checksums*.txt

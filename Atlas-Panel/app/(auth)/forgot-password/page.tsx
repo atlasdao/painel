@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
             
             <div className="p-4 bg-yellow-900/20 border border-yellow-600 rounded-lg">
               <p className="text-sm text-yellow-300">
-                ⏰ O código expira em 15 minutos
+                ⏰ O código expira em 10 minutos
               </p>
             </div>
 

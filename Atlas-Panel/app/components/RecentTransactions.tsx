@@ -197,14 +197,6 @@ export default function RecentTransactions() {
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Clock className="w-3 h-3" />
                   <span>{formatDate(transaction.createdAt)}</span>
-                  {transaction.externalId && (
-                    <>
-                      <span>•</span>
-                      <span className="font-mono text-xs truncate max-w-[100px]">
-                        {transaction.externalId}
-                      </span>
-                    </>
-                  )}
                 </div>
               </div>
 

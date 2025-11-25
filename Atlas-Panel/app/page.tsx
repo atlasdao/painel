@@ -36,17 +36,14 @@ export default function Home() {
   }, [router]);
 
   useEffect(() => {
-    // Register service worker for PWA
+    // DISABLED: Service worker was causing aggressive caching issues
+    // Unregister any existing service workers
     if ('serviceWorker' in navigator && typeof window !== 'undefined') {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(
-          registration => {
-            console.log('ServiceWorker registration successful');
-          },
-          err => {
-            console.log('ServiceWorker registration failed: ', err);
-          }
-        );
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister();
+          console.log('Service Worker unregistered');
+        });
       });
     }
   }, []);

@@ -1,5 +1,6 @@
 'use client';
 
+// 🔴🔴🔴 BUILD TIMESTAMP: 2025-01-23 19:30 🔴🔴🔴
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { pixService } from '@/app/lib/services';
 import { Transaction } from '@/app/types';
@@ -529,19 +530,21 @@ export default function TransactionsPage() {
                           <p className="text-xs text-gray-500 truncate flex-1 min-w-0">
                             {transaction.description}
                           </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(`/payment-confirmation/${transaction.id}`, '_blank');
-                            }}
-                            className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
-                            title="Ver comprovante"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
+                          {transaction.status === 'COMPLETED' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`/payment-confirmation/${transaction.id}`, '_blank');
+                              }}
+                              className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                              title="Ver comprovante"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       )}
-                      {!transaction.description && (
+                      {!transaction.description && transaction.status === 'COMPLETED' && (
                         <div className="flex justify-end mt-1">
                           <button
                             onClick={(e) => {
@@ -593,16 +596,18 @@ export default function TransactionsPage() {
                     <div className="text-gray-400">
                       <Eye className="w-4 h-4" />
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`/payment-confirmation/${transaction.id}`, '_blank');
-                      }}
-                      className="text-gray-400 hover:text-blue-400 transition-colors"
-                      title="Ver comprovante"
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
+                    {transaction.status === 'COMPLETED' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`/payment-confirmation/${transaction.id}`, '_blank');
+                        }}
+                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                        title="Ver comprovante"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -639,6 +644,7 @@ export default function TransactionsPage() {
             setShowModal(false);
             setSelectedTransaction(null);
           }}
+          isAdmin={false}
         />
       )}
     </div>

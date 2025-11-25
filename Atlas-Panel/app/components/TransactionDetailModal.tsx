@@ -12,58 +12,28 @@ import {
   Clock,
   X,
   Copy,
-  Search
+  Search,
+  Link2,
+  QrCode
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
 import { pixService } from '@/app/lib/services';
-
-// Enhanced transaction styling helpers
-const getStatusClass = (status: string) => {
-  const statusMap: Record<string, string> = {
-    'COMPLETED': 'transaction-status-professional transaction-status-completed',
-    'PENDING': 'transaction-status-professional transaction-status-pending',
-    'PROCESSING': 'transaction-status-professional transaction-status-processing',
-    'IN_REVIEW': 'transaction-status-professional transaction-status-processing',
-    'FAILED': 'transaction-status-professional transaction-status-failed',
-    'EXPIRED': 'transaction-status-professional transaction-status-expired',
-    'CANCELLED': 'transaction-status-professional transaction-status-expired'
-  };
-  return statusMap[status] || 'transaction-status-professional transaction-status-expired';
-};
-
-const getAmountClass = (type: string) => {
-  const typeMap: Record<string, string> = {
-    'DEPOSIT': 'transaction-amount-display transaction-amount-deposit',
-    'WITHDRAW': 'transaction-amount-display transaction-amount-withdraw',
-    'TRANSFER': 'transaction-amount-display transaction-amount-transfer',
-    'PAYMENT': 'transaction-amount-display transaction-amount-payment'
-  };
-  return typeMap[type] || 'transaction-amount-display transaction-amount-transfer';
-};
-
-const getIconContainerClass = (type: string) => {
-  const typeMap: Record<string, string> = {
-    'DEPOSIT': 'transaction-icon-container transaction-icon-deposit',
-    'WITHDRAW': 'transaction-icon-container transaction-icon-withdraw',
-    'TRANSFER': 'transaction-icon-container transaction-icon-transfer',
-    'PAYMENT': 'transaction-icon-container transaction-icon-payment'
-  };
-  return typeMap[type] || 'transaction-icon-container transaction-icon-transfer';
-};
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
   isOpen: boolean;
   onClose: () => void;
   onTransactionUpdate?: (updatedTransaction: Transaction) => void;
+  isAdmin?: boolean;
 }
 
 export default function TransactionDetailModal({
   transaction,
   isOpen,
   onClose,
-  onTransactionUpdate
+  onTransactionUpdate,
+  isAdmin = false
 }: TransactionDetailModalProps) {
   const [isChecking, setIsChecking] = useState(false);
 
@@ -137,130 +107,276 @@ export default function TransactionDetailModal({
     }
   };
 
+  const getPaymentMethod = () => {
+    if (!transaction.metadata) return null;
+
+    try {
+      const metadata = JSON.parse(transaction.metadata);
+
+      // Se tem paymentLinkId e shortCode, foi via Link de Pagamento
+      if (metadata.paymentLinkId && metadata.shortCode) {
+        return {
+          type: 'link',
+          icon: <Link2 className="text-blue-400" size={18} />,
+          label: 'Link de Pagamento',
+          color: '#60a5fa'
+        };
+      }
+
+      // Se tem isQrCodePayment mas não tem paymentLinkId, foi QR Code direto da API
+      if (metadata.isQrCodePayment && !metadata.paymentLinkId) {
+        return {
+          type: 'qrcode',
+          icon: <QrCode className="text-purple-400" size={18} />,
+          label: 'QR Code (API)',
+          color: '#c084fc'
+        };
+      }
+    } catch (error) {
+      console.error('Error parsing metadata:', error);
+    }
+
+    return null;
+  };
+
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copiado para a área de transferência!`);
+      toast.success(`${label} copiado!`);
     } catch (error) {
-      toast.error('Erro ao copiar para a área de transferência');
+      toast.error('Erro ao copiar');
     }
   };
 
   const checkTransactionStatus = async () => {
     setIsChecking(true);
     try {
-      toast.loading('Verificando status da transação...', { id: transaction.id });
-
+      toast.loading('Verificando status...', { id: transaction.id });
       const updatedStatus = await pixService.checkDepositStatus(transaction.id);
-
-      // Update the transaction and notify parent
       const updatedTransaction = { ...transaction, ...updatedStatus };
       if (onTransactionUpdate) {
         onTransactionUpdate(updatedTransaction);
       }
-
-      toast.success('Status da transação atualizado!', { id: transaction.id });
+      toast.success('Status atualizado!', { id: transaction.id });
     } catch (error) {
       console.error('Error checking transaction status:', error);
-      toast.error('Erro ao verificar status da transação', { id: transaction.id });
+      toast.error('Erro ao verificar status', { id: transaction.id });
     } finally {
       setIsChecking(false);
     }
   };
 
+  // Altura do header e footer
+  const HEADER_HEIGHT = 70;
+  const FOOTER_HEIGHT = 80;
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="transaction-modal-premium w-full max-w-[95vw] lg:max-w-6xl max-h-[90vh] flex flex-col">
-          {/* Enhanced Header */}
-          <div className="flex items-center justify-between p-8 border-b border-white/10">
-            <div className="flex items-center gap-4">
-              <div className={getIconContainerClass(transaction.type)}>
-                {getTransactionIcon(transaction.type)}
-              </div>
-              <div>
-                <h2 className="transaction-heading-primary text-xl mb-1">
-                  Detalhes da Transação
-                </h2>
-                <p className="transaction-text-caption">
-                  {getTransactionLabel(transaction.type)} • {formatDate(transaction.createdAt)}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="transaction-action-btn p-3"
-              aria-label="Fechar modal"
-            >
-              <X size={20} />
-            </button>
-          </div>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 999999,
+        padding: '20px'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          backgroundColor: '#1f2937',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '900px',
+          height: '90vh',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+          overflow: 'hidden'
+        }}
+      >
+        {/* HEADER - Position Absolute */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: `${HEADER_HEIGHT}px`,
+          padding: '20px 24px',
+          borderBottom: '1px solid #374151',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#1f2937',
+          zIndex: 10
+        }}>
+          <h2 style={{ color: 'white', fontSize: '22px', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+            Detalhes da Transação
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: '#374151',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px',
+              cursor: 'pointer',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-6">
-            {/* Status and Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* CONTEÚDO SCROLLABLE - Com altura calculada */}
+        <div style={{
+          position: 'absolute',
+          top: `${HEADER_HEIGHT}px`,
+          left: 0,
+          right: 0,
+          bottom: `${FOOTER_HEIGHT}px`,
+          overflowY: 'scroll',
+          overflowX: 'hidden',
+          padding: '24px',
+          color: 'white',
+          backgroundColor: '#1f2937'
+        }}>
+          <div style={{ paddingBottom: '20px' }}>
+            {/* Tipo e Status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Tipo de Transação</h3>
-                <div className="flex items-center">
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
                   {getTransactionIcon(transaction.type)}
-                  <span className="ml-2 text-lg font-medium text-white">
-                    {getTransactionLabel(transaction.type)}
-                  </span>
+                  <span style={{ fontSize: '16px', fontWeight: '500' }}>{getTransactionLabel(transaction.type)}</span>
                 </div>
               </div>
-
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Status</h3>
-                <div className="flex items-center">
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
                   {getStatusIcon(transaction.status)}
-                  <span className="ml-2 text-lg font-medium text-white">
-                    {getStatusLabel(transaction.status)}
-                  </span>
+                  <span style={{ fontSize: '16px', fontWeight: '500' }}>{getStatusLabel(transaction.status)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Amount */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Valor</h3>
-              <div className={`text-2xl font-bold ${
-                transaction.type === 'DEPOSIT' ? 'text-green-500' :
-                transaction.type === 'WITHDRAW' ? 'text-red-500' :
-                'text-white'
-              }`}>
-                {transaction.type === 'DEPOSIT' ? '+' : '-'}
-                {formatCurrency(transaction.amount)}
+            {/* Nome do Cliente e Método de Pagamento */}
+            {(transaction.status === 'COMPLETED' && (transaction.buyerName || getPaymentMethod())) && (
+              <div style={{ display: 'grid', gridTemplateColumns: getPaymentMethod() && transaction.buyerName ? '1fr 1fr' : '1fr', gap: '24px', marginBottom: '24px' }}>
+                {transaction.buyerName && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</div>
+                    <div style={{
+                      backgroundColor: '#374151',
+                      padding: '14px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <span style={{ fontSize: '16px', fontWeight: '500' }}>{transaction.buyerName}</span>
+                    </div>
+                  </div>
+                )}
+                {getPaymentMethod() && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Método de Pagamento</div>
+                    <div style={{
+                      backgroundColor: '#374151',
+                      padding: '14px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      border: `1px solid ${getPaymentMethod()!.color}40`
+                    }}>
+                      {getPaymentMethod()!.icon}
+                      <span style={{ fontSize: '16px', fontWeight: '500', color: getPaymentMethod()!.color }}>{getPaymentMethod()!.label}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Valor */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor</div>
+              <div style={{
+                fontSize: '32px',
+                fontWeight: '700',
+                color: transaction.type === 'DEPOSIT' ? '#10b981' : '#ef4444',
+                backgroundColor: transaction.type === 'DEPOSIT' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                padding: '16px',
+                borderRadius: '10px',
+                border: `2px solid ${transaction.type === 'DEPOSIT' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+              }}>
+                {transaction.type === 'DEPOSIT' ? '+' : '-'}{formatCurrency(transaction.amount)}
               </div>
             </div>
 
-            {/* Transaction ID */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">ID da Transação</h3>
-              <div className="flex items-center gap-2 bg-gray-700/50 p-3 rounded-lg">
-                <code className="text-sm font-mono text-white break-all flex-1 min-w-0">{transaction.id}</code>
+            {/* ID da Transação */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID da Transação</div>
+              <div style={{
+                backgroundColor: '#374151',
+                padding: '14px',
+                borderRadius: '10px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1 }}>{transaction.id}</code>
                 <button
-                  onClick={() => copyToClipboard(transaction.id, 'ID da transação')}
-                  className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                  title="Copiar ID"
+                  onClick={() => copyToClipboard(transaction.id, 'ID')}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: '#60a5fa',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    marginLeft: '8px'
+                  }}
                 >
-                  <Copy size={16} />
+                  <Copy size={18} />
                 </button>
               </div>
             </div>
 
             {/* External ID */}
-            {transaction.externalId && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">ID Externo</h3>
-                <div className="flex items-center gap-2 bg-gray-700/50 p-3 rounded-lg">
-                  <code className="text-sm font-mono text-white break-all flex-1 min-w-0">{transaction.externalId}</code>
+            {isAdmin && transaction.externalId && (
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID Externo (DePix)</div>
+                <div style={{
+                  backgroundColor: '#374151',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1 }}>{transaction.externalId}</code>
                   <button
-                    onClick={() => copyToClipboard(transaction.externalId!, 'ID externo')}
-                    className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                    title="Copiar ID externo"
+                    onClick={() => copyToClipboard(transaction.externalId!, 'ID Externo')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#60a5fa',
+                      cursor: 'pointer',
+                      padding: '8px',
+                      marginLeft: '8px'
+                    }}
                   >
-                    <Copy size={16} />
+                    <Copy size={18} />
                   </button>
                 </div>
               </div>
@@ -268,246 +384,131 @@ export default function TransactionDetailModal({
 
             {/* PIX Key */}
             {transaction.pixKey && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Chave PIX</h3>
-                <div className="flex items-center gap-2 bg-gray-700/50 p-3 rounded-lg">
-                  <code className="text-sm font-mono text-white break-all flex-1 min-w-0">{transaction.pixKey}</code>
-                  <button
-                    onClick={() => copyToClipboard(transaction.pixKey!, 'Chave PIX')}
-                    className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                    title="Copiar chave PIX"
-                  >
-                    <Copy size={16} />
-                  </button>
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Carteira</div>
+                <div style={{
+                  backgroundColor: '#374151',
+                  padding: '14px',
+                  borderRadius: '10px'
+                }}>
+                  <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{transaction.pixKey}</code>
                 </div>
               </div>
             )}
 
-            {/* Description */}
+            {/* Descrição */}
             {transaction.description && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Descrição</h3>
-                <p className="text-white bg-gray-700/50 p-3 rounded-lg">{transaction.description}</p>
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Descrição</div>
+                <div style={{
+                  backgroundColor: '#374151',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  lineHeight: '1.6'
+                }}>
+                  {transaction.description}
+                </div>
               </div>
             )}
 
             {/* Error Message */}
             {transaction.errorMessage && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Mensagem de Erro</h3>
-                <p className="text-red-400 bg-red-900/20 border border-red-600 p-3 rounded-lg">
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mensagem de Erro</div>
+                <div style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  color: '#fca5a5',
+                  lineHeight: '1.6'
+                }}>
                   {transaction.errorMessage}
-                </p>
+                </div>
               </div>
             )}
 
-            {/* Timestamps */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Criação</h3>
-                <p className="text-white">{formatDate(transaction.createdAt)}</p>
+            {/* Data de Criação */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Criação</div>
+              <div style={{ fontSize: '16px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+                {formatDate(transaction.createdAt)}
               </div>
+            </div>
 
-              {transaction.processedAt && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Processamento</h3>
-                  <p className="text-white">{formatDate(transaction.processedAt)}</p>
+            {/* Data de Processamento */}
+            {transaction.processedAt && (
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Processamento</div>
+                <div style={{ fontSize: '16px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+                  {formatDate(transaction.processedAt)}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* DePix Address and Metadata */}
-            {(transaction.metadata || transaction.pixKey) && (() => {
-              try {
-                const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {};
-                const eulenResponse = metadata.eulenResponse || metadata;
-                // DePix address can be in multiple places depending on transaction type
-                const depixAddress = metadata.depixAddress ||
-                                    eulenResponse?.depixAddress ||
-                                    transaction.pixKey ||
-                                    eulenResponse?.response?.depixAddress;
-
-                return (
-                  <>
-                    {/* DePix Destination Address */}
-                    {depixAddress && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-400 mb-2">
-                          {transaction.type === 'DEPOSIT'
-                            ? '🔹 Carteira DePix de Destino (Depósito)'
-                            : '🔸 Endereço DePix'}
-                        </h3>
-                        <div className="flex items-center gap-2 bg-gradient-to-r from-green-900/30 to-green-800/20 border border-green-600 p-3 rounded-lg">
-                          <code className="text-sm font-mono text-green-400 break-all flex-1 min-w-0">{depixAddress}</code>
-                          <button
-                            onClick={() => copyToClipboard(depixAddress, 'Endereço DePix')}
-                            className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                            title="Copiar endereço DePix"
-                          >
-                            <Copy size={16} />
-                          </button>
-                        </div>
-                        {transaction.type === 'DEPOSIT' && (
-                          <p className="text-xs text-gray-400 mt-2">
-                            Este é o endereço Liquid Network para onde os DePix foram enviados após conversão do PIX
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                  {/* QR Code Information */}
-                  {(eulenResponse?.qrCopyPaste || eulenResponse?.response?.qrCopyPaste) && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">QR Code PIX</h3>
-                      <div className="flex items-center gap-2 bg-gray-700/50 p-3 rounded-lg">
-                        <code className="text-xs font-mono text-blue-400 break-all flex-1 min-w-0">
-                          {(eulenResponse.qrCopyPaste || eulenResponse.response.qrCopyPaste).substring(0, 100)}...
-                        </code>
-                        <button
-                          onClick={() => copyToClipboard(
-                            eulenResponse.qrCopyPaste || eulenResponse.response.qrCopyPaste,
-                            'QR Code PIX'
-                          )}
-                          className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                          title="Copiar QR Code"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Currency Information */}
-                  {transaction.currency && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Moeda</h3>
-                      <p className="text-white bg-gray-700 p-3 rounded-lg font-mono">
-                        {transaction.currency}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* PIX Key Type */}
-                  {transaction.pixKeyType && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Tipo da Chave PIX</h3>
-                      <p className="text-white bg-gray-700/50 p-3 rounded-lg">
-                        {transaction.pixKeyType}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Depix API Response Details */}
-                  {eulenResponse && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes</h3>
-                      <div className="bg-gray-700 p-4 rounded-lg space-y-3">
-                        {/* Transaction ID from Depix */}
-                        {(eulenResponse.response?.id || eulenResponse.id) && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-400 mb-1">ID Depix</h4>
-                            <div className="flex items-center gap-2">
-                              <code className="text-sm font-mono text-yellow-400 break-all flex-1 min-w-0">
-                                {eulenResponse.response?.id || eulenResponse.id}
-                              </code>
-                              <button
-                                onClick={() => copyToClipboard(
-                                  eulenResponse.response?.id || eulenResponse.id,
-                                  'ID Depix'
-                                )}
-                                className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                                title="Copiar ID Depix"
-                              >
-                                <Copy size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Status from Depix */}
-                        {(eulenResponse.response?.status || eulenResponse.status) && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-400 mb-1">Status Depix</h4>
-                            <span className="text-sm text-orange-400 font-medium">
-                              {eulenResponse.response?.status || eulenResponse.status}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Async flag */}
-                        {eulenResponse.async !== undefined && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-400 mb-1">Processamento</h4>
-                            <span className="text-sm text-purple-400">
-                              {eulenResponse.async ? 'Assíncrono' : 'Síncrono'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* QR Image URL */}
-                        {(eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl) && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-400 mb-1">URL da Imagem QR</h4>
-                            <div className="flex items-center gap-2">
-                              <code className="text-xs font-mono text-cyan-400 break-all flex-1 min-w-0">
-                                {(eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl).substring(0, 50)}...
-                              </code>
-                              <button
-                                onClick={() => copyToClipboard(
-                                  eulenResponse.response?.qrImageUrl || eulenResponse.qrImageUrl,
-                                  'URL da imagem QR'
-                                )}
-                                className="text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                                title="Copiar URL da imagem"
-                              >
-                                <Copy size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  </>
-                );
-              } catch (error) {
-                return (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Metadados</h3>
-                    <pre className="text-sm text-white bg-gray-700 p-3 rounded-lg overflow-x-auto">
-                      {transaction.metadata}
-                    </pre>
-                  </div>
-                );
-              }
-            })()}
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-between p-6 border-t border-gray-700">
-            <div>
-              {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING' || transaction.status === 'IN_REVIEW') && (
-                <button
-                  onClick={checkTransactionStatus}
-                  disabled={isChecking}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw size={16} className={`mr-2 ${isChecking ? 'animate-spin' : ''}`} />
-                  {isChecking ? 'Verificando...' : 'Verificar Status'}
-                </button>
-              )}
-            </div>
-          </div>
-
-            <button
-              onClick={onClose}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Fechar
-            </button>
+            {/* Espaço extra para garantir scroll */}
+            <div style={{ height: '100px' }}></div>
           </div>
         </div>
+
+        {/* FOOTER - Position Absolute */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: `${FOOTER_HEIGHT}px`,
+          padding: '20px 24px',
+          borderTop: '1px solid #374151',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#1f2937',
+          zIndex: 10
+        }}>
+          <div>
+            {(transaction.status === 'PENDING' || transaction.status === 'PROCESSING' || transaction.status === 'IN_REVIEW') && (
+              <button
+                onClick={checkTransactionStatus}
+                disabled={isChecking}
+                style={{
+                  background: isChecking ? '#6b7280' : 'linear-gradient(to right, #2563eb, #7c3aed)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '10px',
+                  cursor: isChecking ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '15px'
+                }}
+              >
+                <RefreshCw size={18} className={isChecking ? 'animate-spin' : ''} />
+                {isChecking ? 'Verificando...' : 'Verificar Status'}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: '#374151',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '15px'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

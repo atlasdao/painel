@@ -23,6 +23,7 @@ import {
   Target,
   Award,
   ChevronRight,
+  ChevronLeft,
   PiggyBank,
   AlertCircle,
   Store,
@@ -45,6 +46,12 @@ export default function DashboardPage() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [animatedBalance, setAnimatedBalance] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const ITEMS_PER_PAGE = 10;
 
   // Fun loading messages that rotate
   const loadingMessages = [
@@ -102,6 +109,45 @@ export default function DashboardPage() {
     await authService.refreshUserDataInBackground();
   };
 
+  // Load transactions with pagination
+  const loadTransactionsPage = async (page: number, isAdminUser: boolean) => {
+    setLoadingTransactions(true);
+    try {
+      const offset = (page - 1) * ITEMS_PER_PAGE;
+
+      if (isAdminUser) {
+        // First get total count by fetching a large batch
+        const allTransactions = await adminService.getAllTransactions({ limit: 1000 });
+        setTotalTransactions(allTransactions?.length || 0);
+
+        // Then get paginated results
+        const transactionsData = await adminService.getAllTransactions({
+          limit: ITEMS_PER_PAGE,
+          offset
+        });
+        setRecentTransactions(transactionsData || []);
+      } else {
+        // First get total count
+        const allTransactions = await pixService.getTransactions({ limit: 1000 });
+        setTotalTransactions(allTransactions?.length || 0);
+
+        // Then get paginated results
+        const transactionsData = await pixService.getTransactions({
+          limit: ITEMS_PER_PAGE,
+          offset
+        });
+        setRecentTransactions(transactionsData || []);
+      }
+
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('Error loading transactions page:', error);
+      toast.error('Erro ao carregar transações');
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
   const loadDashboardData = async (isRefresh = false) => {
     console.log('🚀 Dashboard: Starting loadDashboardData, isRefresh:', isRefresh);
     if (isRefresh) {
@@ -141,28 +187,38 @@ export default function DashboardPage() {
       if (isAdmin(currentUser?.role)) {
         console.log('👨‍💼 Dashboard: Loading admin dashboard...');
         // Admin Dashboard - force fresh data on refresh
-        const [statsData, transactionsData] = await Promise.all([
+        const [statsData, allTransactionsData, transactionsData] = await Promise.all([
           adminService.getDashboardStats().catch(err => {
             console.error('❌ Dashboard: Error loading stats:', err);
             return null;
           }),
-          adminService.getAllTransactions({ limit: 10 }).catch(err => {
+          adminService.getAllTransactions({ limit: 1000 }).catch(err => {
+            console.error('❌ Dashboard: Error loading all transactions for count:', err);
+            return [];
+          }),
+          adminService.getAllTransactions({ limit: ITEMS_PER_PAGE }).catch(err => {
             console.error('❌ Dashboard: Error loading transactions:', err);
             return [];
           }),
         ]);
         console.log('✅ Dashboard: Admin data loaded:', { statsData, transactionsData });
         setStats(statsData);
+        setTotalTransactions(allTransactionsData?.length || 0);
         setRecentTransactions(transactionsData || []);
+        setCurrentPage(1);
       } else {
         console.log('👤 Dashboard: Loading user dashboard...');
         // User Dashboard - force fresh data on refresh
-        const [balanceData, transactionsData] = await Promise.all([
+        const [balanceData, allTransactionsData, transactionsData] = await Promise.all([
           pixService.getBalance().catch(err => {
             console.error('❌ Dashboard: Error loading balance:', err);
             return { available: 0, pending: 0, total: 0 };
           }),
-          pixService.getTransactions({ limit: 10 }).catch(err => {
+          pixService.getTransactions({ limit: 1000 }).catch(err => {
+            console.error('❌ Dashboard: Error loading all transactions for count:', err);
+            return [];
+          }),
+          pixService.getTransactions({ limit: ITEMS_PER_PAGE }).catch(err => {
             console.error('❌ Dashboard: Error loading transactions:', err);
             return [];
           }),
@@ -175,7 +231,9 @@ export default function DashboardPage() {
         } else {
           animateBalance(balanceData?.available || 0);
         }
+        setTotalTransactions(allTransactionsData?.length || 0);
         setRecentTransactions(transactionsData || []);
+        setCurrentPage(1);
       }
 
       clearTimeout(timeoutId);
@@ -572,7 +630,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Transactions */}
-      <div className={`glass-card ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '600ms' }}>
+      <div className={`glass-card relative ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '600ms' }}>
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-700">
           <h2 className="text-lg md:text-xl font-bold text-white flex items-center">
             <Activity className="mr-2 w-5 h-5 md:w-6 md:h-6" />
@@ -587,7 +645,17 @@ export default function DashboardPage() {
           </a>
         </div>
 
-        {recentTransactions.length === 0 ? (
+        {/* Loading overlay for pagination */}
+        {loadingTransactions && (
+          <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 rounded-lg">
+            <div className="flex items-center gap-2 bg-gray-800 px-4 py-2 rounded-lg">
+              <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
+              <span className="text-gray-300 text-sm">Carregando...</span>
+            </div>
+          </div>
+        )}
+
+        {recentTransactions.length === 0 && !loadingTransactions ? (
           <div className="p-8 md:p-12 text-center">
             <Activity className="w-10 h-10 md:w-12 md:h-12 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400 text-sm md:text-base">Nenhuma transação encontrada</p>
@@ -600,7 +668,7 @@ export default function DashboardPage() {
               </a>
             )}
           </div>
-        ) : (
+        ) : recentTransactions.length > 0 ? (
           <>
             {/* Mobile View - Cards */}
             <div className="block md:hidden divide-y divide-gray-700">
@@ -621,13 +689,15 @@ export default function DashboardPage() {
                         <div className={typeInfo.color}>
                           {typeInfo.icon}
                         </div>
-                        <button
-                          onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
-                          className="text-gray-400 hover:text-blue-400 transition-colors"
-                          title="Ver comprovante"
-                        >
-                          <FileText className="w-5 h-5" />
-                        </button>
+                        {transaction.status === 'COMPLETED' && (
+                          <button
+                            onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
+                            className="text-gray-400 hover:text-blue-400 transition-colors"
+                            title="Ver comprovante"
+                          >
+                            <FileText className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
                         {statusInfo.icon}
@@ -748,13 +818,17 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          <button
-                            onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
-                            className="text-gray-400 hover:text-blue-400 transition-colors btn-pop"
-                            title="Ver comprovante"
-                          >
-                            <FileText className="w-5 h-5" />
-                          </button>
+                          {transaction.status === 'COMPLETED' ? (
+                            <button
+                              onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
+                              className="text-gray-400 hover:text-blue-400 transition-colors btn-pop"
+                              title="Ver comprovante"
+                            >
+                              <FileText className="w-5 h-5" />
+                            </button>
+                          ) : (
+                            <span className="text-gray-600">-</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -762,7 +836,99 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalTransactions > ITEMS_PER_PAGE && (
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-gray-700 gap-4">
+                <div className="text-sm text-gray-400">
+                  Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalTransactions)} de {totalTransactions} transações
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => loadTransactionsPage(currentPage - 1, isAdminUser)}
+                    disabled={currentPage === 1 || loadingTransactions}
+                    className="flex items-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors text-sm disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, Math.ceil(totalTransactions / ITEMS_PER_PAGE)) }, (_, i) => {
+                      const totalPages = Math.ceil(totalTransactions / ITEMS_PER_PAGE);
+                      let pageNum;
+
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => loadTransactionsPage(pageNum, isAdminUser)}
+                          disabled={loadingTransactions}
+                          className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          } disabled:opacity-50`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => loadTransactionsPage(currentPage + 1, isAdminUser)}
+                    disabled={currentPage >= Math.ceil(totalTransactions / ITEMS_PER_PAGE) || loadingTransactions}
+                    className="flex items-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors text-sm disabled:cursor-not-allowed"
+                  >
+                    <span className="hidden sm:inline">Próxima</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
+        ) : null}
+
+        {/* Mobile Pagination Controls */}
+        {recentTransactions.length > 0 && totalTransactions > ITEMS_PER_PAGE && (
+          <div className="block md:hidden p-4 border-t border-gray-700">
+            <div className="flex flex-col items-center gap-3">
+              <div className="text-sm text-gray-400 text-center">
+                Página {currentPage} de {Math.ceil(totalTransactions / ITEMS_PER_PAGE)} ({totalTransactions} transações)
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => loadTransactionsPage(currentPage - 1, isAdminUser)}
+                  disabled={currentPage === 1 || loadingTransactions}
+                  className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors text-sm disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Anterior
+                </button>
+                <span className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
+                  {currentPage}
+                </span>
+                <button
+                  onClick={() => loadTransactionsPage(currentPage + 1, isAdminUser)}
+                  disabled={currentPage >= Math.ceil(totalTransactions / ITEMS_PER_PAGE) || loadingTransactions}
+                  className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors text-sm disabled:cursor-not-allowed"
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

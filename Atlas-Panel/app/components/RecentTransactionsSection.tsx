@@ -451,12 +451,6 @@ export default function RecentTransactionsSection({
                         {formatDateTime(transaction.createdAt)}
                       </div>
                     </div>
-
-                    {transaction.externalId && (
-                      <div className="transaction-text-caption font-mono mt-2 text-xs">
-                        ID: {transaction.externalId.slice(0, 8)}...
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -639,6 +633,7 @@ export default function RecentTransactionsSection({
         isOpen={showModal}
         onClose={handleCloseModal}
         onTransactionUpdate={handleTransactionUpdate}
+        isAdmin={false}
       />
     </div>
   );

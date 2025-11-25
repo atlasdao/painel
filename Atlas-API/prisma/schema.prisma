@@ -19,6 +19,8 @@ model User {
   passwordResetExpires    DateTime?
   passwordResetAttempts   Int                  @default(0)
   isAccountValidated      Boolean              @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpires DateTime?
   validationPaymentId     String?
   validatedAt             DateTime?
   verifiedTaxNumber       String?
@@ -27,8 +29,8 @@ model User {
   whitelistDepix          Boolean              @default(false)
   whitelistDepixActivatedAt DateTime?
   paymentLinksEnabled     Boolean              @default(false)
-  apiDailyLimit           Float                @default(10000)
-  apiMonthlyLimit         Float                @default(50000)
+  apiDailyLimit           Float                @default(20000)
+  apiMonthlyLimit         Float                @default(100000)
   profilePicture          String?
   defaultWalletAddress    String?
   defaultWalletType       String?              @default("LIQUID")
@@ -36,6 +38,8 @@ model User {
   pixKeyType              PixKeyType?
   twoFactorEnabled        Boolean              @default(false)
   twoFactorSecret         String?
+  notifyApprovedSales     Boolean              @default(true)
+  notifyReviewSales       Boolean              @default(true)
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
   lastLoginAt             DateTime?
