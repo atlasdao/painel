@@ -6,6 +6,9 @@ import { DonationMethod, DonationStatus } from '@prisma/client';
 import { EulenClientService } from '../services/eulen-client.service';
 import * as QRCode from 'qrcode';
 
+// Wallet oficial da Atlas DAO para receber doações PIX
+const ATLAS_DAO_DONATION_WALLET = 'lq1qqtyahrda5p4ml97pl3z2kg9ahjpns67ncv74ya0h77r6nmcp0yu54rewlmyyrqmlrvwjrf6zzt3h0ucm55pauauvlnueach0f';
+
 @Injectable()
 export class DonationsService {
   constructor(
@@ -23,8 +26,10 @@ export class DonationsService {
     if (paymentMethod === DonationMethod.PIX) {
       try {
         // Use DEPIX API to generate real PIX QR code
+        // Envia para a wallet oficial da Atlas DAO
         const depixResponse = await this.eulenClient.generatePixQRCode({
           amount: amount, // Amount in reais
+          depixAddress: ATLAS_DAO_DONATION_WALLET, // Wallet oficial da Atlas DAO
           description: `Doação Atlas DAO - ${message || 'Apoio ao projeto'}`,
           userTaxNumber: undefined, // Could be added to DTO if needed
         });

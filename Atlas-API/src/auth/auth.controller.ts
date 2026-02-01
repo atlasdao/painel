@@ -10,6 +10,7 @@ import {
 	Delete,
 	Query,
 	Patch,
+	Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
@@ -30,6 +31,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
+import { getEffectiveUserId } from '../common/decorators/effective-user.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -63,12 +65,37 @@ export class AuthController {
 	@ApiResponse({ status: 200, description: '2FA verified successfully' })
 	@ApiResponse({ status: 401, description: 'Invalid 2FA code' })
 	async verify2FA(@Body() body: { email: string; twoFactorToken: string }) {
-		console.log('[AUTH CONTROLLER] verify2FA called with body:', body);
-		console.log('[AUTH CONTROLLER] Email received:', body.email);
-		console.log('[AUTH CONTROLLER] Token received:', body.twoFactorToken);
-
-		// For 2FA verification, we need to call the auth service
 		return this.authService.verify2FA(body.email, body.twoFactorToken);
+	}
+
+	@Public()
+	@Post('verify-2fa-backup')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ summary: 'Verify 2FA backup code for login' })
+	@ApiResponse({ status: 200, description: '2FA backup code verified successfully' })
+	@ApiResponse({ status: 401, description: 'Invalid backup code' })
+	async verify2FAWithBackupCode(@Body() body: { email: string; backupCode: string }) {
+		return this.authService.verify2FAWithBackupCode(body.email, body.backupCode);
+	}
+
+	@Get('2fa/periodic-check')
+	@UseGuards(JwtAuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: 'Check if periodic 2FA verification is required' })
+	@ApiResponse({ status: 200, description: 'Periodic check status' })
+	async checkPeriodicVerification(@Req() req: any) {
+		return this.authService.checkPeriodicVerification(req.user.id);
+	}
+
+	@Post('2fa/periodic-verify')
+	@UseGuards(JwtAuthGuard)
+	@HttpCode(HttpStatus.OK)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: 'Verify 2FA for periodic check' })
+	@ApiResponse({ status: 200, description: 'Periodic verification successful' })
+	@ApiResponse({ status: 401, description: 'Invalid 2FA code' })
+	async verifyPeriodicCheck(@Req() req: any, @Body() body: { token: string }) {
+		return this.authService.verifyPeriodicCheck(req.user.id, body.token);
 	}
 
 	@Public()
@@ -128,8 +155,10 @@ export class AuthController {
 	@ApiResponse({ status: 200, description: 'User profile retrieved' })
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
 	async getProfile(@Req() req: any) {
+		// Use effective user ID to support collaborator context
+		const effectiveUserId = getEffectiveUserId(req);
 		// Fetch complete user data including commerce fields
-		const user = await this.authService.getUserProfile(req.user.id);
+		const user = await this.authService.getUserProfile(effectiveUserId);
 		return user;
 	}
 
@@ -212,5 +241,29 @@ export class AuthController {
 	@ApiResponse({ status: 400, description: 'Account already verified' })
 	async resendVerification(@Body('email') email: string) {
 		return this.authService.resendVerificationEmail(email);
+	}
+
+	// ===== SYSTEM WARNINGS ENDPOINTS =====
+
+	@Get('warnings')
+	@UseGuards(JwtAuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: 'Get active system warnings for current user' })
+	@ApiResponse({ status: 200, description: 'Warnings retrieved successfully' })
+	async getActiveWarnings(@Req() req: any) {
+		const userId = getEffectiveUserId(req);
+		return this.authService.getActiveWarningsForUser(userId);
+	}
+
+	@Post('warnings/:id/dismiss')
+	@UseGuards(JwtAuthGuard)
+	@HttpCode(HttpStatus.OK)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: 'Dismiss a system warning' })
+	@ApiResponse({ status: 200, description: 'Warning dismissed successfully' })
+	@ApiResponse({ status: 404, description: 'Warning not found' })
+	async dismissWarning(@Req() req: any, @Param('id') warningId: string) {
+		const userId = getEffectiveUserId(req);
+		return this.authService.dismissWarning(userId, warningId);
 	}
 }

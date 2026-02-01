@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserRepository } from '../repositories/user.repository';
 import { EmailService } from '../services/email.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { ApiKeyUtils } from '../common/utils/api-key.util';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import * as bcrypt from 'bcrypt';
@@ -45,6 +46,7 @@ export class AuthService {
 		private readonly userRepository: UserRepository,
 		private readonly emailService: EmailService,
 		private readonly encryptionUtil: EncryptionUtil,
+		private readonly prisma: PrismaService,
 	) {
 		// Debug encryption util injection
 		this.logger.log('[INIT] AuthService initialized');
@@ -98,12 +100,16 @@ export class AuthService {
 		const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
 		// Create user with default 'user' role and verification token
+		// commerceMode and delayedPaymentEnabled are enabled by default for all users
 		const user = await this.userRepository.createWithRoles(
 			{
 				email,
 				username,
 				password: hashedPassword,
 				isAccountValidated: false,
+				commerceMode: true,
+				delayedPaymentEnabled: true,
+				delayedPaymentEnabledAt: new Date(),
 				emailVerificationToken: verificationToken,
 				emailVerificationExpires: verificationExpires,
 			},
@@ -289,7 +295,6 @@ export class AuthService {
 
 	async verify2FA(email: string, twoFactorToken: string): Promise<AuthResponseDto> {
 		this.logger.log(`[2FA VERIFY] Starting 2FA verification for email: ${email}`);
-		this.logger.log(`[2FA VERIFY] Received token: ${twoFactorToken}`);
 
 		// Find user by email
 		const user = await this.userRepository.findByEmail(email);
@@ -300,8 +305,6 @@ export class AuthService {
 		}
 
 		this.logger.log(`[2FA VERIFY] User found: ${user.email}, ID: ${user.id}`);
-		this.logger.log(`[2FA VERIFY] 2FA enabled: ${user.twoFactorEnabled}`);
-		this.logger.log(`[2FA VERIFY] Has 2FA secret: ${!!user.twoFactorSecret}`);
 
 		if (!user.isActive) {
 			throw new UnauthorizedException('Account is deactivated');
@@ -309,6 +312,13 @@ export class AuthService {
 
 		if (!user.twoFactorEnabled || !user.twoFactorSecret) {
 			throw new BadRequestException('2FA not configured for this account');
+		}
+
+		// Check if account is locked due to too many failed attempts
+		if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+			const minutesLeft = Math.ceil((user.twoFactorLockedUntil.getTime() - Date.now()) / 60000);
+			this.logger.warn(`[2FA VERIFY] Account locked for user ${user.email}, ${minutesLeft} minutes remaining`);
+			throw new BadRequestException(`Conta bloqueada. Tente novamente em ${minutesLeft} minuto(s).`);
 		}
 
 		// Decrypt the secret
@@ -325,19 +335,170 @@ export class AuthService {
 		});
 
 		if (!verified) {
-			this.logger.log(`[2FA VERIFY] Invalid 2FA token for user ${user.email}`);
-			throw new UnauthorizedException('Código 2FA inválido');
+			// Increment failed attempts
+			const newFailedAttempts = (user.twoFactorFailedAttempts || 0) + 1;
+			const updateData: any = { twoFactorFailedAttempts: newFailedAttempts };
+
+			// Lock account after 5 failed attempts for 15 minutes
+			if (newFailedAttempts >= 5) {
+				updateData.twoFactorLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+				this.logger.warn(`[2FA VERIFY] Account locked for user ${user.email} after ${newFailedAttempts} failed attempts`);
+			}
+
+			await this.userRepository.update(user.id, updateData);
+
+			const attemptsRemaining = Math.max(0, 5 - newFailedAttempts);
+			if (attemptsRemaining > 0) {
+				throw new UnauthorizedException(`Código 2FA inválido. ${attemptsRemaining} tentativa(s) restante(s).`);
+			} else {
+				throw new UnauthorizedException('Código 2FA inválido. Conta bloqueada por 15 minutos.');
+			}
 		}
 
 		this.logger.log(
 			`[2FA VERIFY] 2FA verification successful for user ${user.email}`,
 		);
 
+		// Reset failed attempts and update last verified time
+		await this.userRepository.update(user.id, {
+			twoFactorFailedAttempts: 0,
+			twoFactorLockedUntil: null,
+			twoFactorLastVerified: new Date(),
+		});
+
 		// Update last login
 		await this.userRepository.updateLastLogin(user.id);
 
 		// Generate tokens
 		return this.generateAuthResponse(user);
+	}
+
+	async verify2FAWithBackupCode(email: string, backupCode: string): Promise<AuthResponseDto> {
+		this.logger.log(`[2FA BACKUP] Starting backup code verification for email: ${email}`);
+
+		const user = await this.userRepository.findByEmail(email);
+
+		if (!user) {
+			throw new UnauthorizedException('Invalid session');
+		}
+
+		if (!user.isActive) {
+			throw new UnauthorizedException('Account is deactivated');
+		}
+
+		if (!user.twoFactorEnabled || !user.twoFactorBackupCodes) {
+			throw new BadRequestException('2FA or backup codes not configured');
+		}
+
+		// Decrypt backup codes
+		const decryptedCodesJson = this.encryptionUtil.decrypt(user.twoFactorBackupCodes);
+		if (!decryptedCodesJson) {
+			throw new BadRequestException('Error verifying backup codes');
+		}
+
+		let backupCodes: string[];
+		try {
+			backupCodes = JSON.parse(decryptedCodesJson);
+		} catch {
+			throw new BadRequestException('Error processing backup codes');
+		}
+
+		// Check if backup code is valid
+		const normalizedCode = backupCode.toUpperCase().trim();
+		const codeIndex = backupCodes.findIndex(code => code === normalizedCode);
+
+		if (codeIndex === -1) {
+			throw new UnauthorizedException('Código de backup inválido');
+		}
+
+		// Remove used backup code
+		backupCodes.splice(codeIndex, 1);
+
+		// Re-encrypt and save remaining codes
+		const encryptedRemainingCodes = this.encryptionUtil.encrypt(JSON.stringify(backupCodes));
+		await this.userRepository.update(user.id, {
+			twoFactorBackupCodes: encryptedRemainingCodes,
+			twoFactorLastVerified: new Date(),
+			twoFactorFailedAttempts: 0,
+			twoFactorLockedUntil: null,
+		});
+
+		this.logger.log(`[2FA BACKUP] Backup code used for user ${user.email}, ${backupCodes.length} codes remaining`);
+
+		// Update last login
+		await this.userRepository.updateLastLogin(user.id);
+
+		// Generate tokens
+		return this.generateAuthResponse(user);
+	}
+
+	async checkPeriodicVerification(userId: string): Promise<{ requiresVerification: boolean; lastVerified?: Date }> {
+		const user = await this.userRepository.findById(userId);
+
+		if (!user) {
+			throw new UnauthorizedException('User not found');
+		}
+
+		if (!user.twoFactorEnabled || !user.twoFactorPeriodicCheck) {
+			return { requiresVerification: false };
+		}
+
+		const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+		const requiresVerification = !user.twoFactorLastVerified || user.twoFactorLastVerified < twelveHoursAgo;
+
+		return {
+			requiresVerification,
+			lastVerified: user.twoFactorLastVerified || undefined,
+		};
+	}
+
+	async verifyPeriodicCheck(userId: string, token: string): Promise<{ success: boolean }> {
+		const user = await this.userRepository.findById(userId);
+
+		if (!user) {
+			throw new UnauthorizedException('User not found');
+		}
+
+		if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+			throw new BadRequestException('2FA not configured');
+		}
+
+		// Check if locked
+		if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+			const minutesLeft = Math.ceil((user.twoFactorLockedUntil.getTime() - Date.now()) / 60000);
+			throw new BadRequestException(`Conta bloqueada. Tente novamente em ${minutesLeft} minuto(s).`);
+		}
+
+		const decryptedSecret = this.encryptionUtil.decrypt(user.twoFactorSecret) || user.twoFactorSecret;
+
+		const verified = speakeasy.totp.verify({
+			secret: decryptedSecret,
+			encoding: 'base32',
+			token,
+			window: 2,
+		});
+
+		if (!verified) {
+			const newFailedAttempts = (user.twoFactorFailedAttempts || 0) + 1;
+			const updateData: any = { twoFactorFailedAttempts: newFailedAttempts };
+
+			if (newFailedAttempts >= 5) {
+				updateData.twoFactorLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+			}
+
+			await this.userRepository.update(user.id, updateData);
+			throw new UnauthorizedException('Código 2FA inválido');
+		}
+
+		await this.userRepository.update(user.id, {
+			twoFactorLastVerified: new Date(),
+			twoFactorFailedAttempts: 0,
+			twoFactorLockedUntil: null,
+		});
+
+		this.logger.log(`[2FA PERIODIC] Periodic check successful for user ${user.email}`);
+
+		return { success: true };
 	}
 
 	async generateApiToken(
@@ -760,5 +921,111 @@ export class AuthService {
 		});
 
 		return { message: 'Password has been successfully reset.' };
+	}
+
+	// ===== SYSTEM WARNINGS =====
+
+	async getActiveWarningsForUser(userId: string) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			return { warnings: [] };
+		}
+
+		const now = new Date();
+
+		// Get all active warnings that haven't been dismissed by the user
+		const warnings = await this.prisma.systemWarning.findMany({
+			where: {
+				isActive: true,
+				OR: [
+					{ startDate: null },
+					{ startDate: { lte: now } },
+				],
+				AND: [
+					{
+						OR: [
+							{ endDate: null },
+							{ endDate: { gte: now } },
+						],
+					},
+				],
+				NOT: {
+					dismissals: {
+						some: { userId },
+					},
+				},
+			},
+			orderBy: [
+				{ priority: 'desc' },
+				{ createdAt: 'desc' },
+			],
+		});
+
+		// Filter by target audience
+		const filteredWarnings = warnings.filter((warning) => {
+			switch (warning.targetAudience) {
+				case 'ALL':
+					return true;
+				case 'VALIDATED_USERS':
+					return user.isAccountValidated;
+				case 'COMMERCE_USERS':
+					return user.commerceMode;
+				case 'NEW_USERS':
+					// Users created in the last 7 days
+					const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+					return user.createdAt >= sevenDaysAgo;
+				case 'ADMINS':
+					return user.role === 'ADMIN';
+				default:
+					return true;
+			}
+		});
+
+		return {
+			success: true,
+			warnings: filteredWarnings,
+		};
+	}
+
+	async dismissWarning(userId: string, warningId: string) {
+		// Check if warning exists
+		const warning = await this.prisma.systemWarning.findUnique({
+			where: { id: warningId },
+		});
+
+		if (!warning) {
+			throw new BadRequestException('Aviso não encontrado');
+		}
+
+		if (!warning.isDismissible) {
+			throw new BadRequestException('Este aviso não pode ser dispensado');
+		}
+
+		// Check if already dismissed
+		const existingDismissal = await this.prisma.warningDismissal.findUnique({
+			where: {
+				warningId_userId: {
+					warningId,
+					userId,
+				},
+			},
+		});
+
+		if (existingDismissal) {
+			return { success: true, message: 'Aviso já foi dispensado' };
+		}
+
+		// Create dismissal record
+		await this.prisma.warningDismissal.create({
+			data: {
+				warningId,
+				userId,
+			},
+		});
+
+		return {
+			success: true,
+			message: 'Aviso dispensado com sucesso',
+		};
 	}
 }

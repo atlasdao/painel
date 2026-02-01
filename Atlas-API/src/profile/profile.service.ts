@@ -285,17 +285,26 @@ export class ProfileService {
 			throw new BadRequestException('Token 2FA inválido');
 		}
 
-		// Enable 2FA
-		await this.userRepository.update(userId, {
-			twoFactorEnabled: true,
-		});
-
-		// Generate backup codes
+		// Generate backup codes (8 codes, 8 characters each)
 		const backupCodes = Array.from({ length: 8 }, () =>
 			Math.random().toString(36).substring(2, 10).toUpperCase(),
 		);
 
-		// In production, store these encrypted
+		// Encrypt backup codes before storing
+		const encryptedBackupCodes = this.encryptionUtil.encrypt(JSON.stringify(backupCodes));
+
+		// Enable 2FA and store encrypted backup codes
+		await this.userRepository.update(userId, {
+			twoFactorEnabled: true,
+			twoFactorBackupCodes: encryptedBackupCodes,
+			twoFactorPeriodicCheck: false, // Disabled by default
+			twoFactorLastVerified: new Date(),
+			twoFactorFailedAttempts: 0,
+			twoFactorLockedUntil: null,
+		});
+
+		this.logger.log(`[2FA] 2FA enabled for user ${user.email}, backup codes generated and encrypted`);
+
 		return {
 			success: true,
 			backupCodes,
@@ -336,15 +345,179 @@ export class ProfileService {
 			}
 		}
 
-		// Disable 2FA
+		// Disable 2FA and clear all related data
 		await this.userRepository.update(userId, {
 			twoFactorEnabled: false,
 			twoFactorSecret: null,
+			twoFactorBackupCodes: null,
+			twoFactorPeriodicCheck: false,
+			twoFactorLastVerified: null,
+			twoFactorFailedAttempts: 0,
+			twoFactorLockedUntil: null,
 		});
+
+		this.logger.log(`[2FA] 2FA disabled for user ${user.email}`);
 
 		return {
 			success: true,
 			message: '2FA desativado com sucesso',
+		};
+	}
+
+	async verifyBackupCode(userId: string, backupCode: string) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		if (!user.twoFactorEnabled || !user.twoFactorBackupCodes) {
+			throw new BadRequestException('2FA não está configurado ou não há códigos de backup');
+		}
+
+		// Decrypt backup codes
+		const decryptedCodesJson = this.encryptionUtil.decrypt(user.twoFactorBackupCodes);
+		if (!decryptedCodesJson) {
+			throw new BadRequestException('Erro ao verificar códigos de backup');
+		}
+
+		let backupCodes: string[];
+		try {
+			backupCodes = JSON.parse(decryptedCodesJson);
+		} catch {
+			throw new BadRequestException('Erro ao processar códigos de backup');
+		}
+
+		// Check if backup code is valid
+		const normalizedCode = backupCode.toUpperCase().trim();
+		const codeIndex = backupCodes.findIndex(code => code === normalizedCode);
+
+		if (codeIndex === -1) {
+			throw new BadRequestException('Código de backup inválido');
+		}
+
+		// Remove used backup code
+		backupCodes.splice(codeIndex, 1);
+
+		// Re-encrypt and save remaining codes
+		const encryptedRemainingCodes = this.encryptionUtil.encrypt(JSON.stringify(backupCodes));
+		await this.userRepository.update(userId, {
+			twoFactorBackupCodes: encryptedRemainingCodes,
+			twoFactorLastVerified: new Date(),
+			twoFactorFailedAttempts: 0,
+		});
+
+		this.logger.log(`[2FA] Backup code used for user ${user.email}, ${backupCodes.length} codes remaining`);
+
+		return {
+			success: true,
+			remainingCodes: backupCodes.length,
+			message: 'Código de backup verificado com sucesso',
+		};
+	}
+
+	async regenerateBackupCodes(userId: string, token: string) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+			throw new BadRequestException('2FA não está ativado');
+		}
+
+		// Verify current TOTP token
+		const decryptedSecret = this.encryptionUtil.decrypt(user.twoFactorSecret) || user.twoFactorSecret;
+		const verified = speakeasy.totp.verify({
+			secret: decryptedSecret,
+			encoding: 'base32',
+			token,
+			window: 2,
+		});
+
+		if (!verified) {
+			throw new BadRequestException('Token 2FA inválido');
+		}
+
+		// Generate new backup codes
+		const newBackupCodes = Array.from({ length: 8 }, () =>
+			Math.random().toString(36).substring(2, 10).toUpperCase(),
+		);
+
+		// Encrypt and save
+		const encryptedBackupCodes = this.encryptionUtil.encrypt(JSON.stringify(newBackupCodes));
+		await this.userRepository.update(userId, {
+			twoFactorBackupCodes: encryptedBackupCodes,
+		});
+
+		this.logger.log(`[2FA] Backup codes regenerated for user ${user.email}`);
+
+		return {
+			success: true,
+			backupCodes: newBackupCodes,
+			message: 'Novos códigos de backup gerados',
+		};
+	}
+
+	async togglePeriodicCheck(userId: string, enabled: boolean) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		if (!user.twoFactorEnabled) {
+			throw new BadRequestException('2FA deve estar ativado para usar esta funcionalidade');
+		}
+
+		await this.userRepository.update(userId, {
+			twoFactorPeriodicCheck: enabled,
+			twoFactorLastVerified: enabled ? new Date() : null,
+		});
+
+		this.logger.log(`[2FA] Periodic check ${enabled ? 'enabled' : 'disabled'} for user ${user.email}`);
+
+		return {
+			success: true,
+			periodicCheckEnabled: enabled,
+			message: enabled
+				? 'Verificação periódica de 12h ativada'
+				: 'Verificação periódica de 12h desativada',
+		};
+	}
+
+	async get2FAStatus(userId: string) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		// Calculate remaining backup codes
+		let remainingBackupCodes = 0;
+		if (user.twoFactorBackupCodes) {
+			try {
+				const decryptedCodes = this.encryptionUtil.decrypt(user.twoFactorBackupCodes);
+				if (decryptedCodes) {
+					remainingBackupCodes = JSON.parse(decryptedCodes).length;
+				}
+			} catch {
+				remainingBackupCodes = 0;
+			}
+		}
+
+		// Check if periodic verification is needed
+		let requiresPeriodicVerification = false;
+		if (user.twoFactorEnabled && user.twoFactorPeriodicCheck && user.twoFactorLastVerified) {
+			const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+			requiresPeriodicVerification = user.twoFactorLastVerified < twelveHoursAgo;
+		}
+
+		return {
+			twoFactorEnabled: user.twoFactorEnabled,
+			periodicCheckEnabled: user.twoFactorPeriodicCheck,
+			lastVerified: user.twoFactorLastVerified,
+			remainingBackupCodes,
+			requiresPeriodicVerification,
+			isLocked: user.twoFactorLockedUntil ? user.twoFactorLockedUntil > new Date() : false,
+			lockedUntil: user.twoFactorLockedUntil,
 		};
 	}
 

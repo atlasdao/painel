@@ -1,18 +1,24 @@
 'use client';
 
-import { Zap, CreditCard, Link2, BarChart3, Shield, HeadphonesIcon } from 'lucide-react';
+import { Shield, Lock, Eye, EyeOff, Zap, CreditCard, Link2, BarChart3, HeadphonesIcon, UserX } from 'lucide-react';
 
 const features = [
   {
-    icon: Link2,
-    title: 'Links de Pagamento',
-    description: 'Crie links personalizados e compartilhe com seus clientes via Telegram, email ou redes sociais.',
+    icon: EyeOff,
+    title: 'Anonimato Total',
+    description: 'Seus clientes pagam sem que seus dados pessoais sejam expostos. Privacidade para você e para quem compra.',
+    gradient: 'from-purple-400 to-purple-600'
+  },
+  {
+    icon: Shield,
+    title: 'Dados Protegidos',
+    description: 'Não compartilhamos suas informações com terceiros. Seus dados são seus e de mais ninguém.',
     gradient: 'from-blue-400 to-blue-600'
   },
   {
-    icon: CreditCard,
-    title: 'Apenas R$ 0,99',
-    description: 'Taxa fixa de R$ 0,99 por transação. Sem mensalidade, sem taxa de setup, sem surpresas.',
+    icon: Lock,
+    title: 'Transações Seguras',
+    description: 'Criptografia de ponta a ponta em todas as operações. Segurança de nível bancário sem a burocracia.',
     gradient: 'from-green-400 to-emerald-600'
   },
   {
@@ -22,21 +28,15 @@ const features = [
     gradient: 'from-yellow-400 to-orange-500'
   },
   {
-    icon: BarChart3,
-    title: 'Dashboard Simples',
-    description: 'Acompanhe suas vendas e recebimentos em tempo real. Tudo organizado em um só lugar.',
-    gradient: 'from-purple-400 to-pink-500'
+    icon: Link2,
+    title: 'Links de Pagamento',
+    description: 'Crie links personalizados e compartilhe com seus clientes. Simples, rápido e sem complicação.',
+    gradient: 'from-pink-400 to-rose-500'
   },
   {
-    icon: Shield,
+    icon: UserX,
     title: 'Sem Burocracia',
     description: 'Comece a receber pagamentos imediatamente. Sem análise de crédito, sem documentação complexa.',
-    gradient: 'from-red-400 to-rose-500'
-  },
-  {
-    icon: HeadphonesIcon,
-    title: 'Suporte Humanizado',
-    description: 'Equipe pronta para ajudar você via Telegram. Respostas rápidas quando você precisar.',
     gradient: 'from-teal-400 to-cyan-500'
   }
 ];
@@ -46,12 +46,17 @@ export default function Features() {
     <section id="features" className="py-20 px-4 bg-gray-800">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-purple-900/50 border border-purple-700/50 text-purple-400 px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <Shield className="w-4 h-4" />
+            Privacidade como prioridade
+          </div>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Tudo que você precisa para
-            <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> vender online</span>
+            Liberdade financeira com
+            <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"> privacidade real</span>
           </h2>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Plataforma completa para receber pagamentos PIX de forma simples e transparente.
+            Em um mundo onde seus dados são o produto, oferecemos uma alternativa:
+            pagamentos seguros onde você mantém o controle.
           </p>
         </div>
 
@@ -61,10 +66,10 @@ export default function Features() {
             return (
               <div
                 key={index}
-                className="group relative bg-gray-900 rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-gray-600"
+                className="group relative bg-gray-900 rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-purple-700/50"
               >
                 {/* Gradient background on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                 <div className="relative">
                   {/* Icon with gradient background */}
@@ -85,20 +90,12 @@ export default function Features() {
           })}
         </div>
 
-        {/* Bottom CTA */}
-        <div className="text-center mt-12">
-          <p className="text-gray-400 mb-4">
-            Simples, transparente e eficiente.
-          </p>
-          <a
-            href="/register"
-            className="inline-flex items-center gap-2 text-blue-400 font-semibold hover:text-purple-400 transition-colors"
-          >
-            Começar agora gratuitamente
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </a>
+        {/* Bottom message */}
+        <div className="text-center mt-16">
+          <div className="inline-flex items-center gap-3 bg-gray-900 rounded-full px-6 py-3 border border-gray-700">
+            <Lock className="w-5 h-5 text-purple-400" />
+            <span className="text-gray-300">Privacidade tem seu valor. E nós oferecemos pelo preço justo.</span>
+          </div>
         </div>
       </div>
     </section>

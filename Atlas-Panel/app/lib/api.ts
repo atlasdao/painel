@@ -28,7 +28,7 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and account context
 api.interceptors.request.use(
   (config) => {
     // Build the full URL that will be called
@@ -44,6 +44,30 @@ api.interceptors.request.use(
         console.log('[API REQUEST] Auth token attached, length:', token.length);
       } else {
         console.log('[API REQUEST] No auth token found in cookies');
+      }
+
+      // Add account context headers for collaborator system
+      const accountContext = Cookies.get('account_context');
+      if (accountContext) {
+        try {
+          const context = JSON.parse(accountContext);
+          if (context.accountId) {
+            config.headers['X-Account-Id'] = context.accountId;
+          }
+          if (context.collaboratorId) {
+            config.headers['X-Collaborator-Id'] = context.collaboratorId;
+          }
+          if (context.type) {
+            config.headers['X-Account-Type'] = context.type;
+          }
+          console.log('[API REQUEST] Account context attached:', {
+            accountId: context.accountId,
+            collaboratorId: context.collaboratorId,
+            type: context.type
+          });
+        } catch (e) {
+          console.log('[API REQUEST] Invalid account context cookie');
+        }
       }
     }
 
@@ -132,6 +156,47 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Get current account context from cookie
+ * Returns info about whether user is collaborating and their role
+ */
+export function getAccountContext(): {
+  isCollaborating: boolean;
+  role: 'GESTOR' | 'AUXILIAR' | null;
+  accountId: string | null;
+  type: 'OWNER' | 'COLLABORATOR';
+} {
+  try {
+    const accountContext = Cookies.get('account_context');
+    if (accountContext) {
+      const context = JSON.parse(accountContext);
+      return {
+        isCollaborating: context.type === 'COLLABORATOR',
+        role: context.role || null,
+        accountId: context.accountId || null,
+        type: context.type || 'OWNER',
+      };
+    }
+  } catch (e) {
+    console.error('[API] Error parsing account context:', e);
+  }
+  return {
+    isCollaborating: false,
+    role: null,
+    accountId: null,
+    type: 'OWNER',
+  };
+}
+
+/**
+ * Check if current user is an AUXILIAR collaborator
+ * AUXILIAR users have restricted permissions (e.g., cannot use custom wallets)
+ */
+export function isAuxiliarCollaborator(): boolean {
+  const context = getAccountContext();
+  return context.isCollaborating && context.role === 'AUXILIAR';
+}
 
 export { api, API_URL };
 export default api;

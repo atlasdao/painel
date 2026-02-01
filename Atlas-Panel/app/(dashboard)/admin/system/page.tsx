@@ -30,7 +30,15 @@ import {
   AlertCircle,
   MessageSquare,
   ExternalLink,
+  ShieldAlert,
+  Bell,
+  ToggleLeft,
+  ToggleRight,
+  Edit,
+  Info,
+  Link as LinkIcon,
 } from 'lucide-react';
+import Link from 'next/link';
 import toast, { Toaster } from 'react-hot-toast';
 import os from 'os';
 
@@ -97,6 +105,25 @@ export default function AdminSystemPage() {
     monthCount: 0,
   });
 
+  // System Warnings State
+  const [warnings, setWarnings] = useState<any[]>([]);
+  const [warningsLoading, setWarningsLoading] = useState(true);
+  const [showCreateWarning, setShowCreateWarning] = useState(false);
+  const [editingWarning, setEditingWarning] = useState<any | null>(null);
+  const [newWarning, setNewWarning] = useState({
+    title: '',
+    message: '',
+    type: 'INFO',
+    targetAudience: 'ALL',
+    isDismissible: true,
+    startDate: '',
+    endDate: '',
+    priority: 0,
+    link: '',
+    linkText: '',
+  });
+  const [savingWarning, setSavingWarning] = useState(false);
+
   useEffect(() => {
     loadSystemInfo();
     loadMedLimits();
@@ -116,6 +143,168 @@ export default function AdminSystemPage() {
       loadIncidents();
     }
   }, [activeTab]);
+
+  // Load warnings when switching to warnings tab
+  useEffect(() => {
+    if (activeTab === 'warnings') {
+      loadWarnings();
+    }
+  }, [activeTab]);
+
+  const loadWarnings = async () => {
+    setWarningsLoading(true);
+    try {
+      const response = await api.get('/admin/system/warnings');
+      if (response.data?.data) {
+        setWarnings(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error loading warnings:', error);
+      toast.error('Erro ao carregar avisos');
+    } finally {
+      setWarningsLoading(false);
+    }
+  };
+
+  const handleCreateWarning = async () => {
+    if (!newWarning.title.trim() || !newWarning.message.trim()) {
+      toast.error('Título e mensagem são obrigatórios');
+      return;
+    }
+
+    setSavingWarning(true);
+    try {
+      const response = await api.post('/admin/system/warnings', {
+        ...newWarning,
+        startDate: newWarning.startDate || undefined,
+        endDate: newWarning.endDate || undefined,
+        link: newWarning.link || undefined,
+        linkText: newWarning.linkText || undefined,
+      });
+
+      if (response.data?.success) {
+        toast.success('Aviso criado com sucesso');
+        setShowCreateWarning(false);
+        setNewWarning({
+          title: '',
+          message: '',
+          type: 'INFO',
+          targetAudience: 'ALL',
+          isDismissible: true,
+          startDate: '',
+          endDate: '',
+          priority: 0,
+          link: '',
+          linkText: '',
+        });
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error creating warning:', error);
+      toast.error('Erro ao criar aviso');
+    } finally {
+      setSavingWarning(false);
+    }
+  };
+
+  const handleUpdateWarning = async () => {
+    if (!editingWarning || !editingWarning.title.trim() || !editingWarning.message.trim()) {
+      toast.error('Título e mensagem são obrigatórios');
+      return;
+    }
+
+    setSavingWarning(true);
+    try {
+      const response = await api.put(`/admin/system/warnings/${editingWarning.id}`, {
+        title: editingWarning.title,
+        message: editingWarning.message,
+        type: editingWarning.type,
+        targetAudience: editingWarning.targetAudience,
+        isDismissible: editingWarning.isDismissible,
+        startDate: editingWarning.startDate || null,
+        endDate: editingWarning.endDate || null,
+        priority: editingWarning.priority,
+        link: editingWarning.link || null,
+        linkText: editingWarning.linkText || null,
+      });
+
+      if (response.data?.success) {
+        toast.success('Aviso atualizado com sucesso');
+        setEditingWarning(null);
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error updating warning:', error);
+      toast.error('Erro ao atualizar aviso');
+    } finally {
+      setSavingWarning(false);
+    }
+  };
+
+  const handleToggleWarning = async (warningId: string, isActive: boolean) => {
+    try {
+      const response = await api.put(`/admin/system/warnings/${warningId}/toggle`, {
+        isActive: !isActive,
+      });
+
+      if (response.data?.success) {
+        toast.success(isActive ? 'Aviso desativado' : 'Aviso ativado');
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error toggling warning:', error);
+      toast.error('Erro ao alterar status do aviso');
+    }
+  };
+
+  const handleDeleteWarning = async (warningId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este aviso?')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/admin/system/warnings/${warningId}`);
+
+      if (response.data?.success) {
+        toast.success('Aviso excluído com sucesso');
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error deleting warning:', error);
+      toast.error('Erro ao excluir aviso');
+    }
+  };
+
+  const getWarningTypeColor = (type: string) => {
+    switch (type) {
+      case 'INFO': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'WARNING': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'CRITICAL': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'SUCCESS': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+  };
+
+  const getWarningTypeLabel = (type: string) => {
+    switch (type) {
+      case 'INFO': return 'Informativo';
+      case 'WARNING': return 'Alerta';
+      case 'CRITICAL': return 'Crítico';
+      case 'SUCCESS': return 'Sucesso';
+      default: return type;
+    }
+  };
+
+  const getTargetAudienceLabel = (audience: string) => {
+    switch (audience) {
+      case 'ALL': return 'Todos os usuários';
+      case 'VALIDATED_USERS': return 'Usuários validados';
+      case 'COMMERCE_USERS': return 'Usuários com modo comércio';
+      case 'NEW_USERS': return 'Novos usuários (< 7 dias)';
+      case 'ADMINS': return 'Apenas administradores';
+      default: return audience;
+    }
+  };
 
   const loadSystemInfo = async () => {
     setLoading(true);
@@ -464,6 +653,7 @@ export default function AdminSystemPage() {
 
   const tabs = [
     { id: 'overview', name: 'Visão Geral', icon: Activity },
+    { id: 'warnings', name: 'Avisos', icon: Bell },
     { id: 'incidents', name: 'Incidentes', icon: AlertCircle },
     { id: 'limits', name: 'Limites MED', icon: AlertTriangle },
     { id: 'validation', name: 'Validação', icon: CheckCircle },
@@ -604,6 +794,13 @@ export default function AdminSystemPage() {
                 <RefreshCw size={16} />
                 Atualizar Dados
               </button>
+              <Link
+                href="/admin/risk"
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <ShieldAlert size={16} />
+                Gerenciar Riscos
+              </Link>
               <button
                 onClick={() => toast.success('Cache limpo com sucesso!')}
                 className="btn-outline transition-colors"
@@ -618,6 +815,454 @@ export default function AdminSystemPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Warnings Tab */}
+      {activeTab === 'warnings' && (
+        <div className="space-y-6">
+          <div className="glass-card p-6">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Bell className="text-yellow-400" size={24} />
+                  Avisos do Sistema
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Gerencie banners e avisos exibidos aos usuários
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateWarning(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Novo Aviso
+              </button>
+            </div>
+
+            {warningsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin text-blue-500" size={32} />
+              </div>
+            ) : warnings.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="mx-auto text-gray-500 mb-4" size={48} />
+                <p className="text-gray-400">Nenhum aviso cadastrado</p>
+                <button
+                  onClick={() => setShowCreateWarning(true)}
+                  className="mt-4 text-blue-400 hover:text-blue-300"
+                >
+                  Criar primeiro aviso
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {warnings.map((warning) => (
+                  <div
+                    key={warning.id}
+                    className={`p-4 rounded-lg border ${getWarningTypeColor(warning.type)} ${!warning.isActive ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getWarningTypeColor(warning.type)}`}>
+                            {getWarningTypeLabel(warning.type)}
+                          </span>
+                          <span className="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-300">
+                            {getTargetAudienceLabel(warning.targetAudience)}
+                          </span>
+                          {!warning.isActive && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-600 text-gray-400">
+                              Inativo
+                            </span>
+                          )}
+                          {warning.isDismissible && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-700/50 text-gray-400">
+                              Dispensável
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-white font-semibold mb-1">{warning.title}</h3>
+                        <p className="text-gray-300 text-sm">{warning.message}</p>
+                        {warning.link && (
+                          <p className="text-blue-400 text-sm mt-1">
+                            Link: {warning.linkText || warning.link}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+                          <span>Prioridade: {warning.priority}</span>
+                          {warning.startDate && (
+                            <span>Início: {new Date(warning.startDate).toLocaleDateString('pt-BR')}</span>
+                          )}
+                          {warning.endDate && (
+                            <span>Fim: {new Date(warning.endDate).toLocaleDateString('pt-BR')}</span>
+                          )}
+                          <span>Dispensados: {warning._count?.dismissals || 0}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => handleToggleWarning(warning.id, warning.isActive)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            warning.isActive
+                              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                              : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
+                          }`}
+                          title={warning.isActive ? 'Desativar' : 'Ativar'}
+                        >
+                          {warning.isActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                        </button>
+                        <button
+                          onClick={() => setEditingWarning({
+                            ...warning,
+                            startDate: warning.startDate ? new Date(warning.startDate).toISOString().split('T')[0] : '',
+                            endDate: warning.endDate ? new Date(warning.endDate).toISOString().split('T')[0] : '',
+                          })}
+                          className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                          title="Editar"
+                        >
+                          <Edit size={20} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWarning(warning.id)}
+                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Create Warning Modal */}
+          {showCreateWarning && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold text-white">Criar Novo Aviso</h3>
+                    <button
+                      onClick={() => setShowCreateWarning(false)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Título *</label>
+                      <input
+                        type="text"
+                        value={newWarning.title}
+                        onChange={(e) => setNewWarning({ ...newWarning, title: e.target.value })}
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        placeholder="Título do aviso"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Mensagem *</label>
+                      <textarea
+                        value={newWarning.message}
+                        onChange={(e) => setNewWarning({ ...newWarning, message: e.target.value })}
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        placeholder="Conteúdo da mensagem"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Tipo</label>
+                        <select
+                          value={newWarning.type}
+                          onChange={(e) => setNewWarning({ ...newWarning, type: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="INFO">Informativo (Azul)</option>
+                          <option value="WARNING">Alerta (Amarelo)</option>
+                          <option value="CRITICAL">Crítico (Vermelho)</option>
+                          <option value="SUCCESS">Sucesso (Verde)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Público-alvo</label>
+                        <select
+                          value={newWarning.targetAudience}
+                          onChange={(e) => setNewWarning({ ...newWarning, targetAudience: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="ALL">Todos os usuários</option>
+                          <option value="VALIDATED_USERS">Usuários validados</option>
+                          <option value="COMMERCE_USERS">Modo comércio</option>
+                          <option value="NEW_USERS">Novos usuários (7 dias)</option>
+                          <option value="ADMINS">Apenas administradores</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de início</label>
+                        <input
+                          type="date"
+                          value={newWarning.startDate}
+                          onChange={(e) => setNewWarning({ ...newWarning, startDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de fim</label>
+                        <input
+                          type="date"
+                          value={newWarning.endDate}
+                          onChange={(e) => setNewWarning({ ...newWarning, endDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
+                        <input
+                          type="number"
+                          value={newWarning.priority}
+                          onChange={(e) => setNewWarning({ ...newWarning, priority: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          min="0"
+                          max="100"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Maior = mais importante</p>
+                      </div>
+
+                      <div className="flex items-center pt-7">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newWarning.isDismissible}
+                            onChange={(e) => setNewWarning({ ...newWarning, isDismissible: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-gray-300">Permitir dispensar</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Link (opcional)</label>
+                        <input
+                          type="url"
+                          value={newWarning.link}
+                          onChange={(e) => setNewWarning({ ...newWarning, link: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Texto do link</label>
+                        <input
+                          type="text"
+                          value={newWarning.linkText}
+                          onChange={(e) => setNewWarning({ ...newWarning, linkText: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          placeholder="Saiba mais"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => setShowCreateWarning(false)}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleCreateWarning}
+                      disabled={savingWarning}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {savingWarning ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                      Criar Aviso
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Warning Modal */}
+          {editingWarning && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold text-white">Editar Aviso</h3>
+                    <button
+                      onClick={() => setEditingWarning(null)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Título *</label>
+                      <input
+                        type="text"
+                        value={editingWarning.title}
+                        onChange={(e) => setEditingWarning({ ...editingWarning, title: e.target.value })}
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Mensagem *</label>
+                      <textarea
+                        value={editingWarning.message}
+                        onChange={(e) => setEditingWarning({ ...editingWarning, message: e.target.value })}
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Tipo</label>
+                        <select
+                          value={editingWarning.type}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, type: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="INFO">Informativo (Azul)</option>
+                          <option value="WARNING">Alerta (Amarelo)</option>
+                          <option value="CRITICAL">Crítico (Vermelho)</option>
+                          <option value="SUCCESS">Sucesso (Verde)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Público-alvo</label>
+                        <select
+                          value={editingWarning.targetAudience}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, targetAudience: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="ALL">Todos os usuários</option>
+                          <option value="VALIDATED_USERS">Usuários validados</option>
+                          <option value="COMMERCE_USERS">Modo comércio</option>
+                          <option value="NEW_USERS">Novos usuários (7 dias)</option>
+                          <option value="ADMINS">Apenas administradores</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de início</label>
+                        <input
+                          type="date"
+                          value={editingWarning.startDate}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, startDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de fim</label>
+                        <input
+                          type="date"
+                          value={editingWarning.endDate}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, endDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
+                        <input
+                          type="number"
+                          value={editingWarning.priority}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, priority: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          min="0"
+                          max="100"
+                        />
+                      </div>
+
+                      <div className="flex items-center pt-7">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editingWarning.isDismissible}
+                            onChange={(e) => setEditingWarning({ ...editingWarning, isDismissible: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-gray-300">Permitir dispensar</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Link (opcional)</label>
+                        <input
+                          type="url"
+                          value={editingWarning.link || ''}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, link: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Texto do link</label>
+                        <input
+                          type="text"
+                          value={editingWarning.linkText || ''}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, linkText: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          placeholder="Saiba mais"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => setEditingWarning(null)}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleUpdateWarning}
+                      disabled={savingWarning}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {savingWarning ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                      Salvar Alterações
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

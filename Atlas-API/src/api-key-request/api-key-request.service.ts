@@ -273,6 +273,45 @@ export class ApiKeyRequestService {
 		return updatedRequest;
 	}
 
+	async revokeOwnApiKey(requestId: string, userId: string) {
+		const request = await this.prisma.apiKeyRequest.findUnique({
+			where: { id: requestId },
+			include: { user: true },
+		});
+
+		if (!request) {
+			throw new NotFoundException('API key request not found');
+		}
+
+		// Verify the user owns this API key request
+		if (request.userId !== userId) {
+			throw new BadRequestException(
+				'Você não tem permissão para revogar esta API key',
+			);
+		}
+
+		if (request.status !== ApiKeyRequestStatus.APPROVED) {
+			throw new BadRequestException('Só é possível revogar API keys aprovadas');
+		}
+
+		// Update request and remove API key from user in a transaction
+		const [updatedRequest, updatedUser] = await this.prisma.$transaction([
+			this.prisma.apiKeyRequest.update({
+				where: { id: requestId },
+				data: {
+					status: ApiKeyRequestStatus.REVOKED,
+					approvalNotes: 'Revogada pelo usuário',
+				},
+			}),
+			this.prisma.user.update({
+				where: { id: request.userId },
+				data: { apiKey: null },
+			}),
+		]);
+
+		return updatedRequest;
+	}
+
 	private generateApiKey(): string {
 		return ApiKeyUtils.generateApiKey();
 	}

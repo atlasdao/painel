@@ -8,6 +8,7 @@ import {
 	Req,
 	HttpCode,
 	HttpStatus,
+	HttpException,
 	Param,
 } from '@nestjs/common';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { PixService } from './pix.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { getEffectiveUserId, getCollaboratorContext } from '../common/decorators/effective-user.decorator';
 import {
 	DepositDto,
 	WithdrawDto,
@@ -56,7 +58,7 @@ export class PixController {
 		@Req() req: any,
 		@Body() depositDto: DepositDto,
 	): Promise<TransactionResponseDto> {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.createDeposit(userId, depositDto);
 	}
 
@@ -73,7 +75,7 @@ export class PixController {
 		@Req() req: any,
 		@Body() withdrawDto: WithdrawDto,
 	): Promise<TransactionResponseDto> {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.createWithdraw(userId, withdrawDto);
 	}
 
@@ -90,7 +92,7 @@ export class PixController {
 		@Req() req: any,
 		@Body() transferDto: TransferDto,
 	): Promise<TransactionResponseDto> {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.createTransfer(userId, transferDto);
 	}
 
@@ -137,7 +139,7 @@ export class PixController {
 		@Req() req: any,
 		@Query() filters: TransactionFilterDto,
 	) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 
 		// Use limit/offset as aliases for take/skip
 		if (filters.limit !== undefined && filters.take === undefined) {
@@ -162,7 +164,7 @@ export class PixController {
 		@Req() req: any,
 		@Param('id') transactionId: string,
 	): Promise<TransactionResponseDto> {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.getTransactionStatus(userId, transactionId);
 	}
 
@@ -178,7 +180,7 @@ export class PixController {
 		@Req() req: any,
 		@Param('id') transactionId: string,
 	): Promise<TransactionResponseDto> {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.getTransactionStatus(userId, transactionId);
 	}
 
@@ -201,7 +203,21 @@ export class PixController {
 			isCommerceRequest?: boolean; // Flag to indicate if request is from commerce page
 		},
 	) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
+
+		// Check collaborator restrictions for custom wallet
+		const collabContext = getCollaboratorContext(req);
+		if (collabContext.isCollaborating && collabContext.role === 'AUXILIAR') {
+			// Get owner's default wallet to compare
+			const owner = await this.pixService.getUserDefaultWallet(userId);
+			if (owner?.defaultWalletAddress && data.depixAddress && data.depixAddress !== owner.defaultWalletAddress) {
+				throw new HttpException(
+					'Colaboradores auxiliares não podem usar carteiras personalizadas. Use a carteira padrão da conta.',
+					HttpStatus.FORBIDDEN,
+				);
+			}
+		}
+
 		// Pass authentication context to service to determine which limits to apply
 		const isApiRequest = req.user.scope && req.user.scope.includes('api');
 		return this.pixService.generatePixQRCode(userId, { ...data, isApiRequest });
@@ -226,7 +242,7 @@ export class PixController {
 	@ApiResponse({ status: 200, description: 'Balance retrieved successfully' })
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
 	async getBalance(@Req() req: any) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.getBalance(userId);
 	}
 
@@ -248,7 +264,7 @@ export class PixController {
 		@Req() req: any,
 		@Param('transactionId') transactionId: string,
 	) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.checkDepositStatus(userId, transactionId);
 	}
 
@@ -292,7 +308,7 @@ export class PixController {
 	})
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
 	async getUserLimits(@Req() req: any) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.getUserLimits(userId);
 	}
 
@@ -312,7 +328,7 @@ export class PixController {
 	})
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
 	async getUserLevelLimits(@Req() req: any) {
-		const userId = req.user.id || req.user.sub;
+		const userId = getEffectiveUserId(req);
 		return this.pixService.getUserLevelLimits(userId);
 	}
 }

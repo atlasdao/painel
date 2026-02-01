@@ -1,19 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { authService } from '@/app/lib/auth';
 import { Menu, X } from 'lucide-react';
 import Hero from '@/app/components/landing/Hero';
-import Features from '@/app/components/landing/Features';
-import HowItWorks from '@/app/components/landing/HowItWorks';
-import Pricing from '@/app/components/landing/Pricing';
-import WhyAtlas from '@/app/components/landing/WhyAtlas';
-import Testimonials from '@/app/components/landing/Testimonials';
-import FinalCTA from '@/app/components/landing/FinalCTA';
-import Footer from '@/app/components/landing/Footer';
+
+// Lazy load componentes abaixo da dobra para melhorar LCP
+const Features = lazy(() => import('@/app/components/landing/Features'));
+const HowItWorks = lazy(() => import('@/app/components/landing/HowItWorks'));
+const Pricing = lazy(() => import('@/app/components/landing/Pricing'));
+const WhyAtlas = lazy(() => import('@/app/components/landing/WhyAtlas'));
+const Testimonials = lazy(() => import('@/app/components/landing/Testimonials'));
+const FinalCTA = lazy(() => import('@/app/components/landing/FinalCTA'));
+const Footer = lazy(() => import('@/app/components/landing/Footer'));
+
+// Componente de loading simples
+const SectionLoader = () => (
+  <div className="w-full py-20 flex justify-center">
+    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 export default function Home() {
   const router = useRouter();
@@ -72,6 +81,8 @@ export default function Home() {
                 width={40}
                 height={40}
                 className="rounded-lg"
+                priority
+                fetchPriority="high"
               />
               <span className="text-xl font-bold text-white">
                 Atlas
@@ -163,15 +174,29 @@ export default function Home() {
       {/* Main Content */}
       <main>
         <Hero />
-        <Features />
-        <HowItWorks />
-        <Pricing />
-        <WhyAtlas />
-        <Testimonials />
-        <FinalCTA />
+        <Suspense fallback={<SectionLoader />}>
+          <Features />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <HowItWorks />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <Pricing />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <WhyAtlas />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <Testimonials />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <FinalCTA />
+        </Suspense>
       </main>
 
-      <Footer />
+      <Suspense fallback={<SectionLoader />}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }

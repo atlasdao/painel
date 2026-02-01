@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Link from 'next/link';
-import { UserCircle, LogOut } from 'lucide-react';
+import { UserCircle, LogOut, Users } from 'lucide-react';
 
 interface ProfileDropdownProps {
   isOpen: boolean;
@@ -84,6 +84,15 @@ export default function ProfileDropdown({ isOpen, onClose, buttonRef, user, onLo
       >
         <UserCircle className="w-4 h-4" />
         <span>Meu Perfil</span>
+      </Link>
+
+      <Link
+        href="/collaborators"
+        onClick={onClose}
+        className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-700/50 hover:text-white transition-colors"
+      >
+        <Users className="w-4 h-4" />
+        <span>Colaboradores</span>
       </Link>
 
       <div className="border-t border-gray-700/50 mt-2 pt-2">

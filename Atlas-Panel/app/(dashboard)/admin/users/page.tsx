@@ -32,7 +32,9 @@ import {
   TrendingUp,
   AlertCircle,
   Store,
-  ArrowUpDown
+  ArrowUpDown,
+  Percent,
+  Clock
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
@@ -54,6 +56,10 @@ interface User {
   commerceModeActivatedAt?: string;
   whitelistDepix?: boolean;
   whitelistDepixActivatedAt?: string;
+  collateral?: number | null;
+  splitFeePercentage?: number;
+  delayedPaymentEnabled?: boolean;
+  delayedPaymentEnabledAt?: string;
 }
 
 interface UserStats {
@@ -92,7 +98,9 @@ export default function AdminUsersPage() {
     apiDailyLimit: 6000,
     apiMonthlyLimit: 180000,
     commerceMode: false,
-    whitelistDepix: false,
+    collateral: null as number | null,
+    splitFeePercentage: 0.5,
+    delayedPaymentEnabled: false,
   });
 
   useEffect(() => {
@@ -228,7 +236,9 @@ export default function AdminUsersPage() {
       apiDailyLimit: user.apiDailyLimit || 6000,
       apiMonthlyLimit: user.apiMonthlyLimit || 180000,
       commerceMode: user.commerceMode || false,
-      whitelistDepix: user.whitelistDepix || false,
+      collateral: user.collateral ?? null,
+      splitFeePercentage: user.splitFeePercentage ?? 0.5,
+      delayedPaymentEnabled: user.delayedPaymentEnabled || false,
     });
     setShowEditModal(true);
   };
@@ -797,7 +807,7 @@ export default function AdminUsersPage() {
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="modal-backdrop">
-          <div className="modal-content max-w-md w-full mx-4">
+          <div className="modal-content max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-white mb-6">Editar Usuário</h2>
             
             <div className="space-y-4">
@@ -890,31 +900,119 @@ export default function AdminUsersPage() {
                 </label>
               </div>
 
+              {/* Colateral */}
               <div className="mt-4">
-                <label className="flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-green-500 transition-colors">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   <div className="flex items-center">
-                    <Shield className="w-5 h-5 text-green-400 mr-3" />
+                    <CreditCard className="w-4 h-4 text-cyan-400 mr-2" />
+                    Colateral (R$)
+                  </div>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editUserData.collateral ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Vazio = null (desligado), 0 = desligado, >0 = colateral ativo
+                      const numValue = value === '' ? null : parseFloat(value);
+                      setEditUserData({
+                        ...editUserData,
+                        collateral: numValue === 0 ? null : numValue
+                      });
+                    }}
+                    className="w-full input-modern pl-10"
+                    placeholder="Desligado"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  QR codes com valor igual ou menor ao colateral usam whitelist. Deixe vazio ou 0 para desligar.
+                </p>
+                {editUserData.collateral !== null && editUserData.collateral > 0 && (
+                  <div className="mt-2 p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                    <p className="text-xs text-cyan-400">
+                      Colateral ativo: QR codes até R$ {editUserData.collateral.toFixed(2)} usarão whitelist automaticamente.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <div className="flex items-center">
+                    <Percent className="w-4 h-4 text-orange-400 mr-2" />
+                    Taxa de Split Fee (%)
+                  </div>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={editUserData.splitFeePercentage}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow 0 as a valid value
+                      const numValue = value === '' ? 0.5 : parseFloat(value);
+                      setEditUserData({ ...editUserData, splitFeePercentage: isNaN(numValue) ? 0.5 : numValue });
+                    }}
+                    className="w-full input-modern pr-8"
+                    placeholder="0.5"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Porcentagem cobrada em cada transação (padrão: 0.5%). Use 0 para isentar o usuário.
+                </p>
+              </div>
+
+              {/* Pagamento com Delay D+1 */}
+              <div className="mt-4">
+                <label className={`flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border ${
+                  !editUserData.commerceMode ? 'border-gray-600 opacity-50' : 'border-gray-700 hover:border-amber-500'
+                } transition-colors`}>
+                  <div className="flex items-center">
+                    <Clock className="w-5 h-5 text-amber-400 mr-3" />
                     <div>
-                      <span className="text-sm font-medium text-gray-200">Whitelist Depix</span>
-                      <p className="text-xs text-gray-400 mt-1">Remove limitação de R$ 500 na primeira compra</p>
+                      <span className="text-sm font-medium text-gray-200">Pagamento com Delay (D+1)</span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Pagamentos são agendados para janelas de 6h ou 18h (mínimo 24h após venda)
+                      </p>
                     </div>
                   </div>
                   <div className="relative">
                     <input
                       type="checkbox"
                       className="sr-only"
-                      checked={editUserData.whitelistDepix}
-                      onChange={(e) => setEditUserData({ ...editUserData, whitelistDepix: e.target.checked })}
+                      checked={editUserData.delayedPaymentEnabled}
+                      disabled={!editUserData.commerceMode}
+                      onChange={(e) => setEditUserData({ ...editUserData, delayedPaymentEnabled: e.target.checked })}
                     />
                     <div className={`w-12 h-6 rounded-full transition-colors ${
-                      editUserData.whitelistDepix ? 'bg-green-500' : 'bg-gray-600'
+                      editUserData.delayedPaymentEnabled ? 'bg-amber-500' : 'bg-gray-600'
                     }`}>
                       <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                        editUserData.whitelistDepix ? 'translate-x-6' : 'translate-x-0'
+                        editUserData.delayedPaymentEnabled ? 'translate-x-6' : 'translate-x-0'
                       }`} />
                     </div>
                   </div>
                 </label>
+                {!editUserData.commerceMode && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Modo Comércio deve estar ativo para habilitar pagamento com delay.
+                  </p>
+                )}
+                {editUserData.delayedPaymentEnabled && selectedUser?.delayedPaymentEnabledAt && (
+                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-xs text-amber-400">
+                      Ativado em: {formatDate(selectedUser.delayedPaymentEnabledAt)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             

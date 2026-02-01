@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { PaymentLinkService } from './payment-link.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { getEffectiveUserId, getCollaboratorContext } from '../common/decorators/effective-user.decorator';
 import {
 	CreatePaymentLinkDto,
 	UpdatePaymentLinkDto,
@@ -42,7 +43,7 @@ export class PaymentLinkController {
 		@Req() req: any,
 		@Body() dto: CreatePaymentLinkDto,
 	): Promise<PaymentLinkResponseDto> {
-		const userId = req.user?.id || req.user?.sub;
+		const userId = getEffectiveUserId(req);
 		if (!userId) {
 			throw new HttpException(
 				'User not authenticated',
@@ -50,14 +51,27 @@ export class PaymentLinkController {
 			);
 		}
 
+		// Check collaborator restrictions
+		const collabContext = getCollaboratorContext(req);
+		if (collabContext.isCollaborating && collabContext.role === 'AUXILIAR') {
+			// AUXILIAR cannot use custom wallet - must use owner's default wallet
+			if (dto.walletAddress) {
+				throw new HttpException(
+					'Colaboradores auxiliares não podem usar carteiras personalizadas. Use a carteira padrão da conta.',
+					HttpStatus.FORBIDDEN,
+				);
+			}
+		}
+
 		// Enhanced logging for debugging validation issues
 		console.log('🔍 Payment Link Creation Request:');
 		console.log('  User ID:', userId);
+		console.log('  Collaborator Context:', JSON.stringify(collabContext, null, 2));
 		console.log('  Request Body:', JSON.stringify(req.body, null, 2));
 		console.log('  Validated DTO:', JSON.stringify(dto, null, 2));
 
 		try {
-			return await this.paymentLinkService.create(userId, dto);
+			return await this.paymentLinkService.create(userId, dto, collabContext);
 		} catch (error) {
 			console.error('❌ Payment Link Creation Error:', error);
 
@@ -78,7 +92,7 @@ export class PaymentLinkController {
 	@ApiOperation({ summary: 'Get all payment links for current user' })
 	@ApiResponse({ status: 200, description: 'Returns all payment links' })
 	async getMyPaymentLinks(@Req() req: any): Promise<PaymentLinkResponseDto[]> {
-		const userId = req.user?.id || req.user?.sub;
+		const userId = getEffectiveUserId(req);
 		if (!userId) {
 			throw new HttpException(
 				'User not authenticated',
@@ -99,12 +113,24 @@ export class PaymentLinkController {
 		@Param('id') id: string,
 		@Body() dto: UpdatePaymentLinkDto,
 	): Promise<PaymentLinkResponseDto> {
-		const userId = req.user?.id || req.user?.sub;
+		const userId = getEffectiveUserId(req);
 		if (!userId) {
 			throw new HttpException(
 				'User not authenticated',
 				HttpStatus.UNAUTHORIZED,
 			);
+		}
+
+		// Check if AUXILIAR is trying to change wallet address
+		const collabContext = getCollaboratorContext(req);
+		if (collabContext.isCollaborating && collabContext.role === 'AUXILIAR') {
+			// AUXILIAR cannot change wallet address
+			if (dto.walletAddress !== undefined) {
+				throw new HttpException(
+					'Colaboradores auxiliares não podem alterar a carteira de links de pagamento.',
+					HttpStatus.FORBIDDEN,
+				);
+			}
 		}
 
 		// Enhanced logging for debugging update issues
@@ -142,7 +168,7 @@ export class PaymentLinkController {
 		@Req() req: any,
 		@Param('id') id: string,
 	): Promise<PaymentLinkResponseDto> {
-		const userId = req.user?.id || req.user?.sub;
+		const userId = getEffectiveUserId(req);
 		if (!userId) {
 			throw new HttpException(
 				'User not authenticated',
@@ -162,7 +188,7 @@ export class PaymentLinkController {
 		@Req() req: any,
 		@Param('id') id: string,
 	): Promise<{ message: string }> {
-		const userId = req.user?.id || req.user?.sub;
+		const userId = getEffectiveUserId(req);
 		if (!userId) {
 			throw new HttpException(
 				'User not authenticated',

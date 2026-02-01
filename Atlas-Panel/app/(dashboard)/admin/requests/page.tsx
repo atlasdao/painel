@@ -18,7 +18,8 @@ import {
   AlertCircle,
   History,
   Store,
-  Heart
+  Heart,
+  Copy
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/app/lib/api';
@@ -168,6 +169,17 @@ export default function AdminRequestsPage() {
   const [coldwalletTxId, setColdwalletTxId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+
+  // Copy to clipboard function
+  const handleCopy = async (text: string | undefined) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copiado!', { duration: 1500 });
+    } catch {
+      toast.error('Erro ao copiar');
+    }
+  };
 
   // Filters for history
   const [statusFilter, setStatusFilter] = useState<WithdrawalStatus | 'ALL'>('ALL');
@@ -1655,25 +1667,60 @@ export default function AdminRequestsPage() {
               {/* User Info */}
               <div className="p-4 bg-gray-700/50 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Usuário</h3>
-                <p className="text-white">Username: {selectedApiRequest.user?.username}</p>
-                <p className="text-gray-300">Email: {selectedApiRequest.user?.email}</p>
-                <p className="text-gray-300">ID: {selectedApiRequest.userId}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white">Username: {selectedApiRequest.user?.username}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.user?.username)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-300">Email: {selectedApiRequest.user?.email}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.user?.email)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-300">ID: {selectedApiRequest.userId}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.userId)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
               </div>
 
               {/* Request Info */}
               <div className="p-4 bg-gray-700/50 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-400 mb-2">Informações da Solicitação</h3>
                 <p className="text-white">Motivo de Uso:</p>
-                <p className="text-gray-300 ml-2">{selectedApiRequest.usageReason}</p>
+                <div className="flex items-start gap-2 ml-2">
+                  <p className="text-gray-300">{selectedApiRequest.usageReason}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.usageReason)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
                 <p className="text-white mt-2">URL do Serviço:</p>
-                <a href={selectedApiRequest.serviceUrl} target="_blank" rel="noopener noreferrer"
-                   className="text-blue-400 hover:underline ml-2">
-                  {selectedApiRequest.serviceUrl}
-                </a>
-                <p className="text-white mt-2">Volume Estimado: <span className="text-gray-300">{selectedApiRequest.estimatedVolume}</span></p>
-                <p className="text-white mt-2">Tipo de Uso: <span className="text-gray-300">
-                  {selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
-                </span></p>
+                <div className="flex items-center gap-2 ml-2">
+                  <a href={selectedApiRequest.serviceUrl} target="_blank" rel="noopener noreferrer"
+                     className="text-blue-400 hover:underline">
+                    {selectedApiRequest.serviceUrl}
+                  </a>
+                  <button onClick={() => handleCopy(selectedApiRequest.serviceUrl)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <p className="text-white">Volume Estimado: <span className="text-gray-300">{selectedApiRequest.estimatedVolume}</span></p>
+                  <button onClick={() => handleCopy(selectedApiRequest.estimatedVolume)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <p className="text-white">Tipo de Uso: <span className="text-gray-300">
+                    {selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
+                  </span></p>
+                  <button onClick={() => handleCopy(selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs')} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <Copy size={14} />
+                  </button>
+                </div>
               </div>
 
               {/* Status Info */}
@@ -1685,14 +1732,29 @@ export default function AdminRequestsPage() {
                   </span>
                 </p>
                 {selectedApiRequest.approvalNotes && (
-                  <p className="text-gray-300">Notas: {selectedApiRequest.approvalNotes}</p>
+                  <div className="flex items-start gap-2">
+                    <p className="text-gray-300">Notas: {selectedApiRequest.approvalNotes}</p>
+                    <button onClick={() => handleCopy(selectedApiRequest.approvalNotes)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                      <Copy size={14} />
+                    </button>
+                  </div>
                 )}
                 {selectedApiRequest.approvedBy && (
-                  <p className="text-gray-300">Aprovado por: {selectedApiRequest.approvedBy}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-gray-300">Aprovado por: {selectedApiRequest.approvedBy}</p>
+                    <button onClick={() => handleCopy(selectedApiRequest.approvedBy)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                      <Copy size={14} />
+                    </button>
+                  </div>
                 )}
                 {selectedApiRequest.generatedApiKey && selectedApiRequest.status === 'APPROVED' && (
                   <div className="mt-2">
-                    <p className="text-white">API Key:</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white">API Key:</p>
+                      <button onClick={() => handleCopy(selectedApiRequest.generatedApiKey)} className="text-gray-400 hover:text-white transition-colors" title="Copiar API Key">
+                        <Copy size={14} />
+                      </button>
+                    </div>
                     <code className="text-xs text-green-400 bg-gray-800 p-2 rounded block mt-1 break-all">
                       {selectedApiRequest.generatedApiKey}
                     </code>
@@ -2134,9 +2196,24 @@ export default function AdminRequestsPage() {
                   {/* User Info */}
                   <div className="p-4 bg-gray-700/50 rounded-lg">
                     <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Usuário</h3>
-                    <p className="text-white">Username: {selectedCommerceApplication.user.username}</p>
-                    <p className="text-gray-300">Email: {selectedCommerceApplication.user.email}</p>
-                    <p className="text-gray-300">ID: {selectedCommerceApplication.userId}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white">Username: {selectedCommerceApplication.user.username}</p>
+                      <button onClick={() => handleCopy(selectedCommerceApplication.user.username)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-gray-300">Email: {selectedCommerceApplication.user.email}</p>
+                      <button onClick={() => handleCopy(selectedCommerceApplication.user.email)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-gray-300">ID: {selectedCommerceApplication.userId}</p>
+                      <button onClick={() => handleCopy(selectedCommerceApplication.userId)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                        <Copy size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Business Info */}
@@ -2144,7 +2221,14 @@ export default function AdminRequestsPage() {
                     <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Negócio</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-white font-medium">Nome do Negócio:</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">Nome do Negócio:</p>
+                          {selectedCommerceApplication.businessName?.trim() && (
+                            <button onClick={() => handleCopy(selectedCommerceApplication.businessName?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                              <Copy size={14} />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-gray-300 break-words">
                           {selectedCommerceApplication.businessName?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
@@ -2154,7 +2238,14 @@ export default function AdminRequestsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Produto ou Serviço:</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">Produto ou Serviço:</p>
+                          {selectedCommerceApplication.productOrService?.trim() && (
+                            <button onClick={() => handleCopy(selectedCommerceApplication.productOrService?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                              <Copy size={14} />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-gray-300 break-words">
                           {selectedCommerceApplication.productOrService?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
@@ -2164,7 +2255,14 @@ export default function AdminRequestsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Valores Médios:</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">Valores Médios:</p>
+                          {selectedCommerceApplication.averagePrices?.trim() && (
+                            <button onClick={() => handleCopy(selectedCommerceApplication.averagePrices?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                              <Copy size={14} />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-gray-300 break-words">
                           {selectedCommerceApplication.averagePrices?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
@@ -2174,7 +2272,14 @@ export default function AdminRequestsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Volume Mensal de Vendas via Pix:</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">Volume Mensal de Vendas via Pix:</p>
+                          {selectedCommerceApplication.monthlyPixSales?.trim() && (
+                            <button onClick={() => handleCopy(selectedCommerceApplication.monthlyPixSales?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                              <Copy size={14} />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-gray-300 break-words">
                           {selectedCommerceApplication.monthlyPixSales?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
@@ -2184,7 +2289,14 @@ export default function AdminRequestsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-white font-medium">Tempo de Mercado:</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">Tempo de Mercado:</p>
+                          {selectedCommerceApplication.marketTime?.trim() && (
+                            <button onClick={() => handleCopy(selectedCommerceApplication.marketTime?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                              <Copy size={14} />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-gray-300 break-words">
                           {selectedCommerceApplication.marketTime?.trim() ||
                             <span className="text-red-400 italic">Não informado</span>}
@@ -2195,7 +2307,14 @@ export default function AdminRequestsPage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Grupos, Comunidades ou Páginas de Referência:</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Grupos, Comunidades ou Páginas de Referência:</p>
+                        {selectedCommerceApplication.references?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.references?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-blue-500">
                         <p className="text-gray-300 break-words whitespace-pre-wrap">
                           {selectedCommerceApplication.references?.trim() ||
@@ -2212,14 +2331,28 @@ export default function AdminRequestsPage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Taxa de Reembolso:</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Taxa de Reembolso:</p>
+                        {selectedCommerceApplication.refundRate?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.refundRate?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-gray-300 break-words">
                         {selectedCommerceApplication.refundRate?.trim() ||
                           <span className="text-red-400 italic">Não informado</span>}
                       </p>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Processo de Reembolso e Disputas (MEDs):</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Processo de Reembolso e Disputas (MEDs):</p>
+                        {selectedCommerceApplication.refundProcess?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.refundProcess?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-purple-500">
                         <p className="text-gray-300 break-words whitespace-pre-wrap">
                           {selectedCommerceApplication.refundProcess?.trim() ||
@@ -2228,7 +2361,14 @@ export default function AdminRequestsPage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Comprovação de Propriedade do Negócio:</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Comprovação de Propriedade do Negócio:</p>
+                        {selectedCommerceApplication.businessProof?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.businessProof?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-green-500">
                         <p className="text-gray-300 break-words whitespace-pre-wrap">
                           {selectedCommerceApplication.businessProof?.trim() ||
@@ -2237,14 +2377,28 @@ export default function AdminRequestsPage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Contato (Telegram/SimpleX):</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Contato (Telegram/SimpleX):</p>
+                        {selectedCommerceApplication.contactInfo?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.contactInfo?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-gray-300 break-words">
                         {selectedCommerceApplication.contactInfo?.trim() ||
                           <span className="text-red-400 italic">Não informado</span>}
                       </p>
                     </div>
                     <div className="mt-4">
-                      <p className="text-white font-medium">Objetivo do Negócio:</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">Objetivo do Negócio:</p>
+                        {selectedCommerceApplication.businessObjective?.trim() && (
+                          <button onClick={() => handleCopy(selectedCommerceApplication.businessObjective?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
                       <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-green-500">
                         <p className="text-gray-300 break-words whitespace-pre-wrap">
                           {selectedCommerceApplication.businessObjective?.trim() ||

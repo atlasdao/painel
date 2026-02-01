@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import { userService, profileService } from '@/app/lib/services';
-import api, { API_URL } from '@/app/lib/api';
+import api, { API_URL, getAccountContext } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
 import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Webhook } from 'lucide-react';
@@ -25,6 +25,9 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'wallet' | 'notifications' | 'api'>('profile');
   const [loading, setLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
+
+  // Collaborator context - collaborators cannot edit wallet
+  const [isCollaborating, setIsCollaborating] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
@@ -65,6 +68,13 @@ export default function SettingsPage() {
   const [twoFAToken, setTwoFAToken] = useState('');
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFAStatus, setTwoFAStatus] = useState<{
+    periodicCheckEnabled: boolean;
+    remainingBackupCodes: number;
+    lastVerified: string | null;
+  }>({ periodicCheckEnabled: false, remainingBackupCodes: 0, lastVerified: null });
+  const [showRegenerateBackupModal, setShowRegenerateBackupModal] = useState(false);
+  const [regenerateToken, setRegenerateToken] = useState('');
   const [showApiKeys, setShowApiKeys] = useState<{ [key: string]: boolean }>({});
 
   // Wallet State
@@ -96,11 +106,25 @@ export default function SettingsPage() {
     contactInfo: '',
   });
   const [loadingApiKey, setLoadingApiKey] = useState(false);
+  const [revokingApiKeyId, setRevokingApiKeyId] = useState<string | null>(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState<string | null>(null);
 
-  // Set active tab from URL
+  // Check if user is collaborating and set active tab from URL
   useEffect(() => {
-    if (tabFromUrl && ['profile', 'security', 'wallet', 'notifications', 'api'].includes(tabFromUrl)) {
-      setActiveTab(tabFromUrl as any);
+    const accountContext = getAccountContext();
+    setIsCollaborating(accountContext.isCollaborating);
+
+    // Set tab from URL, but prevent wallet access for collaborators
+    if (tabFromUrl) {
+      const validTabs = ['profile', 'security', 'wallet', 'notifications', 'api'];
+      if (validTabs.includes(tabFromUrl)) {
+        // If collaborator tries to access wallet tab, redirect to profile
+        if (tabFromUrl === 'wallet' && accountContext.isCollaborating) {
+          setActiveTab('profile');
+        } else {
+          setActiveTab(tabFromUrl as any);
+        }
+      }
     }
   }, [tabFromUrl]);
 
@@ -109,6 +133,7 @@ export default function SettingsPage() {
       setIsPageLoading(true);
       await loadUserProfile();
       await loadApiKeyRequests();
+      await load2FAStatus();
       setIsPageLoading(false);
     };
     init();
@@ -213,6 +238,25 @@ export default function SettingsPage() {
       style: { background: '#10b981', color: '#fff' },
       duration: 2000,
     });
+  };
+
+  const handleRevokeApiKey = async (requestId: string) => {
+    setRevokingApiKeyId(requestId);
+    try {
+      await api.put(`/api-key-requests/${requestId}/revoke-self`);
+      toast.success('API Key revogada com sucesso!', {
+        style: { background: '#10b981', color: '#fff' },
+      });
+      setShowRevokeConfirm(null);
+      await loadApiKeyRequests();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao revogar API Key';
+      toast.error(errorMessage, {
+        style: { background: '#ef4444', color: '#fff' },
+      });
+    } finally {
+      setRevokingApiKeyId(null);
+    }
   };
 
   const toggleApiKeyVisibility = (apiKeyId: string) => {
@@ -397,13 +441,66 @@ export default function SettingsPage() {
     await profileService.disable2FA(code);
     setProfile({ ...profile, twoFactorEnabled: false });
     setTwoFASetup({});
+    setTwoFAStatus({ periodicCheckEnabled: false, remainingBackupCodes: 0, lastVerified: null });
     setShow2FAModal(false);
-    toast.success('🔓 2FA desativado com sucesso', {
+    toast.success('2FA desativado com sucesso', {
       style: {
         background: '#f59e0b',
         color: '#fff',
       },
     });
+  };
+
+  const load2FAStatus = async () => {
+    try {
+      const status = await profileService.get2FAStatus();
+      setTwoFAStatus({
+        periodicCheckEnabled: status.periodicCheckEnabled,
+        remainingBackupCodes: status.remainingBackupCodes,
+        lastVerified: status.lastVerified,
+      });
+    } catch (error) {
+      console.error('Error loading 2FA status:', error);
+    }
+  };
+
+  const handleTogglePeriodicCheck = async () => {
+    setLoading(true);
+    try {
+      const newValue = !twoFAStatus.periodicCheckEnabled;
+      await profileService.togglePeriodicCheck(newValue);
+      setTwoFAStatus({ ...twoFAStatus, periodicCheckEnabled: newValue });
+      toast.success(newValue
+        ? 'Verificação periódica de 12h ativada'
+        : 'Verificação periódica de 12h desativada'
+      );
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao alterar configuração');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerateBackupCodes = async () => {
+    if (regenerateToken.length !== 6) {
+      toast.error('Digite o código de 6 dígitos');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await profileService.regenerateBackupCodes(regenerateToken);
+      setTwoFASetup({ ...twoFASetup, backupCodes: response.backupCodes });
+      setTwoFAStatus({ ...twoFAStatus, remainingBackupCodes: response.backupCodes.length });
+      setShowBackupCodes(true);
+      setShowRegenerateBackupModal(false);
+      setRegenerateToken('');
+      toast.success('Novos códigos de backup gerados!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao gerar códigos');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleWalletUpdate = async (): Promise<boolean> => {
@@ -489,13 +586,19 @@ export default function SettingsPage() {
   };
 
 
-  const tabs = [
+  // Define tabs - hide wallet for collaborators
+  const allTabs = [
     { id: 'profile', label: 'Perfil', icon: User },
     { id: 'security', label: 'Segurança', icon: Shield },
-    { id: 'wallet', label: 'Carteira', icon: Wallet },
+    { id: 'wallet', label: 'Carteira', icon: Wallet, hideForCollaborator: true },
     { id: 'api', label: 'API', icon: Code },
     { id: 'notifications', label: 'Notificações', icon: Bell },
   ];
+
+  // Filter tabs based on collaborator status
+  const tabs = isCollaborating
+    ? allTabs.filter(tab => !tab.hideForCollaborator)
+    : allTabs;
 
 
   // Add an early return for page loading state
@@ -705,7 +808,8 @@ export default function SettingsPage() {
                 <h3 className="text-xl font-semibold text-white mb-4">Autenticação de Dois Fatores (2FA)</h3>
 
                 {profile.twoFactorEnabled ? (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Status Card */}
                     <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
                       <div className="flex items-center gap-3">
                         <Shield className="w-6 h-6 text-green-500" />
@@ -716,6 +820,138 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
+                    {/* Periodic Check Toggle */}
+                    <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Clock className="w-5 h-5 text-blue-400" />
+                          <div>
+                            <p className="text-white font-medium">Verificação Periódica (12h)</p>
+                            <p className="text-sm text-gray-400">Solicitar código 2FA a cada 12 horas de uso</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleTogglePeriodicCheck}
+                          disabled={loading}
+                          className={`relative w-14 h-7 rounded-full transition-all duration-300 ${
+                            twoFAStatus.periodicCheckEnabled
+                              ? 'bg-blue-600'
+                              : 'bg-gray-600'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-300 ${
+                              twoFAStatus.periodicCheckEnabled ? 'left-8' : 'left-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Backup Codes Status */}
+                    <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Key className="w-5 h-5 text-yellow-400" />
+                          <div>
+                            <p className="text-white font-medium">Códigos de Backup</p>
+                            <p className="text-sm text-gray-400">
+                              {twoFAStatus.remainingBackupCodes} código(s) restante(s)
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowRegenerateBackupModal(true)}
+                          className="px-4 py-2 bg-yellow-600/20 text-yellow-400 rounded-lg hover:bg-yellow-600/30 transition-colors text-sm font-medium"
+                        >
+                          Regenerar Códigos
+                        </button>
+                      </div>
+                      {twoFAStatus.remainingBackupCodes <= 2 && (
+                        <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                          <p className="text-xs text-yellow-400 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            Poucos códigos de backup restantes. Considere gerar novos códigos.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Regenerate Backup Codes Modal */}
+                    {showRegenerateBackupModal && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-700">
+                          <h3 className="text-lg font-semibold text-white mb-4">Regenerar Códigos de Backup</h3>
+                          <p className="text-sm text-gray-400 mb-4">
+                            Digite o código do seu aplicativo autenticador para gerar novos códigos de backup. Os códigos antigos serão invalidados.
+                          </p>
+                          <input
+                            type="text"
+                            value={regenerateToken}
+                            onChange={(e) => setRegenerateToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            maxLength={6}
+                            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none mb-4"
+                          />
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => {
+                                setShowRegenerateBackupModal(false);
+                                setRegenerateToken('');
+                              }}
+                              className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={handleRegenerateBackupCodes}
+                              disabled={loading || regenerateToken.length !== 6}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                              {loading ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : 'Gerar Novos Códigos'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show Backup Codes if just regenerated */}
+                    {showBackupCodes && twoFASetup.backupCodes && (
+                      <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                          <p className="text-yellow-400 font-medium">Salve seus códigos de backup!</p>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-3">
+                          Guarde estes códigos em um local seguro. Cada código só pode ser usado uma vez.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                          {twoFASetup.backupCodes.map((code, index) => (
+                            <div key={index} className="px-3 py-2 bg-gray-800 rounded font-mono text-sm text-white text-center">
+                              {code}
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(twoFASetup.backupCodes?.join('\n') || '');
+                            toast.success('Códigos copiados!');
+                          }}
+                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                          <Copy className="w-4 h-4" />
+                          Copiar Todos os Códigos
+                        </button>
+                        <button
+                          onClick={() => setShowBackupCodes(false)}
+                          className="w-full mt-2 text-sm text-gray-400 hover:text-white transition-colors"
+                        >
+                          Já salvei meus códigos
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Disable Button */}
                     <button
                       onClick={() => setShow2FAModal(true)}
                       disabled={loading}
@@ -1204,9 +1440,9 @@ export default function SettingsPage() {
 
                         {request.generatedApiKey ? (
                           <>
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                               <span className="text-sm font-medium text-white">Sua API Key:</span>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                   onClick={() => toggleApiKeyVisibility(request.id)}
                                   className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
@@ -1223,6 +1459,14 @@ export default function SettingsPage() {
                                   <Copy className="w-4 h-4" />
                                   Copiar
                                 </button>
+                                <button
+                                  onClick={() => setShowRevokeConfirm(request.id)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors text-sm font-medium"
+                                  title="Revogar API Key"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Revogar
+                                </button>
                               </div>
                             </div>
 
@@ -1231,6 +1475,46 @@ export default function SettingsPage() {
                                 {formatApiKey(request.generatedApiKey, showApiKeys[request.id] || false)}
                               </code>
                             </div>
+
+                            {/* Revoke Confirmation Modal */}
+                            {showRevokeConfirm === request.id && (
+                              <div className="mt-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <h4 className="text-red-400 font-medium mb-1">Confirmar Revogação</h4>
+                                    <p className="text-sm text-gray-400 mb-3">
+                                      Tem certeza que deseja revogar esta API Key? Esta ação é irreversível e todas as integrações que usam esta chave deixarão de funcionar imediatamente.
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => handleRevokeApiKey(request.id)}
+                                        disabled={revokingApiKeyId === request.id}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                                      >
+                                        {revokingApiKeyId === request.id ? (
+                                          <>
+                                            <Loader className="w-4 h-4 animate-spin" />
+                                            Revogando...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <XCircle className="w-4 h-4" />
+                                            Sim, Revogar
+                                          </>
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={() => setShowRevokeConfirm(null)}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">

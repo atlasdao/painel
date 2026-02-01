@@ -59,10 +59,16 @@ export class ExternalApiService {
       );
     }
 
-    // Get depixAddress from data
+    // Get depixAddress from data - required field
     const depixAddress = data.depixAddress;
 
-    // If depixAddress is provided, generate QR code through PixService
+    if (!depixAddress) {
+      throw new BadRequestException(
+        'depixAddress is required. Please provide your DEPIX wallet address to generate the PIX QR code.',
+      );
+    }
+
+    // Generate QR code through PixService
     if (depixAddress) {
       try {
         const merchantOrderId = data.merchantOrderId || uuidv4();
@@ -143,81 +149,6 @@ export class ExternalApiService {
         throw new BadRequestException('Failed to generate PIX QR code');
       }
     }
-
-    // Fallback: Create transaction without QR code if no wallet address provided
-    const merchantOrderId = data.merchantOrderId || uuidv4();
-
-    const transaction = await this.prisma.transaction.create({
-      data: {
-        userId: userId,
-        type: 'DEPOSIT',
-        status: 'PENDING',
-        amount: data.amount,
-        description: data.description || 'Pagamento via API',
-        pixKey: data.taxNumber, // Store taxNumber in pixKey field temporarily
-        pixKeyType: 'CPF',
-        metadata: JSON.stringify({
-          source: 'EXTERNAL_API',
-          apiKeyRequestId: apiKeyRequest.id,
-          merchantOrderId: merchantOrderId,
-          taxNumber: data.taxNumber,
-          webhookUrl: data.webhookUrl || data.webhook?.url,
-          ...data.metadata,
-        }),
-      },
-    });
-
-    // Register webhook if provided (even without QR code)
-    let webhookInfo: any = null;
-    if (data.webhook) {
-      try {
-        // Validate webhook URL if provided
-        if (data.webhook.url) {
-          const isValid = await this.webhookService.validateWebhookUrl(data.webhook.url);
-          if (!isValid) {
-            console.warn(`[EXTERNAL_API] Webhook URL validation failed for ${data.webhook.url}`);
-          }
-        }
-
-        webhookInfo = await this.webhookService.registerTransactionWebhook(
-          transaction.id,
-          apiKeyId,
-          data.webhook,
-        );
-
-        // Trigger transaction.created event
-        await this.webhookService.triggerTransactionCreated(
-          transaction.id,
-          {
-            amount: data.amount,
-            merchantOrderId: merchantOrderId,
-            qrCode: null, // No QR code in fallback
-            createdAt: transaction.createdAt,
-            expiresAt: new Date(transaction.createdAt.getTime() + 30 * 60 * 1000),
-          },
-        );
-      } catch (webhookError) {
-        console.error('[EXTERNAL_API] Failed to register webhook (fallback):', webhookError);
-        // Continue without webhook - don't fail the transaction
-      }
-    }
-
-    const response: any = {
-      id: transaction.id,
-      status: transaction.status,
-      amount: transaction.amount,
-      description: transaction.description,
-      merchantOrderId: merchantOrderId,
-      createdAt: transaction.createdAt,
-      expiresAt: new Date(transaction.createdAt.getTime() + 30 * 60 * 1000), // 30 minutes expiry
-    };
-
-    // Add webhook info if registered
-    if (webhookInfo) {
-      response.webhook = webhookInfo;
-    }
-
-    return response;
   }
 
   async getTransactionStatus(userId: string, transactionId: string) {

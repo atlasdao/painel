@@ -128,8 +128,11 @@ export const pixService = {
 };
 
 export const adminService = {
-  async getDashboardStats(): Promise<DashboardStats> {
-    const response = await api.get<DashboardStats>('/admin/dashboard');
+  async getDashboardStats(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<DashboardStats> {
+    const response = await api.get<DashboardStats>('/admin/dashboard', { params });
     return response.data;
   },
 
@@ -298,6 +301,53 @@ export const adminService = {
     const response = await api.post(`/admin/users/${userId}/limits/apply-kyc-limits`);
     return response.data;
   },
+
+  // Risk Management
+  async getRiskReviewQueue(limit?: number): Promise<any> {
+    const response = await api.get('/risk/admin/review-queue', { params: { limit } });
+    return response.data;
+  },
+
+  async getRiskStats(): Promise<any> {
+    const response = await api.get('/risk/admin/stats');
+    return response.data;
+  },
+
+  async getUserRiskProfile(userId: string): Promise<any> {
+    const response = await api.get(`/risk/admin/user/${userId}`);
+    return response.data;
+  },
+
+  async reviewUser(userId: string, data: { notes: string; newStatus?: string }): Promise<any> {
+    const response = await api.put(`/risk/admin/review/${userId}`, data);
+    return response.data;
+  },
+
+  async blockEntity(data: {
+    type: string;
+    value: string;
+    reason: string;
+    reasonDetails?: string;
+    expiresAt?: string;
+  }): Promise<any> {
+    const response = await api.post('/risk/admin/block', data);
+    return response.data;
+  },
+
+  async unblockEntity(type: string, value: string): Promise<any> {
+    const response = await api.put(`/risk/admin/unblock/${type}/${value}`);
+    return response.data;
+  },
+
+  async getBlockedEntities(type?: string, limit?: number, offset?: number): Promise<any> {
+    const response = await api.get('/risk/admin/blocked', { params: { type, limit, offset } });
+    return response.data;
+  },
+
+  async validateEuid(euid: string, userId: string): Promise<any> {
+    const response = await api.get(`/risk/admin/validate-euid/${euid}/${userId}`);
+    return response.data;
+  },
 };
 
 export const apiKeyService = {
@@ -447,6 +497,34 @@ export const profileService = {
     await api.post('/profile/2fa/disable', { token });
   },
 
+  async get2FAStatus(): Promise<{
+    twoFactorEnabled: boolean;
+    periodicCheckEnabled: boolean;
+    lastVerified: string | null;
+    remainingBackupCodes: number;
+    requiresPeriodicVerification: boolean;
+    isLocked: boolean;
+    lockedUntil: string | null;
+  }> {
+    const response = await api.get('/profile/2fa/status');
+    return response.data;
+  },
+
+  async verifyBackupCode(backupCode: string): Promise<{ success: boolean; remainingCodes: number }> {
+    const response = await api.post('/profile/2fa/backup-code/verify', { backupCode });
+    return response.data;
+  },
+
+  async regenerateBackupCodes(token: string): Promise<{ success: boolean; backupCodes: string[] }> {
+    const response = await api.post('/profile/2fa/backup-codes/regenerate', { token });
+    return response.data;
+  },
+
+  async togglePeriodicCheck(enabled: boolean): Promise<{ success: boolean; periodicCheckEnabled: boolean }> {
+    const response = await api.post('/profile/2fa/periodic-check/toggle', { enabled });
+    return response.data;
+  },
+
   async updateDefaultWallet(data: { address: string; type: string }): Promise<any> {
     const response = await api.patch('/profile/wallet', data);
     return response.data;
@@ -459,6 +537,163 @@ export const profileService = {
 
   async toggleCommerceMode(): Promise<any> {
     const response = await api.post('/profile/commerce-mode/toggle');
+    return response.data;
+  },
+};
+
+// Tipos para colaboradores
+export interface CollaboratorInvite {
+  id: string;
+  invitedEmail: string;
+  invitedName: string;
+  role: 'AUXILIAR' | 'GESTOR';
+  status: 'PENDING' | 'ACTIVE' | 'REVOKED';
+  createdAt: string;
+  acceptedAt?: string;
+  revokedAt?: string;
+  inviteExpires: string;
+  inviteLink?: string; // Link de convite para copiar (apenas para PENDING)
+  collaborator?: {
+    id: string;
+    username: string;
+    email: string;
+    profilePicture?: string;
+  };
+}
+
+export interface CollaboratorAccount {
+  collaboratorId: string;
+  accountId: string;
+  username: string;
+  email: string;
+  profilePicture?: string;
+  role: 'AUXILIAR' | 'GESTOR';
+  permissions: string[];
+}
+
+export interface CollaboratorContext {
+  type: 'OWNER' | 'COLLABORATOR';
+  accountId: string;
+  accountName: string;
+  collaboratorId?: string;
+  role: 'OWNER' | 'AUXILIAR' | 'GESTOR';
+  permissions: string[];
+}
+
+export const collaboratorService = {
+  // ========== GERENCIAMENTO (DONO) ==========
+
+  async inviteCollaborator(data: {
+    name: string;
+    email: string;
+    role: 'AUXILIAR' | 'GESTOR';
+  }): Promise<CollaboratorInvite> {
+    const response = await api.post('/collaborator/invite', data);
+    return response.data;
+  },
+
+  async listCollaborators(): Promise<CollaboratorInvite[]> {
+    const response = await api.get('/collaborator/list');
+    return response.data;
+  },
+
+  async updateCollaboratorRole(
+    collaboratorId: string,
+    role: 'AUXILIAR' | 'GESTOR'
+  ): Promise<{ id: string; role: string; message: string }> {
+    const response = await api.patch(`/collaborator/${collaboratorId}/role`, { role });
+    return response.data;
+  },
+
+  async revokeCollaborator(collaboratorId: string): Promise<{ message: string }> {
+    const response = await api.delete(`/collaborator/${collaboratorId}`);
+    return response.data;
+  },
+
+  async resendInvite(collaboratorId: string): Promise<{ message: string }> {
+    const response = await api.post(`/collaborator/${collaboratorId}/resend`);
+    return response.data;
+  },
+
+  // ========== CONVITE ==========
+
+  async validateInviteToken(token: string): Promise<{
+    invitedEmail: string;
+    invitedName: string;
+    role: 'AUXILIAR' | 'GESTOR';
+    accountOwner: {
+      username: string;
+      profilePicture?: string;
+    };
+    hasExistingAccount: boolean;
+    roleDescription: {
+      title: string;
+      description: string;
+      permissions: string[];
+    };
+  }> {
+    const response = await api.get(`/collaborator/invite/${token}`);
+    return response.data;
+  },
+
+  async acceptInvite(token: string): Promise<{
+    message: string;
+    accountOwner: string;
+    role: string;
+  }> {
+    const response = await api.post('/collaborator/invite/accept', { token });
+    return response.data;
+  },
+
+  async acceptInviteWithRegistration(data: {
+    token: string;
+    username: string;
+    password: string;
+  }): Promise<{
+    message: string;
+    accessToken: string;
+    refreshToken: string;
+    user: {
+      id: string;
+      email: string;
+      username: string;
+      roles: string[];
+    };
+    accountOwner: string;
+    role: string;
+  }> {
+    const response = await api.post('/collaborator/invite/register', data);
+    return response.data;
+  },
+
+  // ========== CONTEXTO ==========
+
+  async getMyAccounts(): Promise<{
+    ownAccount: {
+      id: string;
+      username: string;
+      email: string;
+      profilePicture?: string;
+      role: 'OWNER';
+    };
+    collaborations: CollaboratorAccount[];
+  }> {
+    const response = await api.get('/collaborator/my-accounts');
+    return response.data;
+  },
+
+  async switchToAccount(collaboratorId: string): Promise<{
+    context: CollaboratorContext;
+    message: string;
+  }> {
+    const response = await api.post(`/collaborator/switch/${collaboratorId}`);
+    return response.data;
+  },
+
+  async switchToOwnAccount(): Promise<{
+    context: CollaboratorContext;
+  }> {
+    const response = await api.post('/collaborator/switch/own');
     return response.data;
   },
 };

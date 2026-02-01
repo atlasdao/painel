@@ -38,45 +38,79 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     });
+  };
+
+  const getStatusTooltip = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Recebido em sua carteira';
+      case 'PROCESSING':
+        return 'Pago. Liberação na próxima remessa';
+      case 'PENDING':
+        return 'Aguardando pagamento';
+      case 'IN_REVIEW':
+        return 'Contate o suporte';
+      case 'FAILED':
+        return 'Pagamento cancelado ou não concluído';
+      case 'EXPIRED':
+        return 'Tempo limite excedido';
+      default:
+        return '';
+    }
   };
 
   const getStatusInfo = (status: string) => {
     const label = translateStatus(status);
+    const tooltip = getStatusTooltip(status);
     switch (status) {
       case 'COMPLETED':
         return {
           label,
-          color: 'text-green-400 bg-green-900/50',
+          tooltip,
+          color: 'text-blue-400 bg-blue-900/50',
           icon: <CheckCircle className="w-4 h-4" />,
         };
       case 'PENDING':
         return {
           label,
+          tooltip,
           color: 'text-yellow-400 bg-yellow-900/50',
           icon: <Clock className="w-4 h-4" />,
         };
       case 'PROCESSING':
         return {
           label,
-          color: 'text-blue-400 bg-blue-900/50',
+          tooltip,
+          color: 'text-green-400 bg-green-900/50',
+          icon: <CheckCircle className="w-4 h-4" />,
+        };
+      case 'IN_REVIEW':
+        return {
+          label,
+          tooltip,
+          color: 'text-purple-400 bg-purple-900/50',
           icon: <Activity className="w-4 h-4" />,
         };
       case 'FAILED':
         return {
           label,
+          tooltip,
           color: 'text-red-400 bg-red-900/50',
           icon: <XCircle className="w-4 h-4" />,
         };
       case 'EXPIRED':
         return {
           label,
+          tooltip,
           color: 'text-orange-400 bg-orange-900/50',
           icon: <Clock className="w-4 h-4" />,
         };
       default:
         return {
           label,
+          tooltip,
           color: 'text-gray-400 bg-gray-700',
           icon: <AlertCircle className="w-4 h-4" />,
         };
@@ -208,7 +242,8 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
                     </td>
                     <td className="py-4 px-6">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} btn-pop`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} btn-pop cursor-help`}
+                        title={statusInfo.tooltip}
                       >
                         {statusInfo.icon}
                         <span className="ml-1">{statusInfo.label}</span>

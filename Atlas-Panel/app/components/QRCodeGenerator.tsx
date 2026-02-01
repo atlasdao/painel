@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/app/lib/api';
+import { api, isAuxiliarCollaborator } from '@/app/lib/api';
 import { toast } from 'sonner';
 import {
   QrCode,
@@ -328,8 +328,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
             </p>
           </div>
 
-          {/* Custom Wallet Toggle - Only show if user has default wallet */}
-          {defaultWallet ? (
+          {/* Custom Wallet Toggle - Only show if user has default wallet AND is not AUXILIAR */}
+          {defaultWallet && !isAuxiliarCollaborator() ? (
             <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
               <label className="text-sm font-medium text-white">
                 Usar carteira personalizada
@@ -348,8 +348,17 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
             </div>
           ) : null}
 
-          {/* Show wallet input when: no default wallet OR custom wallet enabled */}
-          {(!defaultWallet || useCustomWallet) && (
+          {/* Info for AUXILIAR collaborators */}
+          {isAuxiliarCollaborator() && defaultWallet && (
+            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-400">
+                Como colaborador auxiliar, você utiliza a carteira padrão da conta.
+              </p>
+            </div>
+          )}
+
+          {/* Show wallet input when: no default wallet OR (custom wallet enabled AND not AUXILIAR) */}
+          {(!defaultWallet || (useCustomWallet && !isAuxiliarCollaborator())) && (
             <div className="transition-all duration-300 ease-in-out">
               <label className="block text-sm font-medium text-gray-400 mb-2">
                 Endereço DePix {!defaultWallet ? '(Obrigatório)' : ''}

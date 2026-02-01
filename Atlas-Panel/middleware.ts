@@ -11,8 +11,8 @@ export function middleware(request: NextRequest) {
   console.log('Middleware - userCookie:', userCookie ? 'EXISTS' : 'NOT FOUND');
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa', '/devs', '/status', '/termos', '/privacidade'];
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/') || pathname.startsWith('/payment-confirmation/');
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-2fa', '/devs', '/status', '/termos', '/privacidade', '/confirm-email'];
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/pay/') || pathname.startsWith('/payment-confirmation/') || pathname.startsWith('/invite/');
   
   // Auth routes that should redirect logged-in users
   const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -71,6 +71,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|atlas-logo.jpg).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|atlas-logo.jpg|robots.txt|sitemap.xml|manifest.json|icon-192.png|icon-512.png).*)',
   ],
 };

@@ -128,15 +128,11 @@ export const authService = {
 
   async verify2FA(email: string, code: string): Promise<AuthResponse> {
     console.log('[Auth] 2FA verification attempt for:', email);
-    console.log('[Auth] 2FA code:', code);
 
-    const requestBody = {
+    const response = await api.post<any>('/auth/verify-2fa', {
       email,
       twoFactorToken: code
-    };
-    console.log('[Auth] Sending request body:', requestBody);
-
-    const response = await api.post<any>('/auth/verify-2fa', requestBody);
+    });
 
     // Handle response structure from backend
     const responseData = response.data.data || response.data;
@@ -184,6 +180,70 @@ export const authService = {
       refresh_token: refresh_token || '',
       user: userData
     };
+  },
+
+  async verify2FAWithBackupCode(email: string, backupCode: string): Promise<AuthResponse> {
+    console.log('[Auth] 2FA backup code verification attempt for:', email);
+
+    const response = await api.post<any>('/auth/verify-2fa-backup', {
+      email,
+      backupCode
+    });
+
+    const responseData = response.data.data || response.data;
+    const access_token = responseData.access_token || responseData.accessToken;
+    const refresh_token = responseData.refresh_token || responseData.refreshToken || '';
+    const user = responseData.user;
+
+    if (!access_token) {
+      throw new Error('Token não recebido do servidor');
+    }
+
+    const userData = {
+      id: user.id,
+      username: user.username || user.name,
+      email: user.email,
+      role: user.role || user.roles?.[0] || 'USER',
+      roles: user.roles || [user.role || 'USER'],
+      isActive: user.isActive !== undefined ? user.isActive : true,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      commerceMode: user.commerceMode || false,
+      paymentLinksEnabled: user.paymentLinksEnabled || false,
+      commerceModeActivatedAt: user.commerceModeActivatedAt || null
+    };
+
+    Cookies.set('access_token', access_token, {
+      path: '/',
+      sameSite: 'lax',
+      secure: false,
+      expires: 7
+    });
+    Cookies.set('refresh_token', refresh_token || '', { path: '/' });
+    Cookies.set('user', JSON.stringify(userData), {
+      path: '/',
+      sameSite: 'lax',
+      secure: false,
+      expires: 7
+    });
+
+    console.log('[Auth] 2FA backup code verification successful');
+
+    return {
+      access_token: access_token,
+      refresh_token: refresh_token || '',
+      user: userData
+    };
+  },
+
+  async checkPeriodicVerification(): Promise<{ requiresVerification: boolean; lastVerified?: string }> {
+    const response = await api.get<any>('/auth/2fa/periodic-check');
+    return response.data;
+  },
+
+  async verifyPeriodicCheck(token: string): Promise<{ success: boolean }> {
+    const response = await api.post<any>('/auth/2fa/periodic-verify', { token });
+    return response.data;
   },
 
   async register(username: string, email: string, password: string): Promise<AuthResponse> {
@@ -268,27 +328,42 @@ export const authService = {
         return null;
       }
 
+      // Check if user is in collaborator mode - if so, always fetch fresh data
+      const accountContext = Cookies.get('account_context');
+      let isCollaborating = false;
+      if (accountContext) {
+        try {
+          const context = JSON.parse(accountContext);
+          isCollaborating = context.type === 'COLLABORATOR';
+          console.log('[Auth] Collaborator mode detected:', isCollaborating);
+        } catch {
+          console.error('[Auth] Failed to parse account context cookie');
+        }
+      }
+
       // First, try to get cached user data from cookie for faster loading
       const userCookie = Cookies.get('user');
       let cachedUser = null;
       if (userCookie) {
         try {
           cachedUser = JSON.parse(userCookie);
-          console.log('[Auth] Found cached user, returning immediately');
+          console.log('[Auth] Found cached user');
         } catch {
           console.error('[Auth] Failed to parse cached user cookie');
         }
       }
 
-      // Return cached user immediately and fetch fresh data in background
-      if (cachedUser) {
+      // If collaborating, always fetch fresh data from server (effective user)
+      // Otherwise, return cached user immediately and fetch fresh data in background
+      if (cachedUser && !isCollaborating) {
+        console.log('[Auth] Returning cached user (not collaborating)');
         // Fetch fresh data in background without awaiting
         this.refreshUserDataInBackground();
         return cachedUser;
       }
 
-      // If no cached user, fetch from server (first time)
-      console.log('[Auth] No cached user, fetching from API...');
+      // Fetch from server (first time or collaborating mode)
+      console.log('[Auth] Fetching from API...', isCollaborating ? '(collaborator mode - fresh data)' : '(no cache)');
       const response = await api.get('/auth/profile');
       console.log('[Auth] Profile response:', response.data);
 

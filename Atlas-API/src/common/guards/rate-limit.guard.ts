@@ -17,8 +17,30 @@ interface RateLimitStore {
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
-	private store: RateLimitStore = {};
+	private static store: RateLimitStore = {};
 	private cleanupInterval: NodeJS.Timeout;
+
+	// Static method to clear rate limit for a specific user
+	static clearUserRateLimit(userId: string): number {
+		const prefix = `user:${userId}:`;
+		const keysToDelete: string[] = [];
+
+		for (const key in RateLimitGuard.store) {
+			if (key.startsWith(prefix)) {
+				keysToDelete.push(key);
+			}
+		}
+
+		keysToDelete.forEach((key) => delete RateLimitGuard.store[key]);
+		return keysToDelete.length;
+	}
+
+	// Static method to clear all rate limits (use with caution)
+	static clearAllRateLimits(): number {
+		const count = Object.keys(RateLimitGuard.store).length;
+		RateLimitGuard.store = {};
+		return count;
+	}
 
 	constructor(private reflector: Reflector) {
 		// Clean up expired entries every minute
@@ -44,14 +66,14 @@ export class RateLimitGuard implements CanActivate {
 		const windowMs = limitConfig.windowMs;
 
 		// Initialize or get existing rate limit data
-		if (!this.store[key] || now > this.store[key].resetTime) {
-			this.store[key] = {
+		if (!RateLimitGuard.store[key] || now > RateLimitGuard.store[key].resetTime) {
+			RateLimitGuard.store[key] = {
 				count: 0,
 				resetTime: now + windowMs,
 			};
 		}
 
-		const rateLimit = this.store[key];
+		const rateLimit = RateLimitGuard.store[key];
 		rateLimit.count++;
 
 		// Set rate limit headers
@@ -129,13 +151,13 @@ export class RateLimitGuard implements CanActivate {
 		const now = Date.now();
 		const expiredKeys: string[] = [];
 
-		for (const key in this.store) {
-			if (this.store[key].resetTime < now) {
+		for (const key in RateLimitGuard.store) {
+			if (RateLimitGuard.store[key].resetTime < now) {
 				expiredKeys.push(key);
 			}
 		}
 
-		expiredKeys.forEach((key) => delete this.store[key]);
+		expiredKeys.forEach((key) => delete RateLimitGuard.store[key]);
 	}
 
 	onModuleDestroy() {
