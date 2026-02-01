@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import { adminService, pixService } from '@/app/lib/services';
+import { getAccountContext } from '@/app/lib/api';
 import { DashboardStats, Transaction, Balance, User } from '@/app/types';
 import { isAdmin } from '@/app/types/user-role';
 import {
@@ -27,12 +28,15 @@ import {
   PiggyBank,
   AlertCircle,
   Store,
-  FileText
+  FileText,
+  Calendar,
+  Coins
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { translateStatus } from '@/app/lib/translations';
 import { DashboardSkeleton } from '@/components/ui/LoadingSkeleton';
 import { formatBuyerName } from '@/app/lib/format-buyer-name';
+import SystemWarningBanner from '@/app/components/SystemWarningBanner';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -52,6 +56,22 @@ export default function DashboardPage() {
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const ITEMS_PER_PAGE = 10;
+
+  // Auto-refresh state for transactions
+  const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+
+  // Collaborator context - AUXILIAR cannot see balances
+  const [isAuxiliarMode, setIsAuxiliarMode] = useState(false);
+
+  // Date filter state for admin dashboard
+  const [dateFilter, setDateFilter] = useState<{
+    startDate: string;
+    endDate: string;
+  }>({
+    startDate: '',
+    endDate: '',
+  });
 
   // Fun loading messages that rotate
   const loadingMessages = [
@@ -73,8 +93,79 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // Check if user is AUXILIAR collaborator
+    const accountContext = getAccountContext();
+    setIsAuxiliarMode(accountContext.isCollaborating && accountContext.role === 'AUXILIAR');
+
     loadDashboardData();
   }, []);
+
+  // Auto-refresh transactions every 30 seconds
+  useEffect(() => {
+    if (loading) return;
+
+    const countdownInterval = setInterval(() => {
+      setAutoRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [loading]);
+
+  // Trigger auto-refresh when countdown reaches 0
+  useEffect(() => {
+    if (loading) return;
+
+    if (autoRefreshCountdown === 30 && !isAutoRefreshing) {
+      // Check if we've already loaded once (showWelcome is true after initial load)
+      if (showWelcome) {
+        refreshTransactionsOnly();
+      }
+    }
+  }, [autoRefreshCountdown, loading, showWelcome]);
+
+  // Function to refresh only transactions (silent, no toast)
+  const refreshTransactionsOnly = async () => {
+    if (isAutoRefreshing || loadingTransactions) return;
+
+    setIsAutoRefreshing(true);
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) return;
+
+      const isAdminUser = isAdmin(currentUser?.role);
+
+      if (isAdminUser) {
+        const [allTransactionsData, transactionsData] = await Promise.all([
+          adminService.getAllTransactions({ limit: 1000 }),
+          adminService.getAllTransactions({
+            limit: ITEMS_PER_PAGE,
+            offset: (currentPage - 1) * ITEMS_PER_PAGE
+          })
+        ]);
+        setTotalTransactions(allTransactionsData?.length || 0);
+        setRecentTransactions(transactionsData || []);
+      } else {
+        const [allTransactionsData, transactionsData] = await Promise.all([
+          pixService.getTransactions({ limit: 1000 }),
+          pixService.getTransactions({
+            limit: ITEMS_PER_PAGE,
+            offset: (currentPage - 1) * ITEMS_PER_PAGE
+          })
+        ]);
+        setTotalTransactions(allTransactionsData?.length || 0);
+        setRecentTransactions(transactionsData || []);
+      }
+    } catch (error) {
+      console.error('Auto-refresh transactions error:', error);
+    } finally {
+      setIsAutoRefreshing(false);
+    }
+  };
 
   const getPersonalizedGreeting = (username?: string) => {
     const hour = new Date().getHours();
@@ -187,8 +278,13 @@ export default function DashboardPage() {
       if (isAdmin(currentUser?.role)) {
         console.log('👨‍💼 Dashboard: Loading admin dashboard...');
         // Admin Dashboard - force fresh data on refresh
+        // Build date filter params
+        const dateParams: { startDate?: string; endDate?: string } = {};
+        if (dateFilter.startDate) dateParams.startDate = dateFilter.startDate;
+        if (dateFilter.endDate) dateParams.endDate = dateFilter.endDate;
+
         const [statsData, allTransactionsData, transactionsData] = await Promise.all([
-          adminService.getDashboardStats().catch(err => {
+          adminService.getDashboardStats(dateParams).catch(err => {
             console.error('❌ Dashboard: Error loading stats:', err);
             return null;
           }),
@@ -278,6 +374,7 @@ export default function DashboardPage() {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     });
   };
 
@@ -287,7 +384,7 @@ export default function DashboardPage() {
       case 'COMPLETED':
         return {
           label,
-          color: 'text-green-400 bg-green-900/50',
+          color: 'text-blue-400 bg-blue-900/50', // Azul para Recebido
           icon: <CheckCircle className="w-4 h-4" />
         };
       case 'PENDING':
@@ -299,7 +396,13 @@ export default function DashboardPage() {
       case 'PROCESSING':
         return {
           label,
-          color: 'text-blue-400 bg-blue-900/50',
+          color: 'text-green-400 bg-green-900/50', // Verde para Pago
+          icon: <CheckCircle className="w-4 h-4" />
+        };
+      case 'IN_REVIEW':
+        return {
+          label,
+          color: 'text-purple-400 bg-purple-900/50',
           icon: <Activity className="w-4 h-4" />
         };
       case 'FAILED':
@@ -311,7 +414,7 @@ export default function DashboardPage() {
       case 'EXPIRED':
         return {
           label,
-          color: 'text-orange-400 bg-orange-900/50',
+          color: 'text-orange-400 bg-orange-900/50', // Laranja para Expirado
           icon: <Clock className="w-4 h-4" />
         };
       default:
@@ -385,6 +488,9 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
+
+      {/* System Warnings Banner */}
+      <SystemWarningBanner />
 
       {/* Animated Welcome Header */}
       <div className={`mb-8 flex justify-between items-center ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`}>
@@ -465,6 +571,63 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Date Filter for Admin */}
+      {isAdminUser && (
+        <div className={`mb-6 glass-card p-4 ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '150ms' }}>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Calendar className="w-5 h-5" />
+              <span className="text-sm font-medium">Filtrar por período:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">De:</label>
+                <input
+                  type="date"
+                  value={dateFilter.startDate}
+                  onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
+                  className="input-modern text-sm py-1.5 px-3 bg-gray-800 border-gray-700 rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">Até:</label>
+                <input
+                  type="date"
+                  value={dateFilter.endDate}
+                  onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
+                  className="input-modern text-sm py-1.5 px-3 bg-gray-800 border-gray-700 rounded-lg"
+                />
+              </div>
+              <button
+                onClick={() => loadDashboardData(true)}
+                disabled={refreshing}
+                className="btn-pop bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Aplicar
+              </button>
+              {(dateFilter.startDate || dateFilter.endDate) && (
+                <button
+                  onClick={() => {
+                    setDateFilter({ startDate: '', endDate: '' });
+                    setTimeout(() => loadDashboardData(true), 100);
+                  }}
+                  className="text-gray-400 hover:text-white text-sm underline"
+                >
+                  Limpar filtro
+                </button>
+              )}
+            </div>
+          </div>
+          {(dateFilter.startDate || dateFilter.endDate) && (
+            <p className="text-xs text-orange-400 mt-2 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              Dados filtrados por período personalizado
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {isAdminUser ? (
@@ -473,17 +636,16 @@ export default function DashboardPage() {
             <div className={`stat-card card-lift ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '200ms' }}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Total de Usuários</p>
-                  <p className="text-3xl font-bold text-white">
-                    {stats?.totalUsers || 0}
+                  <p className="text-sm text-gray-400 mb-1">Contribuições</p>
+                  <p className="text-2xl font-bold text-orange-400">
+                    {formatCurrency(stats?.totalContributions || 0)}
                   </p>
-                  <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
-                    +{stats?.activeUsers || 0} ativos
+                  <p className="text-xs text-gray-400 mt-2">
+                    Taxa de 0.5% por transação
                   </p>
                 </div>
-                <div className={`w-14 h-14 bg-blue-900/30 rounded-lg flex items-center justify-center ${hoveredCard === 0 ? 'animate-float' : ''}`}>
-                  <Users className="w-7 h-7 text-blue-400" />
+                <div className={`w-14 h-14 bg-orange-900/30 rounded-lg flex items-center justify-center ${hoveredCard === 0 ? 'animate-float' : ''}`}>
+                  <Coins className="w-7 h-7 text-orange-400" />
                 </div>
               </div>
             </div>
@@ -539,9 +701,24 @@ export default function DashboardPage() {
               </div>
             </div>
           </>
+        ) : isAuxiliarMode ? (
+          /* AUXILIAR Mode - No balance visibility */
+          <div className={`col-span-full stat-card card-lift ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center gap-4 p-2">
+              <div className="w-14 h-14 bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Activity className="w-7 h-7 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-white">Modo Auxiliar</p>
+                <p className="text-sm text-gray-400">
+                  Como auxiliar, você pode criar QR codes, links de pagamento e visualizar transações.
+                </p>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
-            {/* User Stats */}
+            {/* User Stats - Full access for OWNER and GESTOR */}
             <div
               className={`stat-card card-lift ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`}
               style={{ animationDelay: '200ms' }}
@@ -574,13 +751,31 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Em Processamento</p>
-                  <p className="text-3xl font-bold text-white">
+                  <p className="text-sm text-gray-400 mb-1">A Receber</p>
+                  <p className="text-3xl font-bold text-green-400">
                     {formatCurrency(balance?.pending || 0)}
                   </p>
+                  {(balance?.pending || 0) > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Próxima: {(() => {
+                        const now = new Date();
+                        const hour = now.getHours();
+                        const next = new Date(now);
+                        if (hour < 6) {
+                          next.setHours(6, 0, 0, 0);
+                        } else if (hour < 18) {
+                          next.setHours(18, 0, 0, 0);
+                        } else {
+                          next.setDate(next.getDate() + 1);
+                          next.setHours(6, 0, 0, 0);
+                        }
+                        return next.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+                      })()}
+                    </p>
+                  )}
                 </div>
-                <div className={`w-14 h-14 bg-yellow-900/30 rounded-lg flex items-center justify-center ${hoveredCard === 1 ? 'animate-pulse' : ''}`}>
-                  <Clock className="w-7 h-7 text-yellow-400" />
+                <div className={`w-14 h-14 bg-green-900/30 rounded-lg flex items-center justify-center ${hoveredCard === 1 ? 'animate-pulse' : ''}`}>
+                  <Clock className="w-7 h-7 text-green-400" />
                 </div>
               </div>
             </div>
@@ -632,11 +827,37 @@ export default function DashboardPage() {
       {/* Recent Transactions */}
       <div className={`glass-card relative ${showWelcome ? 'animate-slide-up' : 'opacity-0'}`} style={{ animationDelay: '600ms' }}>
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-700">
-          <h2 className="text-lg md:text-xl font-bold text-white flex items-center">
-            <Activity className="mr-2 w-5 h-5 md:w-6 md:h-6" />
-            <span className="hidden sm:inline">{isAdminUser ? 'Transações Recentes do Sistema' : 'Suas Transações Recentes'}</span>
-            <span className="sm:hidden">Transações</span>
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg md:text-xl font-bold text-white flex items-center">
+              <Activity className="mr-2 w-5 h-5 md:w-6 md:h-6" />
+              <span className="hidden sm:inline">{isAdminUser ? 'Transações Recentes do Sistema' : 'Suas Transações Recentes'}</span>
+              <span className="sm:hidden">Transações</span>
+            </h2>
+            {/* Auto-refresh indicator - clickable */}
+            <button
+              onClick={() => {
+                if (!isAutoRefreshing) {
+                  setAutoRefreshCountdown(30);
+                  refreshTransactionsOnly();
+                }
+              }}
+              disabled={isAutoRefreshing}
+              className={`flex items-center gap-1 px-2 py-1 rounded-full bg-gray-800/50 text-xs transition-all ${
+                isAutoRefreshing
+                  ? 'text-blue-400 cursor-wait'
+                  : 'text-gray-400 hover:bg-gray-700/50 hover:text-blue-400 cursor-pointer'
+              }`}
+              title={isAutoRefreshing ? 'Atualizando...' : 'Clique para atualizar agora'}
+            >
+              <RefreshCw className={`w-3 h-3 ${isAutoRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+              <span className="hidden sm:inline">
+                {isAutoRefreshing ? 'Atualizando...' : `${autoRefreshCountdown}s`}
+              </span>
+              <span className="sm:hidden">
+                {isAutoRefreshing ? '...' : `${autoRefreshCountdown}s`}
+              </span>
+            </button>
+          </div>
           <a
             href="/transactions"
             className="text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors btn-pop"
@@ -689,7 +910,7 @@ export default function DashboardPage() {
                         <div className={typeInfo.color}>
                           {typeInfo.icon}
                         </div>
-                        {transaction.status === 'COMPLETED' && (
+                        {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
                           <button
                             onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
                             className="text-gray-400 hover:text-blue-400 transition-colors"
@@ -818,7 +1039,7 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          {transaction.status === 'COMPLETED' ? (
+                          {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') ? (
                             <button
                               onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
                               className="text-gray-400 hover:text-blue-400 transition-colors btn-pop"

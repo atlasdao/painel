@@ -59,6 +59,7 @@ export interface DashboardStats {
   successRate?: number;
   newUsersToday?: number;
   retentionRate?: number;
+  totalContributions?: number; // Contribuições (split fees coletados)
 }
 
 export interface Balance {

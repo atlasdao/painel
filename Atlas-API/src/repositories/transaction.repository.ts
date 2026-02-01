@@ -226,10 +226,15 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 	async sumAmount(params?: {
 		status?: TransactionStatus;
 		userId?: string;
+		createdAt?: {
+			gte?: Date;
+			lte?: Date;
+		};
 	}): Promise<number> {
 		const where: any = {};
 		if (params?.status) where.status = params.status;
 		if (params?.userId) where.userId = params.userId;
+		if (params?.createdAt) where.createdAt = params.createdAt;
 
 		const result = await this.prisma.transaction.aggregate({
 			where,

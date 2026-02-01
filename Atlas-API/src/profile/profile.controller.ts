@@ -10,9 +10,11 @@ import {
 	HttpStatus,
 	HttpCode,
 	Logger,
+	ForbiddenException,
 } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { getEffectiveUserId, getCollaboratorContext } from '../common/decorators/effective-user.decorator';
 import { UpdateProfileDto, UploadAvatarDto } from './dto/upload-avatar.dto';
 import {
 	Setup2FADto,
@@ -35,10 +37,11 @@ export class ProfileController {
 
 	@Get()
 	async getProfile(@Request() req) {
+		const effectiveUserId = getEffectiveUserId(req);
 		this.logger.log(
-			`Profile fetch request - User: ${req.user.id}, Path: ${req.path}, URL: ${req.url}, BaseURL: ${req.baseUrl}`,
+			`Profile fetch request - User: ${req.user.id}, EffectiveUser: ${effectiveUserId}, Path: ${req.path}, URL: ${req.url}, BaseURL: ${req.baseUrl}`,
 		);
-		return this.profileService.getProfile(req.user.id);
+		return this.profileService.getProfile(effectiveUserId);
 	}
 
 	@Patch()
@@ -112,11 +115,50 @@ export class ProfileController {
 		return this.profileService.disable2FA(req.user.id, dto);
 	}
 
+	@Get('2fa/status')
+	async get2FAStatus(@Request() req) {
+		this.logger.log(`Fetching 2FA status for user ${req.user.id}`);
+		return this.profileService.get2FAStatus(req.user.id);
+	}
+
+	@Post('2fa/backup-code/verify')
+	@HttpCode(HttpStatus.OK)
+	async verifyBackupCode(@Request() req, @Body() body: { backupCode: string }) {
+		this.logger.log(`Verifying backup code for user ${req.user.id}`);
+		return this.profileService.verifyBackupCode(req.user.id, body.backupCode);
+	}
+
+	@Post('2fa/backup-codes/regenerate')
+	@HttpCode(HttpStatus.OK)
+	async regenerateBackupCodes(@Request() req, @Body() body: { token: string }) {
+		this.logger.log(`Regenerating backup codes for user ${req.user.id}`);
+		return this.profileService.regenerateBackupCodes(req.user.id, body.token);
+	}
+
+	@Post('2fa/periodic-check/toggle')
+	@HttpCode(HttpStatus.OK)
+	async togglePeriodicCheck(@Request() req, @Body() body: { enabled: boolean }) {
+		this.logger.log(`Toggling periodic check for user ${req.user.id}: ${body.enabled}`);
+		return this.profileService.togglePeriodicCheck(req.user.id, body.enabled);
+	}
+
 	@Patch('wallet')
 	async updateWallet(@Request() req, @Body() dto: UpdateWalletDto) {
 		this.logger.log(
 			`Wallet update request - User: ${req.user.id}, Path: ${req.path}, URL: ${req.url}`,
 		);
+
+		// Verificar se é colaborador tentando alterar carteira
+		const collaboratorContext = getCollaboratorContext(req);
+		if (collaboratorContext.isCollaborating) {
+			this.logger.warn(
+				`Collaborator ${collaboratorContext.authenticatedUserId} (role: ${collaboratorContext.role}) attempted to update wallet`,
+			);
+			throw new ForbiddenException(
+				'Colaboradores não podem alterar as configurações de carteira da conta',
+			);
+		}
+
 		const startTime = Date.now();
 
 		try {
@@ -140,8 +182,9 @@ export class ProfileController {
 
 	@Get('limits')
 	async getUserLimits(@Request() req) {
-		this.logger.log(`Fetching limits for user ${req.user.id}`);
-		return this.profileService.getUserLimits(req.user.id);
+		const effectiveUserId = getEffectiveUserId(req);
+		this.logger.log(`Fetching limits for user ${req.user.id}, EffectiveUser: ${effectiveUserId}`);
+		return this.profileService.getUserLimits(effectiveUserId);
 	}
 
 	@Post('commerce-mode/toggle')

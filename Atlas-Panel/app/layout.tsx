@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { generateDefaultMetadata } from "./lib/metadata";
+import { HomePageStructuredData } from "./lib/structured-data";
+import SecurityTrackerProvider from "./components/SecurityTrackerProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,11 +31,21 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Atlas" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+
+        {/* Preconnect hints para melhorar performance */}
+        <link rel="preconnect" href="https://api.atlasdao.info" />
+        <link rel="dns-prefetch" href="https://api.atlasdao.info" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        <HomePageStructuredData />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <SecurityTrackerProvider>
+          {children}
+        </SecurityTrackerProvider>
       </body>
     </html>
   );

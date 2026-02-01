@@ -10,7 +10,10 @@ import api from '@/app/lib/api';
 import { User } from '@/app/types';
 import { UserRole, isAdmin } from '@/app/types/user-role';
 import ProfileDropdown from '@/components/ProfileDropdown';
+import AccountSwitcher from '@/components/AccountSwitcher';
 import DonationModal from '@/app/components/DonationModal';
+import CommunityFooter from '@/components/CommunityFooter';
+import { TwoFactorProvider } from '@/app/providers/TwoFactorProvider';
 import {
   Home,
   ArrowDownLeft,
@@ -243,6 +246,7 @@ export default function DashboardLayout({
 
   // Render the full dashboard layout
   return (
+    <TwoFactorProvider>
     <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom right, rgb(17 24 39), rgb(31 41 55), rgb(17 24 39))' }}>
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -391,28 +395,29 @@ export default function DashboardLayout({
             </h1>
           </div>
 
-          {/* Mobile Donation Button */}
+          {/* Mobile Account Switcher */}
           <div className="lg:hidden flex items-center gap-2">
-            <button
-              onClick={() => setShowDonationModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
-              title="Fazer Doação"
-            >
-              <Heart className="w-4 h-4" />
-              <span className="text-sm">Doar</span>
-            </button>
+            <AccountSwitcher
+              currentUser={{ id: user.id, username: user.username }}
+              onAccountSwitch={loadUser}
+            />
           </div>
 
           {/* Profile Dropdown for Desktop */}
           <div className="hidden lg:flex items-center gap-3 relative">
+            {/* Account Switcher */}
+            <AccountSwitcher
+              currentUser={{ id: user.id, username: user.username }}
+              onAccountSwitch={loadUser}
+            />
             {/* Donation Button */}
             <button
               onClick={() => setShowDonationModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
-              title="Fazer Doação"
+              className="flex items-center gap-2 px-3 py-2 bg-pink-600/20 hover:bg-pink-600/30 text-pink-400 hover:text-pink-300 font-medium rounded-lg transition-all duration-200 border border-pink-500/30 hover:border-pink-500/50"
+              title="Fazer uma doação"
             >
               <Heart className="w-4 h-4" />
-              <span className="text-sm">Doar</span>
+              <span className="text-sm">Doe</span>
             </button>
             <button
               ref={profileButtonRef}
@@ -451,9 +456,12 @@ export default function DashboardLayout({
         </div>
 
         {/* Page content */}
-        <main className="p-6">
+        <main className="p-6 min-h-[calc(100vh-4rem-4rem)]">
           {children}
         </main>
+
+        {/* Community Footer */}
+        <CommunityFooter />
       </div>
 
       {/* Donation Modal */}
@@ -462,5 +470,6 @@ export default function DashboardLayout({
         onClose={() => setShowDonationModal(false)}
       />
     </div>
+    </TwoFactorProvider>
   );
 }

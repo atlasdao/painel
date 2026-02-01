@@ -2,24 +2,35 @@ import { Metadata } from 'next';
 
 // Base configuration for all Atlas Painel pages
 const baseMetadata = {
-  title: "Atlas Painel - Gestão Financeira Digital",
-  description: "Painel de controle Atlas DAO para gestão de transações PIX, pagamentos digitais e soberania financeira. Interface completa para usuários e comerciantes.",
-  siteName: "Atlas Painel",
+  title: "Atlas - Gateway de Pagamentos PIX para Comerciantes",
+  description: "Receba pagamentos PIX instantaneos com taxa fixa de R$ 0,99. Crie links de pagamento, QR Codes e integre via API. Plataforma completa para comerciantes brasileiros.",
+  siteName: "Atlas",
   url: "https://painel.atlasdao.info",
   image: "/atlas-logo.jpg",
-  ogImage: "/atlas-logo.jpg", // Will use the existing logo, ideally should be 1200x630
+  ogImage: "/atlas-logo.jpg",
   locale: "pt_BR",
-  keywords: "Atlas Painel, Atlas DAO, PIX, Pagamentos Digitais, Gestão Financeira, Painel de Controle, Transações"
+  keywords: "pagamentos pix, gateway pix, link de pagamento, qr code pix, receber pix, pagamento online brasil, taxa fixa pix, api pagamentos, comerciantes pix, maquininha pix"
 };
 
 // Default metadata for painel.atlasdao.info
 export const generateDefaultMetadata = (): Metadata => ({
   metadataBase: new URL(baseMetadata.url),
-  title: baseMetadata.title,
+  title: {
+    default: baseMetadata.title,
+    template: '%s | Atlas',
+  },
   description: baseMetadata.description,
   keywords: baseMetadata.keywords,
-  authors: [{ name: "Atlas DAO" }],
+  authors: [{ name: "Atlas" }],
+  creator: 'Atlas',
+  publisher: 'Atlas',
   manifest: '/manifest.json',
+  alternates: {
+    canonical: baseMetadata.url,
+    languages: {
+      'pt-BR': baseMetadata.url,
+    },
+  },
   icons: {
     icon: '/favicon.ico',
     apple: [
@@ -40,9 +51,9 @@ export const generateDefaultMetadata = (): Metadata => ({
     images: [
       {
         url: baseMetadata.ogImage,
-        width: 460, // Using actual dimensions of atlas-logo.jpg
+        width: 460,
         height: 460,
-        alt: "Atlas DAO - Soberania Financeira",
+        alt: "Atlas - Gateway de Pagamentos PIX",
       },
     ],
     locale: baseMetadata.locale,
@@ -57,6 +68,17 @@ export const generateDefaultMetadata = (): Metadata => ({
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    // Adicionar codigos de verificacao quando disponiveis
+    // google: 'codigo-google-search-console',
   },
   viewport: "width=device-width, initial-scale=1",
 });
@@ -189,5 +211,86 @@ export const generatePageMetadata = (
       follow: true,
     },
     viewport: "width=device-width, initial-scale=1",
+  };
+};
+
+// Metadata especifica para paginas publicas
+export const publicPagesMetadata = {
+  termos: {
+    title: 'Termos de Uso',
+    description: 'Termos de uso e condicoes da plataforma Atlas. Leia sobre taxas, responsabilidades, uso permitido e politicas de pagamento PIX.',
+    keywords: 'termos de uso atlas, condicoes de uso, politica pagamentos pix, taxas atlas, regulamento gateway pix',
+    path: '/termos',
+  },
+  privacidade: {
+    title: 'Politica de Privacidade',
+    description: 'Politica de privacidade e protecao de dados da Atlas. Saiba como coletamos, usamos e protegemos suas informacoes conforme a LGPD.',
+    keywords: 'politica privacidade atlas, lgpd, protecao dados, privacidade pagamentos, seguranca dados pix',
+    path: '/privacidade',
+  },
+  devs: {
+    title: 'API para Desenvolvedores',
+    description: 'Documentacao da API REST Atlas para desenvolvedores. Integre pagamentos PIX, crie links de pagamento e configure webhooks em sua aplicacao.',
+    keywords: 'api pix, documentacao api pagamentos, integrar pix, webhook pagamento, sdk pix brasil, api rest pagamentos',
+    path: '/devs',
+  },
+  status: {
+    title: 'Status do Sistema',
+    description: 'Verifique o status em tempo real dos servicos Atlas. Monitoramento de API, processamento PIX e disponibilidade da plataforma.',
+    keywords: 'status atlas, disponibilidade sistema, monitoramento api, status pix, uptime gateway',
+    path: '/status',
+  },
+};
+
+// Gerar metadata para paginas publicas com SEO otimizado
+export const generatePublicPageMetadata = (page: keyof typeof publicPagesMetadata): Metadata => {
+  const pageData = publicPagesMetadata[page];
+  const url = `${baseMetadata.url}${pageData.path}`;
+
+  return {
+    metadataBase: new URL(baseMetadata.url),
+    title: pageData.title,
+    description: pageData.description,
+    keywords: pageData.keywords,
+    authors: [{ name: "Atlas" }],
+    alternates: {
+      canonical: url,
+    },
+    icons: {
+      icon: '/favicon.ico',
+    },
+    openGraph: {
+      title: `${pageData.title} | Atlas`,
+      description: pageData.description,
+      url,
+      siteName: baseMetadata.siteName,
+      images: [
+        {
+          url: baseMetadata.ogImage,
+          width: 460,
+          height: 460,
+          alt: pageData.title,
+        },
+      ],
+      locale: baseMetadata.locale,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${pageData.title} | Atlas`,
+      description: pageData.description,
+      images: [baseMetadata.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
   };
 };

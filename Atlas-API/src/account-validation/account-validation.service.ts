@@ -3,7 +3,9 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PixService } from '../pix/pix.service';
 import { LiquidValidationService } from '../services/liquid-validation.service';
-import { TransactionStatus, TransactionType } from '@prisma/client';
+import { EuidValidationService } from '../risk/euid-validation.service';
+import { RiskScoringService } from '../risk/risk-scoring.service';
+import { TransactionStatus, TransactionType, RiskEventType } from '@prisma/client';
 
 @Injectable()
 export class AccountValidationService {
@@ -19,6 +21,8 @@ export class AccountValidationService {
 		private readonly prisma: PrismaService,
 		private readonly pixService: PixService,
 		private readonly liquidValidation: LiquidValidationService,
+		private readonly euidValidation: EuidValidationService,
+		private readonly riskScoring: RiskScoringService,
 	) {}
 
 	/**
@@ -129,6 +133,24 @@ export class AccountValidationService {
 		amount: number;
 	}> {
 		const validationAmount = await this.getValidationAmount();
+
+		// CRITICAL: depixAddress is REQUIRED for validation payments
+		// Without it, the DePix tokens would go to the system wallet instead of the user's wallet
+		if (!depixAddress || depixAddress.trim() === '') {
+			throw new HttpException(
+				'Endereço DePix é obrigatório para validação de conta. Por favor, informe sua carteira Liquid.',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		// Validate that it looks like a Liquid address
+		const trimmedAddress = depixAddress.trim();
+		if (!trimmedAddress.startsWith('lq1') && !trimmedAddress.startsWith('VJL') && !trimmedAddress.startsWith('ex1')) {
+			throw new HttpException(
+				'Endereço DePix inválido. Por favor, informe um endereço válido da rede Liquid (começa com lq1, VJL ou ex1).',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
 
 		// Note: EUID will be automatically extracted from the webhook when payment is completed
 		// No need to collect CPF/CNPJ or validate Liquid address manually as it comes from the PIX payment data
@@ -359,6 +381,57 @@ export class AccountValidationService {
 
 		// Extract liquid wallet address from transaction metadata
 		const userLiquidAddress = metadata.userLiquidAddress;
+
+		// ==========================================
+		// EUID UNIQUENESS VALIDATION
+		// Only 1 account per verified CPF/CNPJ
+		// ==========================================
+		if (verifiedEUID) {
+			const euidValidation = await this.euidValidation.validateEuid(
+				verifiedEUID,
+				transaction.userId,
+			);
+
+			if (!euidValidation.isValid) {
+				// EUID já usado por outra conta ou bloqueado
+				this.logger.warn(
+					`EUID validation failed for user ${transaction.userId}: ${euidValidation.errorMessage}`,
+				);
+
+				// Registra evento de risco
+				await this.riskScoring.logRiskEvent({
+					userId: transaction.userId,
+					eventType: RiskEventType.EUID_DUPLICATE,
+					severity: 8,
+					riskScore: 60,
+					details: JSON.stringify({
+						attemptedEuid: verifiedEUID.substring(0, 3) + '***',
+						isDuplicate: euidValidation.isDuplicate,
+						isBlocked: euidValidation.isBlocked,
+						existingUsername: euidValidation.existingUsername,
+					}),
+					actionTaken: 'validation_blocked',
+				});
+
+				// Marca transação como falha com motivo
+				await this.prisma.transaction.update({
+					where: { id: transactionId },
+					data: {
+						status: TransactionStatus.FAILED,
+						errorMessage: euidValidation.errorMessage,
+						metadata: JSON.stringify({
+							...metadata,
+							validationFailed: true,
+							validationError: 'EUID_DUPLICATE',
+							errorMessage: euidValidation.errorMessage,
+						}),
+					},
+				});
+
+				// Não valida a conta
+				return;
+			}
+		}
 
 		await this.prisma.user.update({
 			where: { id: transaction.userId },

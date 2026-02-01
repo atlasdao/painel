@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '@/app/lib/api';
+import { api, isAuxiliarCollaborator } from '@/app/lib/api';
 import { toast } from 'sonner';
 import {
   Link,
@@ -299,41 +299,6 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     loadPaymentLinks();
   }, []);
 
-  // Auto-enable/disable tax number requirement based on amount
-  useEffect(() => {
-    const amount = parseFloat(formData.amount || '0');
-    const maxAmount = parseFloat(formData.maxAmount || '0');
-
-    if (amount > 3000 || maxAmount > 3000) {
-      // Auto-enable when amount > 3000
-      if (!formData.requiresTaxNumber) {
-        setFormData({ ...formData, requiresTaxNumber: true });
-      }
-    } else if (amount <= 3000 && maxAmount <= 3000) {
-      // Auto-disable when amount <= 3000
-      if (formData.requiresTaxNumber) {
-        setFormData({ ...formData, requiresTaxNumber: false });
-      }
-    }
-  }, [formData.amount, formData.maxAmount]);
-
-  // Auto-enable/disable tax number requirement based on amount in edit form
-  useEffect(() => {
-    const amount = parseFloat(editFormData.amount || '0');
-    const maxAmount = parseFloat(editFormData.maxAmount || '0');
-
-    if (amount > 3000 || maxAmount > 3000) {
-      // Auto-enable when amount > 3000
-      if (!editFormData.requiresTaxNumber) {
-        setEditFormData({ ...editFormData, requiresTaxNumber: true });
-      }
-    } else if (amount <= 3000 && maxAmount <= 3000) {
-      // Auto-disable when amount <= 3000
-      if (editFormData.requiresTaxNumber) {
-        setEditFormData({ ...editFormData, requiresTaxNumber: false });
-      }
-    }
-  }, [editFormData.amount, editFormData.maxAmount]);
 
   const checkValidationStatus = async () => {
     setLoadingValidation(true);
@@ -432,28 +397,26 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       }
     }
 
-    // Enhanced wallet validation
-    if (!formData.walletAddress || formData.walletAddress.trim().length === 0) {
+    // Enhanced wallet validation - skip for AUXILIAR with default wallet (they use default)
+    const isAuxiliar = isAuxiliarCollaborator();
+    const walletToUse = isAuxiliar && defaultWallet ? defaultWallet : formData.walletAddress?.trim();
+
+    if (!walletToUse || walletToUse.length === 0) {
       toast.error('Digite um endereço de carteira para recebimento');
       return;
     }
 
     try {
-      // Determine if tax number is required (forced for amounts > 3000)
-      const requiresTaxNumber = formData.requiresTaxNumber ||
-        (formData.amount && parseFloat(formData.amount) > 3000) ||
-        (formData.maxAmount && parseFloat(formData.maxAmount) > 3000);
-
       // Sanitize all numeric inputs before sending to API
+      // CPF/CNPJ é automaticamente exigido pelo backend para valores acima de R$ 3.000
+      // AUXILIAR collaborators always use the default wallet
       const payload = {
         amount: formData.isCustomAmount ? undefined : sanitizeNumber(formData.amount),
         isCustomAmount: formData.isCustomAmount,
         minAmount: formData.isCustomAmount ? sanitizeNumber(formData.minAmount) : undefined,
         maxAmount: formData.isCustomAmount ? sanitizeNumber(formData.maxAmount) : undefined,
         description: formData.description || undefined,
-        walletAddress: formData.walletAddress.trim(),
-        requiresTaxNumber,
-        minAmountForTaxNumber: sanitizeNumber(formData.minAmountForTaxNumber) || 3000
+        walletAddress: walletToUse,
       };
 
 
@@ -586,30 +549,30 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       }
     }
 
-    // Enhanced wallet validation
-    if (!editFormData.walletAddress || editFormData.walletAddress.trim().length === 0) {
+    // Enhanced wallet validation - skip for AUXILIAR (they can't change wallet)
+    const isAuxiliar = isAuxiliarCollaborator();
+    if (!isAuxiliar && (!editFormData.walletAddress || editFormData.walletAddress.trim().length === 0)) {
       toast.error('Endereço da carteira é obrigatório');
       return;
     }
 
     try {
-      // Determine if tax number is required (forced for amounts > 3000)
-      const requiresTaxNumber = editFormData.requiresTaxNumber ||
-        (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
-        (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000);
-
       // Sanitize all numeric inputs before sending to API
-      const payload = {
+      // CPF/CNPJ é automaticamente exigido pelo backend para valores acima de R$ 3.000
+      // AUXILIAR collaborators cannot change wallet address
+      const payload: any = {
         amount: editFormData.isCustomAmount ? undefined : sanitizeNumber(editFormData.amount),
         isCustomAmount: editFormData.isCustomAmount,
         minAmount: editFormData.isCustomAmount ? sanitizeNumber(editFormData.minAmount) : undefined,
         maxAmount: editFormData.isCustomAmount ? sanitizeNumber(editFormData.maxAmount) : undefined,
         description: editFormData.description || undefined,
-        walletAddress: editFormData.walletAddress.trim(),
         isActive: editFormData.isActive,
-        requiresTaxNumber,
-        minAmountForTaxNumber: sanitizeNumber(editFormData.minAmountForTaxNumber) || 3000
       };
+
+      // Only include walletAddress if not AUXILIAR
+      if (!isAuxiliar) {
+        payload.walletAddress = editFormData.walletAddress.trim();
+      }
 
 
       const response = await api.patch(`/payment-links/${editingLink.id}`, payload);
@@ -930,96 +893,64 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Endereço da Carteira {!defaultWallet && <span className="text-red-400">*</span>}
-                </label>
-                <input
-                  type="text"
-                  value={formData.walletAddress}
-                  onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
-                  placeholder={defaultWallet ? "Usar carteira padrão ou digite outro endereço" : "Digite o endereço da carteira Liquid"}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
-                  style={{ fontSize: '16px' }}
-                />
-                {!defaultWallet && (
-                  <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
-                    <Shield size={12} className="mt-0.5 flex-shrink-0" />
-                    <span>Configure uma carteira padrão nas configurações para tornar este campo opcional</span>
+              {/* Info for AUXILIAR collaborators */}
+              {isAuxiliarCollaborator() && defaultWallet && (
+                <div className="mb-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                  <p className="text-sm text-blue-400">
+                    Como colaborador auxiliar, você utiliza a carteira padrão da conta.
                   </p>
-                )}
-              </div>
-            </div>
-
-            {/* CPF/CNPJ Toggle Section */}
-            <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="requiresTaxNumber"
-                    checked={formData.requiresTaxNumber}
-                    disabled={(formData.amount && parseFloat(formData.amount) > 3000) ||
-                             (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)}
-                    onChange={(e) => setFormData({ ...formData, requiresTaxNumber: e.target.checked })}
-                    className={`w-5 h-5 ${
-                      (formData.amount && parseFloat(formData.amount) > 3000) ||
-                      (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)
-                        ? 'bg-purple-700 border-purple-600 cursor-not-allowed'
-                        : 'text-purple-600 bg-gray-700 border-gray-600'
-                    } rounded focus:ring-purple-500`}
-                  />
-                  <div>
-                    <label htmlFor="requiresTaxNumber" className={`font-medium ${
-                      formData.requiresTaxNumber
-                        ? 'text-purple-300'
-                        : 'text-gray-300'
-                    }`}>
-                      Exigir CPF/CNPJ do pagador
-                    </label>
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      Obrigatório para valores acima de R$ 3.000
-                    </p>
-                  </div>
                 </div>
-                <Shield className={`${
-                  formData.requiresTaxNumber
-                    ? 'text-purple-400'
-                    : 'text-gray-500'
-                }`} size={20} />
-              </div>
+              )}
 
-              {/* Info Box */}
-              {(formData.requiresTaxNumber ||
-                (formData.amount && parseFloat(formData.amount) > 3000) ||
-                (formData.maxAmount && parseFloat(formData.maxAmount) > 3000)) && (
-                <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                  <div className="flex items-start gap-2">
-                    <div className="p-1 bg-yellow-500/20 rounded mt-0.5">
-                      <Shield className="text-yellow-400" size={14} />
-                    </div>
-                    <div className="text-sm space-y-1">
-                      <p className="text-yellow-400 font-medium">Importante:</p>
-                      <ul className="text-gray-300 space-y-0.5">
-                        <li className="flex items-start gap-1">
-                          <span className="text-yellow-400 mt-0.5">•</span>
-                          <span>O pagador deverá informar o CPF/CNPJ antes de gerar o QR Code</span>
-                        </li>
-                        <li className="flex items-start gap-1">
-                          <span className="text-yellow-400 mt-0.5">•</span>
-                          <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
-                        </li>
-                        <li className="flex items-start gap-1">
-                          <span className="text-yellow-400 mt-0.5">•</span>
-                          <span>Permite pagamentos até R$ 5.000 por transação</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
+              {/* Only show wallet input if not AUXILIAR or no default wallet */}
+              {(!isAuxiliarCollaborator() || !defaultWallet) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Endereço da Carteira {!defaultWallet && <span className="text-red-400">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.walletAddress}
+                    onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
+                    placeholder={defaultWallet ? "Usar carteira padrão ou digite outro endereço" : "Digite o endereço da carteira Liquid"}
+                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                    style={{ fontSize: '16px' }}
+                  />
+                  {!defaultWallet && (
+                    <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                      <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                      <span>Configure uma carteira padrão nas configurações para tornar este campo opcional</span>
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
+            {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
+            <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+              <div className="flex items-start gap-2">
+                <div className="p-1 bg-blue-500/20 rounded mt-0.5">
+                  <Shield className="text-blue-400" size={14} />
+                </div>
+                <div className="text-sm space-y-1">
+                  <p className="text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                  <ul className="text-gray-300 space-y-0.5">
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
+                    </li>
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                    </li>
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span>Permite pagamentos até R$ 5.000 por transação</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
 
             {/* Enhanced Action Buttons */}
             <div className="flex gap-3 pt-4 border-t border-gray-700">
@@ -1174,104 +1105,75 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   />
                 </div>
 
-                {/* Wallet Address */}
-                <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                      <Wallet className="text-blue-400" size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-white font-medium">Carteira para Recebimento</h4>
-                      <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Endereço da Carteira <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editFormData.walletAddress}
-                      onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
-                      placeholder="Digite o endereço da carteira Liquid"
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
-                      style={{ fontSize: '16px' }}
-                    />
-                    <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
-                      <Shield size={12} className="mt-0.5 flex-shrink-0" />
-                      <span>⚠️ Alterar a carteira invalidará o QR Code atual</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* CPF/CNPJ Toggle Section */}
-                <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                  <div className="flex items-center justify-between mb-3">
+                {/* Wallet Address - Hidden for AUXILIAR collaborators */}
+                {isAuxiliarCollaborator() ? (
+                  <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
                     <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="editRequiresTaxNumber"
-                        checked={editFormData.requiresTaxNumber}
-                        disabled={(editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
-                                 (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)}
-                        onChange={(e) => setEditFormData({ ...editFormData, requiresTaxNumber: e.target.checked })}
-                        className={`w-5 h-5 ${
-                          (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
-                          (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)
-                            ? 'bg-purple-700 border-purple-600 cursor-not-allowed'
-                            : 'text-purple-600 bg-gray-700 border-gray-600'
-                        } rounded focus:ring-purple-500`}
-                      />
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-400" size={20} />
+                      </div>
                       <div>
-                        <label htmlFor="editRequiresTaxNumber" className={`font-medium ${
-                          editFormData.requiresTaxNumber
-                            ? 'text-purple-300'
-                            : 'text-gray-300'
-                        }`}>
-                          Exigir CPF/CNPJ do pagador
-                        </label>
-                        <p className="text-gray-500 text-xs mt-0.5">
-                          Obrigatório para valores acima de R$ 3.000
-                        </p>
+                        <h4 className="text-white font-medium">Carteira para Recebimento</h4>
+                        <p className="text-blue-400 text-sm">Como colaborador auxiliar, você utiliza a carteira padrão da conta.</p>
                       </div>
                     </div>
-                    <Shield className={`${
-                      editFormData.requiresTaxNumber
-                        ? 'text-purple-400'
-                        : 'text-gray-500'
-                    }`} size={20} />
                   </div>
-
-                  {/* Info Box */}
-                  {(editFormData.requiresTaxNumber ||
-                    (editFormData.amount && parseFloat(editFormData.amount) > 3000) ||
-                    (editFormData.maxAmount && parseFloat(editFormData.maxAmount) > 3000)) && (
-                    <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                      <div className="flex items-start gap-2">
-                        <div className="p-1 bg-yellow-500/20 rounded mt-0.5">
-                          <Shield className="text-yellow-400" size={14} />
-                        </div>
-                        <div className="text-sm space-y-1">
-                          <p className="text-yellow-400 font-medium">Importante:</p>
-                          <ul className="text-gray-300 space-y-0.5">
-                            <li className="flex items-start gap-1">
-                              <span className="text-yellow-400 mt-0.5">•</span>
-                              <span>O pagador deverá informar o CPF/CNPJ antes de gerar o QR Code</span>
-                            </li>
-                            <li className="flex items-start gap-1">
-                              <span className="text-yellow-400 mt-0.5">•</span>
-                              <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
-                            </li>
-                            <li className="flex items-start gap-1">
-                              <span className="text-yellow-400 mt-0.5">•</span>
-                              <span>Permite pagamentos até R$ 5.000 por transação</span>
-                            </li>
-                          </ul>
-                        </div>
+                ) : (
+                  <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-400" size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium">Carteira para Recebimento</h4>
+                        <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
                       </div>
                     </div>
-                  )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Endereço da Carteira <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editFormData.walletAddress}
+                        onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
+                        placeholder="Digite o endereço da carteira Liquid"
+                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                        style={{ fontSize: '16px' }}
+                      />
+                      <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                        <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>⚠️ Alterar a carteira invalidará o QR Code atual</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
+                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <div className="p-1 bg-blue-500/20 rounded mt-0.5">
+                      <Shield className="text-blue-400" size={14} />
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <p className="text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                      <ul className="text-gray-300 space-y-0.5">
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span>Permite pagamentos até R$ 5.000 por transação</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}

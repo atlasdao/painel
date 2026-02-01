@@ -66,7 +66,8 @@ export default function RecentTransactions() {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
       });
     }
   };
@@ -74,11 +75,17 @@ export default function RecentTransactions() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'text-green-400 bg-green-400/10';
+        return 'text-blue-400 bg-blue-400/10'; // Azul para Recebido
+      case 'PROCESSING':
+        return 'text-green-400 bg-green-400/10'; // Verde para Pago
       case 'PENDING':
         return 'text-yellow-400 bg-yellow-400/10';
+      case 'IN_REVIEW':
+        return 'text-purple-400 bg-purple-400/10';
       case 'FAILED':
         return 'text-red-400 bg-red-400/10';
+      case 'EXPIRED':
+        return 'text-orange-400 bg-orange-400/10'; // Laranja para Expirado
       default:
         return 'text-gray-400 bg-gray-400/10';
     }
@@ -87,13 +94,38 @@ export default function RecentTransactions() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'Concluída';
+        return 'Recebido';
+      case 'PROCESSING':
+        return 'Pago';
       case 'PENDING':
         return 'Pendente';
+      case 'IN_REVIEW':
+        return 'Em Análise';
       case 'FAILED':
         return 'Falhou';
+      case 'EXPIRED':
+        return 'Expirado';
       default:
         return 'Desconhecido';
+    }
+  };
+
+  const getStatusTooltip = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Recebido em sua carteira';
+      case 'PROCESSING':
+        return 'Pago. Liberação na próxima remessa';
+      case 'PENDING':
+        return 'Aguardando pagamento';
+      case 'IN_REVIEW':
+        return 'Contate o suporte';
+      case 'FAILED':
+        return 'Pagamento cancelado ou não concluído';
+      case 'EXPIRED':
+        return 'Tempo limite excedido';
+      default:
+        return '';
     }
   };
 
@@ -190,7 +222,10 @@ export default function RecentTransactions() {
                   <p className="text-white font-medium truncate">
                     {transaction.type === 'DEPOSIT' ? 'Depósito' : 'Saque'}
                   </p>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
+                  <div
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)} cursor-help`}
+                    title={getStatusTooltip(transaction.status)}
+                  >
                     {getStatusText(transaction.status)}
                   </div>
                 </div>

@@ -26,7 +26,11 @@ import {
   Users,
   Banknote,
   DollarSign,
-  RotateCcw
+  RotateCcw,
+  X,
+  AlertTriangle,
+  ExternalLink,
+  Lightbulb
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { triggerConfetti } from '@/app/lib/confetti';
@@ -53,9 +57,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
   const [mobileStep, setMobileStep] = useState<'info' | 'payment'>('payment');
   const [isExpired, setIsExpired] = useState(false);
   const [transactionId, setTransactionId] = useState<string | null>(null);
-  const [showTaxNumberForm, setShowTaxNumberForm] = useState(false);
   const [taxNumber, setTaxNumber] = useState('');
   const [taxNumberError, setTaxNumberError] = useState('');
+  const [needsTaxNumberForFixedAmount, setNeedsTaxNumberForFixedAmount] = useState(false);
+
+  // Exit Intent & Recovery states
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showCopyFeedback, setShowCopyFeedback] = useState(false);
 
   useEffect(() => {
     if (!initialData && shortCode) {
@@ -90,7 +98,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Payment status response:', data);
-          if (data.status === 'paid' || data.status === 'completed') {
+          // Check for paid status: includes PROCESSING (Pago), COMPLETED (Recebido),
+          // and lowercase variants for API compatibility
+          const status = data.status?.toLowerCase();
+          if (status === 'paid' || status === 'completed' || status === 'processing' || status === 'delayed') {
             console.log('🎉 Payment detected as paid! Setting success...');
             setPaymentSuccess(true);
           }
@@ -128,6 +139,44 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       return () => clearInterval(timer);
     }
   }, [qrCode, timeLeft, isExpired]);
+
+  // Opção 1: Beforeunload Warning - Aviso ao tentar fechar/atualizar a página
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Só mostra aviso se tiver QR code ativo e não tiver pago ainda
+      if (qrCode && !paymentSuccess && !isExpired) {
+        e.preventDefault();
+        // Mensagem padrão do navegador (navegadores modernos ignoram mensagens customizadas)
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [qrCode, paymentSuccess, isExpired]);
+
+  // Opção 2: Back Button Redirect - Captura o botão voltar
+  useEffect(() => {
+    if (showQrCode && !paymentSuccess && !isExpired) {
+      // Push estados para capturar o back button
+      window.history.pushState({ checkoutActive: true, step: 1 }, '');
+      window.history.pushState({ checkoutActive: true, step: 2 }, '');
+
+      const handlePopState = (e: PopStateEvent) => {
+        // Se está tentando voltar durante o checkout ativo
+        if (qrCode && !paymentSuccess && !isExpired) {
+          // Push outro estado para manter na página
+          window.history.pushState({ checkoutActive: true, step: 2 }, '');
+          // Mostra modal de confirmação
+          setShowExitModal(true);
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [showQrCode, qrCode, paymentSuccess, isExpired]);
 
   const fetchPaymentData = async () => {
     try {
@@ -196,7 +245,72 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       console.log('📦 QR Code with tax number generated:', data);
 
       setQrCode(data.qrCode);
-      setShowTaxNumberForm(false);
+      setShowQrCode(true);
+
+      // Store transaction ID
+      if (data.transactionId) {
+        setTransactionId(data.transactionId);
+      }
+
+      // Generate QR Code image
+      if (data.qrCode) {
+        try {
+          const dataUrl = await QRCode.toDataURL(data.qrCode, {
+            type: 'image/png',
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+            width: 400,
+          });
+          setQrCodeDataUrl(dataUrl);
+        } catch (qrError) {
+          console.error('Error generating QR code image:', qrError);
+        }
+      }
+
+      setTimeLeft(29 * 60 + 50);
+      setIsExpired(false);
+      setIsGenerating(false);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error generating QR code with tax number:', error);
+      setTaxNumberError('Erro ao validar CPF/CNPJ. Tente novamente.');
+      setIsGenerating(false);
+    }
+  };
+
+  // Generate QR code with tax number for fixed amount links (> R$ 3000)
+  const generateWithTaxNumberForFixed = async () => {
+    if (!validateTaxNumber(taxNumber)) {
+      setTaxNumberError('CPF/CNPJ inválido');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pay/${shortCode}/validate-tax-number`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taxNumber: taxNumber.replace(/\D/g, ''),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao validar CPF/CNPJ');
+      }
+
+      const data = await response.json();
+      console.log('📦 QR Code with tax number for fixed amount generated:', data);
+
+      setQrCode(data.qrCode);
+      setShowQrCode(true);
+      setNeedsTaxNumberForFixedAmount(false);
 
       // Store transaction ID
       if (data.transactionId) {
@@ -290,10 +404,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       const data = await response.json();
       console.log('📦 QR Code response:', data);
 
-      // Check if tax number is required
+      // Check if tax number is required (for fixed amounts > 3000)
       if (data.needsTaxNumber) {
-        setShowTaxNumberForm(true);
+        console.log('🔐 Tax number required for this payment');
+        setNeedsTaxNumberForFixedAmount(true);
+        setShowQrCode(false);
         setIsGenerating(false);
+        setLoading(false);
         return;
       }
 
@@ -358,12 +475,87 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     return parseFloat(normalizedValue) || 0;
   };
 
+  // Opção 4a: Helper function para cores progressivas do timer
+  const getTimerStyles = () => {
+    const totalTime = 29 * 60 + 50; // 29:50
+    const percentage = (timeLeft / totalTime) * 100;
+
+    if (isExpired) {
+      return {
+        bgClass: 'bg-gradient-to-r from-red-900/30 to-red-800/30 border border-red-500/30',
+        textClass: 'text-red-400',
+        barClass: 'bg-gradient-to-r from-red-500 to-red-600',
+        iconClass: 'text-red-400',
+        message: 'QR Code expirado',
+        pulse: false
+      };
+    }
+
+    if (timeLeft <= 5 * 60) { // < 5 minutos - VERMELHO pulsante
+      return {
+        bgClass: 'bg-gradient-to-r from-red-900/30 to-red-800/30 border border-red-500/40',
+        textClass: 'text-red-400',
+        barClass: 'bg-gradient-to-r from-red-500 to-red-600',
+        iconClass: 'text-red-400 animate-pulse',
+        message: 'Quase expirando!',
+        pulse: true
+      };
+    }
+
+    if (timeLeft <= 10 * 60) { // 5-10 minutos - LARANJA
+      return {
+        bgClass: 'bg-gradient-to-r from-orange-900/30 to-amber-800/30 border border-orange-500/40',
+        textClass: 'text-orange-400',
+        barClass: 'bg-gradient-to-r from-orange-500 to-amber-500',
+        iconClass: 'text-orange-400',
+        message: 'Pague agora para garantir',
+        pulse: false
+      };
+    }
+
+    if (timeLeft <= 20 * 60) { // 10-20 minutos - AMARELO
+      return {
+        bgClass: 'bg-gradient-to-r from-amber-900/20 to-yellow-800/20 border border-amber-500/30',
+        textClass: 'text-amber-400',
+        barClass: 'bg-gradient-to-r from-amber-500 to-yellow-500',
+        iconClass: 'text-amber-400',
+        message: 'Expira em breve',
+        pulse: false
+      };
+    }
+
+    // > 20 minutos - VERDE
+    return {
+      bgClass: 'bg-gradient-to-r from-green-900/20 to-emerald-800/20 border border-green-500/30',
+      textClass: 'text-green-400',
+      barClass: 'bg-gradient-to-r from-green-500 to-emerald-500',
+      iconClass: 'text-green-400',
+      message: 'Tempo suficiente ✓',
+      pulse: false
+    };
+  };
+
+  // Opção 8: Copy Feedback Aprimorado
   const handleCopyCode = () => {
     if (qrCode && !isExpired) {
       navigator.clipboard.writeText(qrCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+      setShowCopyFeedback(true);
+      setTimeout(() => setCopied(false), 4000);
+      setTimeout(() => setShowCopyFeedback(false), 5000);
     }
+  };
+
+  // Handler para fechar o exit modal e continuar
+  const handleContinuePayment = () => {
+    setShowExitModal(false);
+  };
+
+  // Handler para confirmar saída
+  const handleConfirmExit = () => {
+    setShowExitModal(false);
+    // Limpa os history states e volta
+    window.history.go(-3);
   };
 
   const handleManualReload = async () => {
@@ -503,8 +695,106 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     );
   }
 
+  // Get current timer styles for progressive urgency
+  const timerStyles = getTimerStyles();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Opção 3: Modal de Exit Intent */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Close button */}
+            <button
+              onClick={handleContinuePayment}
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-6 text-center">
+              {/* Warning Icon */}
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                <AlertTriangle className="w-8 h-8 text-amber-400" />
+              </div>
+
+              <h3 className="text-xl font-bold text-white mb-2">
+                Seu pagamento ainda está ativo!
+              </h3>
+
+              <p className="text-slate-400 text-sm mb-4">
+                Se você sair agora, perderá esta sessão de pagamento e precisará gerar um novo QR Code.
+              </p>
+
+              {/* Timer info */}
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg mb-6 ${timerStyles.bgClass}`}>
+                <Clock className={`w-4 h-4 ${timerStyles.iconClass}`} />
+                <span className={`text-sm font-semibold ${timerStyles.textClass}`}>
+                  O QR Code expira em {formatTime(timeLeft)}
+                </span>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleContinuePayment}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  Continuar Pagamento
+                </button>
+                <button
+                  onClick={handleConfirmExit}
+                  className="w-full py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white font-medium rounded-xl transition-all text-sm"
+                >
+                  Sair mesmo assim
+                </button>
+              </div>
+
+              {/* Trust indicator */}
+              <div className="mt-4 flex items-center justify-center gap-2 text-slate-500 text-xs">
+                <Shield className="w-3 h-3" />
+                <span>Pagamento seguro via PIX</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Opção 8: Copy Feedback Modal Aprimorado */}
+      {showCopyFeedback && (
+        <div className="fixed bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 z-[90] animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="bg-slate-800/95 backdrop-blur-xl rounded-xl border border-green-500/30 shadow-2xl p-4 max-w-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <Check className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white text-sm mb-1">Código copiado!</p>
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  Agora abra seu app de banco e cole o código na área PIX para pagar.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCopyFeedback(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setShowCopyFeedback(false)}
+                className="flex-1 py-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all flex items-center justify-center gap-1"
+              >
+                <Lightbulb className="w-3 h-3" />
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Desktop Layout - Improved spacing and sizing */}
       <div className="hidden lg:flex min-h-screen py-8 px-6">
         <div className="w-full max-w-5xl mx-auto">
@@ -650,20 +940,32 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                   fill
                                   className={`object-contain transition-all ${isExpired ? 'grayscale opacity-50' : ''}`}
                                 />
+                                {/* Opção 7: Recovery Actions Inteligentes */}
                                 {isExpired && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-xl">
-                                    <button
-                                      onClick={handleManualReload}
-                                      disabled={isGenerating}
-                                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-lg disabled:opacity-50"
-                                    >
-                                      {isGenerating ? (
-                                        <Loader className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <RotateCcw className="w-4 h-4" />
-                                      )}
-                                      {isGenerating ? 'Gerando...' : 'Recarregar'}
-                                    </button>
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-xl">
+                                    <div className="text-center p-4">
+                                      <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                                        <Clock className="w-6 h-6 text-amber-500" />
+                                      </div>
+                                      <p className="text-slate-800 font-semibold text-sm mb-1">QR Code expirado</p>
+                                      <p className="text-slate-500 text-xs mb-4">Gere um novo em 1 clique</p>
+                                      <button
+                                        onClick={handleManualReload}
+                                        disabled={isGenerating}
+                                        className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 mx-auto"
+                                      >
+                                        {isGenerating ? (
+                                          <Loader className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          <RotateCcw className="w-4 h-4" />
+                                        )}
+                                        {isGenerating ? 'Gerando...' : 'Gerar Novo QR Code'}
+                                      </button>
+                                      <p className="text-slate-400 text-[10px] mt-3 flex items-center justify-center gap-1">
+                                        <Lightbulb className="w-3 h-3" />
+                                        Dica: Deixe o app do banco aberto
+                                      </p>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -723,22 +1025,22 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         </div>
                       )}
 
-                      {/* Timer */}
-                      <div className={`rounded-xl p-3 ${isExpired ? 'bg-gradient-to-r from-red-900/30 to-red-800/30 border border-red-500/30' : 'bg-gradient-to-r from-slate-800/50 to-slate-700/50'}`}>
+                      {/* Opção 4a: Timer com Cores Progressivas */}
+                      <div className={`rounded-xl p-3 ${timerStyles.bgClass} ${timerStyles.pulse ? 'animate-pulse' : ''}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Clock className={`w-4 h-4 ${isExpired ? 'text-red-400' : 'text-slate-400'}`} />
-                            <span className={`text-xs ${isExpired ? 'text-red-400' : 'text-slate-400'}`}>
-                              {isExpired ? 'Expirado' : 'Expira em'}
+                            <Clock className={`w-4 h-4 ${timerStyles.iconClass}`} />
+                            <span className={`text-xs ${timerStyles.textClass}`}>
+                              {timerStyles.message}
                             </span>
                           </div>
-                          <span className={`text-lg font-bold font-mono ${isExpired ? 'text-red-400' : 'text-white'}`}>
+                          <span className={`text-lg font-bold font-mono ${timerStyles.textClass}`}>
                             {isExpired ? '00:00' : formatTime(timeLeft)}
                           </span>
                         </div>
-                        <div className="mt-2 h-0.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1 bg-slate-700/50 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${isExpired ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}
+                            className={`h-full rounded-full transition-all duration-1000 ${timerStyles.barClass}`}
                             style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
                           />
                         </div>
@@ -746,133 +1048,50 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     </>
                   )}
 
-                  {/* Custom Amount Input */}
-                  {paymentData?.isCustomAmount && !showQrCode && (
+                  {/* Fixed Amount CPF Required (for amounts > R$ 3000) */}
+                  {needsTaxNumberForFixedAmount && !showQrCode && !paymentData?.isCustomAmount && (
                     <div className="py-6">
                       <div className="space-y-5">
                         <div className="text-center">
-                          <h3 className="text-lg font-semibold text-white mb-2">Digite o valor</h3>
-                          <p className="text-sm text-slate-400">Escolha quanto você deseja pagar</p>
+                          <h3 className="text-lg font-semibold text-white mb-2">Informe seu CPF/CNPJ</h3>
+                          <p className="text-sm text-slate-400">Obrigatório para valores acima de R$ 3.000</p>
                         </div>
 
+                        {/* Amount Display */}
+                        <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Valor do pagamento</p>
+                          <p className="text-3xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                            {formatCurrency(paymentData?.amount || 0)}
+                          </p>
+                        </div>
+
+                        {/* CPF/CNPJ Input */}
                         <div className="relative group">
-                          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
-                          <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
-                            <div className="flex items-center p-4">
-                              <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={customAmount}
-                                onChange={handleAmountInput}
-                                className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
-                                placeholder="0,00"
-                                autoFocus
-                              />
-                            </div>
-                            <div className="h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600"
-                                 style={{width: customAmount ? '100%' : '0%', transition: 'width 0.3s'}} />
+                          <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                          <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                            <input
+                              type="text"
+                              value={taxNumber}
+                              onChange={(e) => {
+                                setTaxNumber(formatTaxNumber(e.target.value));
+                                setTaxNumberError('');
+                              }}
+                              placeholder="CPF ou CNPJ"
+                              className="w-full px-4 py-3 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                              maxLength={18}
+                              style={{ fontSize: '16px' }}
+                              autoFocus
+                            />
                           </div>
                         </div>
-
-                        {(paymentData.minAmount || paymentData.maxAmount) && (
-                          <div className="flex items-center justify-between px-2">
-                            {paymentData.minAmount && (
-                              <span className="text-xs text-slate-400">
-                                Mín: <span className="text-blue-400 font-semibold">{formatCurrency(paymentData.minAmount)}</span>
-                              </span>
-                            )}
-                            {paymentData.maxAmount && (
-                              <span className="text-xs text-slate-400">
-                                Máx: <span className="text-cyan-400 font-semibold">{formatCurrency(paymentData.maxAmount)}</span>
-                              </span>
-                            )}
-                          </div>
+                        {taxNumberError && (
+                          <p className="text-red-400 text-xs text-center">{taxNumberError}</p>
                         )}
 
-                        {/* Quick amounts */}
-                        <div className="grid grid-cols-2 gap-2">
-                          {(() => {
-                            const maxAmount = paymentData.maxAmount || 500;
-                            const minAmount = paymentData.minAmount || 5;
-
-                            // Calculate percentage-based suggestions: 100%, 75%, 50%, 25%
-                            let suggestions = [
-                              Math.round(maxAmount),           // 100%
-                              Math.round(maxAmount * 0.75),    // 75%
-                              Math.round(maxAmount * 0.5),     // 50%
-                              Math.round(maxAmount * 0.25)     // 25%
-                            ];
-
-                            // Filter out amounts below minimum
-                            suggestions = suggestions.filter(amount => amount >= minAmount);
-
-                            // If we have less than 4 suggestions, fill with evenly distributed amounts
-                            if (suggestions.length < 4) {
-                              const range = maxAmount - minAmount;
-                              const step = range / 4;
-
-                              const evenlyDistributed = [
-                                Math.round(minAmount),
-                                Math.round(minAmount + step),
-                                Math.round(minAmount + step * 2),
-                                Math.round(minAmount + step * 3),
-                                Math.round(maxAmount)
-                              ].filter(amount =>
-                                amount >= minAmount &&
-                                amount <= maxAmount &&
-                                !suggestions.includes(amount)
-                              );
-
-                              suggestions = [...suggestions, ...evenlyDistributed];
-                            }
-
-                            // Remove duplicates and sort
-                            suggestions = [...new Set(suggestions)].sort((a, b) => a - b);
-
-                            // Always show exactly 4 suggestions (or all available if less)
-                            let finalSuggestions = suggestions.slice(0, 4);
-
-                            // Ensure maxAmount is always included if we have room
-                            if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length < 4) {
-                              finalSuggestions.push(maxAmount);
-                              finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
-                            } else if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length === 4) {
-                              // Replace the highest value with maxAmount if not included
-                              finalSuggestions[finalSuggestions.length - 1] = maxAmount;
-                              finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
-                            }
-
-                            // If still less than 4, pad with remaining space divided
-                            while (finalSuggestions.length < 4 && finalSuggestions.length > 0) {
-                              const lastAmount = finalSuggestions[finalSuggestions.length - 1];
-                              if (lastAmount < maxAmount) {
-                                const nextAmount = Math.round(lastAmount + (maxAmount - lastAmount) / (5 - finalSuggestions.length));
-                                if (nextAmount > lastAmount && nextAmount < maxAmount && !finalSuggestions.includes(nextAmount)) {
-                                  finalSuggestions.push(nextAmount);
-                                } else {
-                                  break;
-                                }
-                              } else {
-                                break;
-                              }
-                            }
-
-                            return finalSuggestions.map(amount => (
-                              <button
-                                key={amount}
-                                onClick={() => setCustomAmount(amount.toString())}
-                                className="py-2.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:text-white rounded-lg transition-all text-sm font-medium"
-                              >
-                                R$ {amount}
-                              </button>
-                            ));
-                          })()}
-                        </div>
-
+                        {/* Submit Button */}
                         <button
-                          onClick={handleGenerateQR}
-                          disabled={!customAmount || parseAmount(customAmount) <= 0 || isGenerating}
+                          onClick={generateWithTaxNumberForFixed}
+                          disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
                           className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -881,13 +1100,196 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                               <Loader className="w-5 h-5 animate-spin" />
                             ) : (
                               <>
-                                <span>Continuar</span>
+                                <span>Gerar QR Code</span>
                                 <ArrowRight className="w-4 h-4" />
                               </>
                             )}
                           </div>
                         </button>
+
+                        {/* Trust indicators */}
+                        <div className="flex items-center justify-center gap-4">
+                          <div className="flex items-center gap-1.5 text-slate-500">
+                            <Lock className="w-3 h-3" />
+                            <span className="text-xs">Dados protegidos</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-500">
+                            <Shield className="w-3 h-3" />
+                            <span className="text-xs">Conexão segura</span>
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Custom Amount Input with Inline CPF */}
+                  {paymentData?.isCustomAmount && !showQrCode && (
+                    <div className="py-6">
+                      {(() => {
+                        const currentAmount = parseAmount(customAmount);
+                        const taxThreshold = paymentData.minAmountForTaxNumber || 3000;
+                        const needsCpf = paymentData.requiresTaxNumber && currentAmount > taxThreshold;
+                        const isValidCpf = taxNumber.replace(/\D/g, '').length >= 11;
+                        const canSubmit = currentAmount > 0 &&
+                          (!paymentData.minAmount || currentAmount >= paymentData.minAmount) &&
+                          (!paymentData.maxAmount || currentAmount <= paymentData.maxAmount) &&
+                          (!needsCpf || isValidCpf);
+
+                        return (
+                          <div className="space-y-5">
+                            <div className="text-center">
+                              <h3 className="text-lg font-semibold text-white mb-2">Digite o valor</h3>
+                              <p className="text-sm text-slate-400">Escolha quanto você deseja pagar</p>
+                            </div>
+
+                            <div className="relative group">
+                              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
+                              <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
+                                <div className="flex items-center p-4">
+                                  <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={customAmount}
+                                    onChange={handleAmountInput}
+                                    className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
+                                    placeholder="0,00"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div className="h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600"
+                                     style={{width: customAmount ? '100%' : '0%', transition: 'width 0.3s'}} />
+                              </div>
+                            </div>
+
+                            {(paymentData.minAmount || paymentData.maxAmount) && (
+                              <div className="flex items-center justify-between px-2">
+                                {paymentData.minAmount && (
+                                  <span className="text-xs text-slate-400">
+                                    Mín: <span className="text-blue-400 font-semibold">{formatCurrency(paymentData.minAmount)}</span>
+                                  </span>
+                                )}
+                                {paymentData.maxAmount && (
+                                  <span className="text-xs text-slate-400">
+                                    Máx: <span className="text-cyan-400 font-semibold">{formatCurrency(paymentData.maxAmount)}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Quick amounts */}
+                            <div className="grid grid-cols-2 gap-2">
+                              {(() => {
+                                const maxAmount = paymentData.maxAmount || 500;
+                                const minAmount = paymentData.minAmount || 5;
+                                let suggestions = [
+                                  Math.round(maxAmount),
+                                  Math.round(maxAmount * 0.75),
+                                  Math.round(maxAmount * 0.5),
+                                  Math.round(maxAmount * 0.25)
+                                ].filter(amount => amount >= minAmount);
+
+                                if (suggestions.length < 4) {
+                                  const range = maxAmount - minAmount;
+                                  const step = range / 4;
+                                  const evenlyDistributed = [
+                                    Math.round(minAmount),
+                                    Math.round(minAmount + step),
+                                    Math.round(minAmount + step * 2),
+                                    Math.round(minAmount + step * 3),
+                                    Math.round(maxAmount)
+                                  ].filter(amount => amount >= minAmount && amount <= maxAmount && !suggestions.includes(amount));
+                                  suggestions = [...suggestions, ...evenlyDistributed];
+                                }
+
+                                suggestions = [...new Set(suggestions)].sort((a, b) => a - b);
+                                let finalSuggestions = suggestions.slice(0, 4);
+
+                                if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length < 4) {
+                                  finalSuggestions.push(maxAmount);
+                                  finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
+                                } else if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length === 4) {
+                                  finalSuggestions[finalSuggestions.length - 1] = maxAmount;
+                                  finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
+                                }
+
+                                return finalSuggestions.map(amount => (
+                                  <button
+                                    key={amount}
+                                    onClick={() => setCustomAmount(amount.toString())}
+                                    className="py-2.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:text-white rounded-lg transition-all text-sm font-medium"
+                                  >
+                                    R$ {amount}
+                                  </button>
+                                ));
+                              })()}
+                            </div>
+
+                            {/* CPF/CNPJ Field - Shows when amount requires it */}
+                            {needsCpf && (
+                              <div className="animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                  <span className="text-xs text-slate-500">Dados do pagador</span>
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                </div>
+                                <div className="relative group">
+                                  <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                                  <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                                    <input
+                                      type="text"
+                                      value={taxNumber}
+                                      onChange={(e) => {
+                                        setTaxNumber(formatTaxNumber(e.target.value));
+                                        setTaxNumberError('');
+                                      }}
+                                      placeholder="CPF ou CNPJ"
+                                      className="w-full px-4 py-3 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                                      maxLength={18}
+                                      style={{ fontSize: '16px' }}
+                                    />
+                                  </div>
+                                </div>
+                                {taxNumberError && (
+                                  <p className="text-red-400 text-xs mt-2 text-center">{taxNumberError}</p>
+                                )}
+                              </div>
+                            )}
+
+                            <button
+                              onClick={needsCpf ? generateWithTaxNumber : handleGenerateQR}
+                              disabled={!canSubmit || isGenerating}
+                              className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition-opacity" />
+                              <div className="relative flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all">
+                                {isGenerating ? (
+                                  <Loader className="w-5 h-5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <span>Gerar QR Code</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                  </>
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Trust indicators - only show when CPF is visible */}
+                            {needsCpf && (
+                              <div className="flex items-center justify-center gap-4 animate-in fade-in duration-300">
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                  <Lock className="w-3 h-3" />
+                                  <span className="text-xs">Dados protegidos</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                  <Shield className="w-3 h-3" />
+                                  <span className="text-xs">Conexão segura</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -929,8 +1331,8 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           </div>
         </div>
 
-        {/* Mobile Content */}
-        <div className="flex-1 p-3 pb-20">
+        {/* Mobile Content - pb-32 para acomodar o Sticky CTA */}
+        <div className="flex-1 p-3 pb-32">
           {/* Compact Description and Amount for Mobile */}
           {showQrCode && (
             <div className="space-y-2 mb-3">
@@ -961,20 +1363,32 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   fill
                   className={`object-contain transition-all ${isExpired ? 'grayscale opacity-50' : ''}`}
                 />
+                {/* Opção 7: Recovery Actions Mobile */}
                 {isExpired && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
-                    <button
-                      onClick={handleManualReload}
-                      disabled={isGenerating}
-                      className="px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 text-sm"
-                    >
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-lg">
+                    <div className="text-center p-3">
+                      <div className="w-10 h-10 mx-auto mb-2 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                        <Clock className="w-5 h-5 text-amber-500" />
+                      </div>
+                      <p className="text-slate-800 font-semibold text-sm mb-1">QR Code expirado</p>
+                      <p className="text-slate-500 text-[11px] mb-3">Gere um novo em 1 clique</p>
+                      <button
+                        onClick={handleManualReload}
+                        disabled={isGenerating}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 active:from-blue-700 active:to-cyan-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 text-sm mx-auto"
+                      >
                       {isGenerating ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RotateCcw className="w-4 h-4" />
-                      )}
-                      {isGenerating ? 'Gerando...' : 'Recarregar'}
-                    </button>
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
+                        {isGenerating ? 'Gerando...' : 'Gerar Novo'}
+                      </button>
+                      <p className="text-slate-400 text-[10px] mt-2 flex items-center justify-center gap-1">
+                        <Lightbulb className="w-3 h-3" />
+                        Deixe o app do banco aberto
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1025,166 +1439,73 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             </div>
           )}
 
-          {/* Timer for Mobile - more compact */}
+          {/* Opção 4a: Timer Mobile com Cores Progressivas */}
           {showQrCode && (
-            <div className={`rounded-lg p-2.5 mb-3 ${isExpired ? 'bg-gradient-to-r from-red-900/20 to-red-800/20 border border-red-600/30' : 'bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-600/30'}`}>
+            <div className={`rounded-lg p-2.5 mb-3 ${timerStyles.bgClass} ${timerStyles.pulse ? 'animate-pulse' : ''}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Clock className={`w-3.5 h-3.5 ${isExpired ? 'text-red-400' : 'text-amber-400'}`} />
-                  <span className={`text-[11px] ${isExpired ? 'text-red-400' : 'text-amber-400'}`}>
-                    {isExpired ? 'Expirado' : 'Expira em'}
+                  <Clock className={`w-3.5 h-3.5 ${timerStyles.iconClass}`} />
+                  <span className={`text-[11px] ${timerStyles.textClass}`}>
+                    {timerStyles.message}
                   </span>
                 </div>
-                <span className={`text-lg font-bold font-mono ${isExpired ? 'text-red-400' : 'text-amber-400'}`}>
+                <span className={`text-lg font-bold font-mono ${timerStyles.textClass}`}>
                   {isExpired ? '00:00' : formatTime(timeLeft)}
                 </span>
               </div>
-              <div className="mt-1.5 h-0.5 bg-slate-800/50 rounded-full overflow-hidden">
+              <div className="mt-1.5 h-1 bg-slate-800/50 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${isExpired ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
+                  className={`h-full rounded-full transition-all duration-1000 ${timerStyles.barClass}`}
                   style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
                 />
               </div>
             </div>
           )}
 
-          {/* Custom Amount Input for Mobile */}
-          {paymentData?.isCustomAmount && !showQrCode && (
+          {/* Fixed Amount CPF Required for Mobile (for amounts > R$ 3000) */}
+          {needsTaxNumberForFixedAmount && !showQrCode && !paymentData?.isCustomAmount && (
             <div className="space-y-4">
-              {/* Payment Description for Mobile */}
-              {paymentData?.description && (
-                <div className="bg-slate-900/60 backdrop-blur rounded-xl p-4 border border-slate-700/30">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-slate-400 leading-relaxed">{paymentData.description}</p>
-                  </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-white mb-2">Informe seu CPF/CNPJ</h3>
+                <p className="text-sm text-slate-400">Obrigatório para valores acima de R$ 3.000</p>
+              </div>
+
+              {/* Amount Display */}
+              <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Valor do pagamento</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                  {formatCurrency(paymentData?.amount || 0)}
+                </p>
+              </div>
+
+              {/* CPF/CNPJ Input */}
+              <div className="relative group">
+                <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={taxNumber}
+                    onChange={(e) => {
+                      setTaxNumber(formatTaxNumber(e.target.value));
+                      setTaxNumberError('');
+                    }}
+                    placeholder="CPF ou CNPJ"
+                    className="w-full px-4 py-3.5 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                    maxLength={18}
+                    style={{ fontSize: '18px' }}
+                    autoFocus
+                  />
                 </div>
+              </div>
+              {taxNumberError && (
+                <p className="text-red-400 text-xs text-center">{taxNumberError}</p>
               )}
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-3">
-                  Digite o valor do pagamento
-                </label>
-
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-30" />
-                  <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
-                    <div className="flex items-center p-4">
-                      <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={customAmount}
-                        onChange={handleAmountInput}
-                        className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
-                        placeholder="0,00"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600"
-                         style={{width: customAmount ? '100%' : '0%', transition: 'width 0.3s'}} />
-                  </div>
-                </div>
-
-                {(paymentData?.minAmount || paymentData?.maxAmount) && (
-                  <div className="flex items-center justify-between mt-3 px-1">
-                    {paymentData.minAmount && (
-                      <span className="text-[11px] text-slate-400">
-                        Mín: <span className="text-blue-400 font-bold">{formatCurrency(paymentData.minAmount)}</span>
-                      </span>
-                    )}
-                    {paymentData.maxAmount && (
-                      <span className="text-[11px] text-slate-400">
-                        Máx: <span className="text-cyan-400 font-bold">{formatCurrency(paymentData.maxAmount)}</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Quick amounts for Mobile */}
-              <div className="grid grid-cols-4 gap-2">
-                {(() => {
-                  const maxAmount = paymentData.maxAmount || 500;
-                  const minAmount = paymentData.minAmount || 5;
-
-                  // Calculate percentage-based suggestions: 100%, 75%, 50%, 25%
-                  let suggestions = [
-                    Math.round(maxAmount),           // 100%
-                    Math.round(maxAmount * 0.75),    // 75%
-                    Math.round(maxAmount * 0.5),     // 50%
-                    Math.round(maxAmount * 0.25)     // 25%
-                  ];
-
-                  // Filter out amounts below minimum
-                  suggestions = suggestions.filter(amount => amount >= minAmount);
-
-                  // If we have less than 4 suggestions, fill with evenly distributed amounts
-                  if (suggestions.length < 4) {
-                    const range = maxAmount - minAmount;
-                    const step = range / 4;
-
-                    const evenlyDistributed = [
-                      Math.round(minAmount),
-                      Math.round(minAmount + step),
-                      Math.round(minAmount + step * 2),
-                      Math.round(minAmount + step * 3),
-                      Math.round(maxAmount)
-                    ].filter(amount =>
-                      amount >= minAmount &&
-                      amount <= maxAmount &&
-                      !suggestions.includes(amount)
-                    );
-
-                    suggestions = [...suggestions, ...evenlyDistributed];
-                  }
-
-                  // Remove duplicates and sort
-                  suggestions = [...new Set(suggestions)].sort((a, b) => a - b);
-
-                  // Always show exactly 4 suggestions (or all available if less)
-                  let finalSuggestions = suggestions.slice(0, 4);
-
-                  // Ensure maxAmount is always included if we have room
-                  if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length < 4) {
-                    finalSuggestions.push(maxAmount);
-                    finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
-                  } else if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length === 4) {
-                    // Replace the highest value with maxAmount if not included
-                    finalSuggestions[finalSuggestions.length - 1] = maxAmount;
-                    finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
-                  }
-
-                  // If still less than 4, pad with remaining space divided
-                  while (finalSuggestions.length < 4 && finalSuggestions.length > 0) {
-                    const lastAmount = finalSuggestions[finalSuggestions.length - 1];
-                    if (lastAmount < maxAmount) {
-                      const nextAmount = Math.round(lastAmount + (maxAmount - lastAmount) / (5 - finalSuggestions.length));
-                      if (nextAmount > lastAmount && nextAmount < maxAmount && !finalSuggestions.includes(nextAmount)) {
-                        finalSuggestions.push(nextAmount);
-                      } else {
-                        break;
-                      }
-                    } else {
-                      break;
-                    }
-                  }
-
-                  return finalSuggestions.map(amount => (
-                    <button
-                      key={amount}
-                      onClick={() => setCustomAmount(amount.toString())}
-                      className="py-2 bg-slate-800/50 active:bg-slate-700/50 border border-slate-700/50 text-slate-400 active:text-white rounded-lg transition-all text-xs"
-                    >
-                      R$ {amount}
-                    </button>
-                  ));
-                })()}
-              </div>
-
+              {/* Submit Button */}
               <button
-                onClick={handleGenerateQR}
-                disabled={!customAmount || parseAmount(customAmount) <= 0 || isGenerating}
+                onClick={generateWithTaxNumberForFixed}
+                disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
                 className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
               >
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-75" />
@@ -1199,6 +1520,201 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   )}
                 </div>
               </button>
+
+              {/* Trust indicators */}
+              <div className="flex items-center justify-center gap-4">
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <Lock className="w-3 h-3" />
+                  <span className="text-[10px]">Dados protegidos</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <Shield className="w-3 h-3" />
+                  <span className="text-[10px]">Conexão segura</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Amount Input for Mobile with Inline CPF */}
+          {paymentData?.isCustomAmount && !showQrCode && (
+            <div className="space-y-4">
+              {(() => {
+                const currentAmount = parseAmount(customAmount);
+                const taxThreshold = paymentData.minAmountForTaxNumber || 3000;
+                const needsCpf = paymentData.requiresTaxNumber && currentAmount > taxThreshold;
+                const isValidCpf = taxNumber.replace(/\D/g, '').length >= 11;
+                const canSubmit = currentAmount > 0 &&
+                  (!paymentData.minAmount || currentAmount >= paymentData.minAmount) &&
+                  (!paymentData.maxAmount || currentAmount <= paymentData.maxAmount) &&
+                  (!needsCpf || isValidCpf);
+
+                return (
+                  <>
+                    {/* Payment Description for Mobile */}
+                    {paymentData?.description && (
+                      <div className="bg-slate-900/60 backdrop-blur rounded-xl p-4 border border-slate-700/30">
+                        <div className="flex items-start gap-3">
+                          <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-slate-400 leading-relaxed">{paymentData.description}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-3">
+                        Digite o valor do pagamento
+                      </label>
+
+                      <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-30" />
+                        <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
+                          <div className="flex items-center p-4">
+                            <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={customAmount}
+                              onChange={handleAmountInput}
+                              className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
+                              placeholder="0,00"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600"
+                               style={{width: customAmount ? '100%' : '0%', transition: 'width 0.3s'}} />
+                        </div>
+                      </div>
+
+                      {(paymentData?.minAmount || paymentData?.maxAmount) && (
+                        <div className="flex items-center justify-between mt-3 px-1">
+                          {paymentData.minAmount && (
+                            <span className="text-[11px] text-slate-400">
+                              Mín: <span className="text-blue-400 font-bold">{formatCurrency(paymentData.minAmount)}</span>
+                            </span>
+                          )}
+                          {paymentData.maxAmount && (
+                            <span className="text-[11px] text-slate-400">
+                              Máx: <span className="text-cyan-400 font-bold">{formatCurrency(paymentData.maxAmount)}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick amounts for Mobile */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {(() => {
+                        const maxAmount = paymentData.maxAmount || 500;
+                        const minAmount = paymentData.minAmount || 5;
+                        let suggestions = [
+                          Math.round(maxAmount),
+                          Math.round(maxAmount * 0.75),
+                          Math.round(maxAmount * 0.5),
+                          Math.round(maxAmount * 0.25)
+                        ].filter(amount => amount >= minAmount);
+
+                        if (suggestions.length < 4) {
+                          const range = maxAmount - minAmount;
+                          const step = range / 4;
+                          const evenlyDistributed = [
+                            Math.round(minAmount),
+                            Math.round(minAmount + step),
+                            Math.round(minAmount + step * 2),
+                            Math.round(minAmount + step * 3),
+                            Math.round(maxAmount)
+                          ].filter(amount => amount >= minAmount && amount <= maxAmount && !suggestions.includes(amount));
+                          suggestions = [...suggestions, ...evenlyDistributed];
+                        }
+
+                        suggestions = [...new Set(suggestions)].sort((a, b) => a - b);
+                        let finalSuggestions = suggestions.slice(0, 4);
+
+                        if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length < 4) {
+                          finalSuggestions.push(maxAmount);
+                          finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
+                        } else if (!finalSuggestions.includes(maxAmount) && finalSuggestions.length === 4) {
+                          finalSuggestions[finalSuggestions.length - 1] = maxAmount;
+                          finalSuggestions = [...new Set(finalSuggestions)].sort((a, b) => a - b);
+                        }
+
+                        return finalSuggestions.map(amount => (
+                          <button
+                            key={amount}
+                            onClick={() => setCustomAmount(amount.toString())}
+                            className="py-2 bg-slate-800/50 active:bg-slate-700/50 border border-slate-700/50 text-slate-400 active:text-white rounded-lg transition-all text-xs"
+                          >
+                            R$ {amount}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+
+                    {/* CPF/CNPJ Field - Shows when amount requires it */}
+                    {needsCpf && (
+                      <div className="animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                          <span className="text-xs text-slate-500">Dados do pagador</span>
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                        </div>
+                        <div className="relative group">
+                          <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                          <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={taxNumber}
+                              onChange={(e) => {
+                                setTaxNumber(formatTaxNumber(e.target.value));
+                                setTaxNumberError('');
+                              }}
+                              placeholder="CPF ou CNPJ"
+                              className="w-full px-4 py-3.5 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                              maxLength={18}
+                              style={{ fontSize: '18px' }}
+                            />
+                          </div>
+                        </div>
+                        {taxNumberError && (
+                          <p className="text-red-400 text-xs mt-2 text-center">{taxNumberError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={needsCpf ? generateWithTaxNumber : handleGenerateQR}
+                      disabled={!canSubmit || isGenerating}
+                      className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
+                    >
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-75" />
+                      <div className="relative flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 active:from-blue-700 active:to-cyan-700 text-white font-bold rounded-xl transition-all active:scale-95">
+                        {isGenerating ? (
+                          <Loader className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Gerar QR Code</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Trust indicators - only show when CPF is visible */}
+                    {needsCpf && (
+                      <div className="flex items-center justify-center gap-4 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Lock className="w-3 h-3" />
+                          <span className="text-[10px]">Dados protegidos</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Shield className="w-3 h-3" />
+                          <span className="text-[10px]">Conexão segura</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -1228,9 +1744,66 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           )}
         </div>
 
-        {/* Mobile Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 px-4 py-3 z-40">
-          <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500">
+        {/* Opção 9: Mobile Footer com Sticky CTA */}
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 z-40">
+          {/* Sticky CTA - Aparece quando QR code está ativo */}
+          {showQrCode && qrCode && !isExpired && (
+            <div className="px-4 pt-3 pb-2">
+              <button
+                onClick={handleCopyCode}
+                disabled={isExpired}
+                className="w-full relative group"
+              >
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60" />
+                <div className="relative flex items-center justify-center gap-3 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 active:from-blue-700 active:to-cyan-700 text-white font-bold rounded-xl transition-all active:scale-[0.98]">
+                  {copied ? (
+                    <>
+                      <Check className="w-5 h-5" />
+                      <span>Código Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-5 h-5" />
+                      <span>Copiar código PIX</span>
+                      <span className="text-blue-200">•</span>
+                      <span className="text-blue-100">
+                        {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Recovery CTA - Aparece quando QR code expirou */}
+          {showQrCode && isExpired && (
+            <div className="px-4 pt-3 pb-2">
+              <button
+                onClick={handleManualReload}
+                disabled={isGenerating}
+                className="w-full relative group"
+              >
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl blur opacity-60" />
+                <div className="relative flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 active:from-amber-600 active:to-orange-600 text-white font-bold rounded-xl transition-all active:scale-[0.98]">
+                  {isGenerating ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      <span>Gerando novo QR Code...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-5 h-5" />
+                      <span>Gerar novo QR Code</span>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Trust badges */}
+          <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 px-4 py-2">
             <span className="flex items-center gap-1">
               <Shield className="w-3 h-3" />
               SSL
@@ -1251,79 +1824,6 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
         </div>
       </div>
 
-      {/* Tax Number Modal */}
-      {showTaxNumberForm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-slate-700/50 shadow-2xl">
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <Shield className="text-purple-400" size={24} />
-                Identificação Necessária
-              </h3>
-              <p className="text-gray-400 text-sm">
-                Este pagamento exige CPF ou CNPJ.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-white text-sm font-medium mb-2 block">
-                  CPF ou CNPJ
-                </label>
-                <input
-                  type="text"
-                  value={taxNumber}
-                  onChange={(e) => {
-                    setTaxNumber(formatTaxNumber(e.target.value));
-                    setTaxNumberError('');
-                  }}
-                  placeholder="000.000.000-00"
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none transition-all"
-                  maxLength={18}
-                  style={{ fontSize: '16px' }}
-                />
-                {taxNumberError && (
-                  <p className="text-red-400 text-sm mt-1">{taxNumberError}</p>
-                )}
-              </div>
-
-              <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="text-yellow-400 mt-0.5" size={16} />
-                  <div className="text-xs text-gray-300">
-                    <p className="font-medium text-yellow-400 mb-1">Importante:</p>
-                    <p>Use o mesmo CPF/CNPJ da conta bancária que fará o pagamento.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={generateWithTaxNumber}
-                  disabled={!taxNumber || isGenerating}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-700 disabled:to-gray-700 text-white rounded-lg font-medium transition-all disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <Loader className="animate-spin mx-auto" size={20} />
-                  ) : (
-                    'Continuar'
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTaxNumberForm(false);
-                    setTaxNumber('');
-                    setTaxNumberError('');
-                  }}
-                  className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

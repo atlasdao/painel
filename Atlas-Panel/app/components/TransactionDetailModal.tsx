@@ -53,17 +53,18 @@ export default function TransactionDetailModal({
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     });
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <CheckCircle className="text-green-500" size={20} />;
+        return <CheckCircle className="text-blue-500" size={20} />; // Azul para Recebido
       case 'PENDING':
         return <Clock className="text-yellow-500" size={20} />;
       case 'PROCESSING':
-        return <RefreshCw className="text-blue-500 animate-spin" size={20} />;
+        return <CheckCircle className="text-green-500" size={20} />; // Verde para Pago
       case 'IN_REVIEW':
         return <Search className="text-purple-500" size={20} />;
       case 'FAILED':
@@ -79,6 +80,27 @@ export default function TransactionDetailModal({
 
   const getStatusLabel = (status: string) => {
     return translateStatus(status);
+  };
+
+  const getStatusTooltip = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Recebido em sua carteira';
+      case 'PROCESSING':
+        return 'Pago. Liberação na próxima remessa';
+      case 'PENDING':
+        return 'Aguardando pagamento';
+      case 'IN_REVIEW':
+        return 'Contate o suporte';
+      case 'FAILED':
+        return 'Pagamento cancelado ou não concluído';
+      case 'EXPIRED':
+        return 'Tempo limite excedido';
+      case 'CANCELLED':
+        return 'Transação cancelada';
+      default:
+        return '';
+    }
   };
 
   const getTransactionIcon = (type: string) => {
@@ -263,7 +285,10 @@ export default function TransactionDetailModal({
               </div>
               <div>
                 <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px', cursor: 'help' }}
+                  title={getStatusTooltip(transaction.status)}
+                >
                   {getStatusIcon(transaction.status)}
                   <span style={{ fontSize: '16px', fontWeight: '500' }}>{getStatusLabel(transaction.status)}</span>
                 </div>
@@ -445,6 +470,57 @@ export default function TransactionDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Pagamento Agendado (D+1) */}
+            {(() => {
+              if (!transaction.metadata) return null;
+              try {
+                const metadata = JSON.parse(transaction.metadata);
+                if (!metadata.delayedPaymentEnabled || !metadata.scheduledPaymentAt) return null;
+
+                const scheduledDate = new Date(metadata.scheduledPaymentAt);
+                const now = new Date();
+                const isPaid = transaction.status === 'COMPLETED';
+                const isPending = scheduledDate > now && !isPaid;
+
+                return (
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Pagamento Agendado (D+1)
+                    </div>
+                    <div style={{
+                      backgroundColor: isPaid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                      border: `1px solid ${isPaid ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`,
+                      padding: '14px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}>
+                      <Clock size={20} style={{ color: isPaid ? '#10b981' : '#fbbf24' }} />
+                      <div>
+                        <div style={{
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          color: isPaid ? '#10b981' : '#fbbf24'
+                        }}>
+                          {formatDate(metadata.scheduledPaymentAt)}
+                        </div>
+                        <div style={{
+                          fontSize: '13px',
+                          color: isPaid ? '#6ee7b7' : '#fcd34d',
+                          marginTop: '4px'
+                        }}>
+                          {isPaid ? '✓ Pagamento realizado' : isPending ? '⏳ Aguardando janela de pagamento' : '⏳ Processando...'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              } catch {
+                return null;
+              }
+            })()}
 
             {/* Espaço extra para garantir scroll */}
             <div style={{ height: '100px' }}></div>

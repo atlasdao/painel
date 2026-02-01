@@ -26,10 +26,12 @@ export class PaymentLinkService {
 	async create(
 		userId: string,
 		dto: CreatePaymentLinkDto,
+		collabContext?: { isCollaborating: boolean; role: 'GESTOR' | 'AUXILIAR' | null },
 	): Promise<PaymentLinkResponseDto> {
 		// Enhanced logging for debugging
 		this.logger.log(`Creating payment link for user: ${userId}`);
 		this.logger.log(`DTO received: ${JSON.stringify(dto, null, 2)}`);
+		this.logger.log(`Collaborator context: ${JSON.stringify(collabContext, null, 2)}`);
 
 		// Get user info to check commerce mode
 		const user = await this.prisma.user.findUnique({
@@ -99,8 +101,8 @@ export class PaymentLinkService {
 			);
 		}
 
-		// Determine the max amount based on whether tax number is required
-		const commerceMaxAmount = dto.requiresTaxNumber ? COMMERCE_MAX_AMOUNT_WITH_TAX : COMMERCE_MAX_AMOUNT_BASIC;
+		// Limite máximo é sempre R$ 5.000 (CPF/CNPJ é exigido automaticamente acima de R$ 3.000)
+		const commerceMaxAmount = COMMERCE_MAX_AMOUNT_WITH_TAX; // R$ 5.000
 
 		// Commerce mode amount validations
 		if (user.commerceMode) {
@@ -172,19 +174,12 @@ export class PaymentLinkService {
 		// Generate unique short code
 		const shortCode = nanoid(8);
 
-		// Auto-activate tax number requirement for amounts above 5000
-		let requiresTaxNumber = dto.requiresTaxNumber || false;
-		const minAmountForTaxNumber = dto.minAmountForTaxNumber || 3000.00;
-
-		// If the fixed amount is above 5000, force tax number requirement
-		if (dto.amount && dto.amount > 5000) {
-			requiresTaxNumber = true;
-		}
-
-		// For custom amounts, if max amount is above 5000, force tax number requirement
-		if (dto.isCustomAmount && dto.maxAmount && dto.maxAmount > 5000) {
-			requiresTaxNumber = true;
-		}
+		// CPF/CNPJ é obrigatório automaticamente para valores acima de R$ 3.000
+		// O campo requiresTaxNumber agora é sempre true - a verificação real acontece no generateQRCode
+		// baseada no valor efetivo da transação
+		const TAX_NUMBER_THRESHOLD = 3000.00;
+		const requiresTaxNumber = true; // Sempre habilitado - verificação dinâmica por valor
+		const minAmountForTaxNumber = TAX_NUMBER_THRESHOLD;
 
 		try {
 			const paymentLink = await this.prisma.paymentLink.create({
@@ -341,8 +336,8 @@ export class PaymentLinkService {
 			);
 		}
 
-		// Determine the max amount based on whether tax number is required
-		const commerceMaxAmount = (dto.requiresTaxNumber !== undefined ? dto.requiresTaxNumber : existingLink.requiresTaxNumber) ? COMMERCE_MAX_AMOUNT_WITH_TAX : COMMERCE_MAX_AMOUNT_BASIC;
+		// Limite máximo é sempre R$ 5.000 (CPF/CNPJ é exigido automaticamente acima de R$ 3.000)
+		const commerceMaxAmount = COMMERCE_MAX_AMOUNT_WITH_TAX; // R$ 5.000
 
 		// Commerce mode amount validations
 		if (user.commerceMode) {
@@ -457,26 +452,11 @@ export class PaymentLinkService {
 			if (dto.description !== undefined) updateData.description = dto.description;
 			if (dto.expiresAt !== undefined) updateData.expiresAt = dto.expiresAt;
 			if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
-			if (dto.minAmountForTaxNumber !== undefined) updateData.minAmountForTaxNumber = dto.minAmountForTaxNumber;
 
-			// Auto-activate tax number requirement for amounts above 5000
-			let requiresTaxNumber = dto.requiresTaxNumber;
-
-			// If amount is being updated and is above 5000, force tax number requirement
-			if (dto.amount !== undefined && dto.amount > 5000) {
-				requiresTaxNumber = true;
-			}
-
-			// For custom amounts, if max amount is above 5000, force tax number requirement
-			if ((dto.isCustomAmount === true || existingLink.isCustomAmount) &&
-				((dto.maxAmount !== undefined && dto.maxAmount > 5000) ||
-				 (dto.maxAmount === undefined && existingLink.maxAmount && existingLink.maxAmount > 5000))) {
-				requiresTaxNumber = true;
-			}
-
-			if (requiresTaxNumber !== undefined) {
-				updateData.requiresTaxNumber = requiresTaxNumber;
-			}
+			// CPF/CNPJ é sempre obrigatório para valores acima de R$ 3.000
+			// Mantém requiresTaxNumber = true e minAmountForTaxNumber = 3000 como padrão
+			updateData.requiresTaxNumber = true;
+			updateData.minAmountForTaxNumber = 3000;
 
 			// Clear QR code when updating since the payment details may have changed
 			if (dto.amount !== undefined || dto.walletAddress !== undefined || dto.description !== undefined) {
@@ -580,8 +560,9 @@ export class PaymentLinkService {
 		}
 
 		// Check if tax number is required
-		const needsTaxNumber = link.requiresTaxNumber ||
-			(amount >= (link.minAmountForTaxNumber || 3000));
+		// CPF/CNPJ é SEMPRE obrigatório para valores acima de R$ 3.000,00
+		const TAX_NUMBER_THRESHOLD = 3000.00;
+		const needsTaxNumber = amount > TAX_NUMBER_THRESHOLD;
 
 		if (needsTaxNumber) {
 			// Return indication that tax number is needed

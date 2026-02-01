@@ -351,39 +351,14 @@ export class WebhookService {
 				}
 			}
 
-			// Send email notification for IN_REVIEW transactions ONLY
+			// NOTE: Review emails are now handled by a cron job (ReviewEmailService) that only sends
+			// emails for transactions that stay in IN_REVIEW for more than 2 minutes.
+			// This prevents sending unnecessary "Em Revisão" emails for transactions that
+			// quickly pass through the review stage (Eulen sends under_review → depix_sent within seconds).
+			//
+			// See: src/services/review-email.service.ts
 			if (newStatus === TransactionStatus.IN_REVIEW) {
-				this.logger.log(`⚠️ TRANSACTION IN REVIEW: ${transaction.id}`);
-				try {
-					const user = await this.prisma.user.findUnique({
-						where: { id: transaction.userId },
-						select: {
-							email: true,
-							username: true,
-							notifyReviewSales: true,
-						},
-					});
-
-					if (user && user.notifyReviewSales) {
-						const metadata = JSON.parse(transaction.metadata || '{}');
-						await this.emailService.sendReviewSaleEmail(
-							user.email,
-							user.username,
-							{
-								productName: transaction.description || 'Pagamento PIX',
-								amount: transaction.amount, // Already in reais
-								buyerName: eventData.payerName || metadata.webhookEvent?.payerName,
-								transactionId: transaction.id,
-								paymentMethod: 'PIX',
-								createdAt: new Date(),
-							}
-						);
-						this.logger.log(`📧 REVIEW EMAIL: Notification sent to ${user.email}`);
-					}
-				} catch (error) {
-					this.logger.error(`Failed to send review notification email:`, error);
-					// Don't fail the webhook processing if email fails
-				}
+				this.logger.log(`⚠️ TRANSACTION IN REVIEW: ${transaction.id} - Review email will be sent by cron job if status persists`);
 			}
 
 			return {
@@ -432,6 +407,7 @@ export class WebhookService {
 			paid: TransactionStatus.PROCESSING,
 			under_review: TransactionStatus.IN_REVIEW,
 			depix_sent: TransactionStatus.COMPLETED,
+			delayed: TransactionStatus.PROCESSING, // Payment received, waiting for D+1 delay
 			failed: TransactionStatus.FAILED,
 			expired: TransactionStatus.EXPIRED,
 			cancelled: TransactionStatus.FAILED, // Treat cancelled as failed

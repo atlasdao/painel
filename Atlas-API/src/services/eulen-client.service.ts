@@ -9,6 +9,9 @@ interface DepositRequest {
 	depixAddress?: string;
 	endUserFullName?: string;
 	endUserTaxNumber?: string;
+	splitFee?: string; // Percentual da taxa (ex: "0.5%")
+	depixSplitAddress?: string; // Endereço destino da taxa
+	delayDepixInHours?: number; // Delay para pagamento D+1 (janelas 6h/18h)
 }
 
 interface DepositResponse {
@@ -257,6 +260,9 @@ export class EulenClientService {
 		userFullName?: string;
 		userTaxNumber?: string;
 		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
+		splitFee?: string; // Percentual da taxa (ex: "0.5%")
+		depixSplitAddress?: string; // Endereço destino da taxa
+		delayDepixInHours?: number; // Delay para pagamento D+1 (janelas 6h/18h)
 	}): Promise<DepositResponse> {
 		return this.rateLimiter.executeWithRateLimit('deposit', async () => {
 			try {
@@ -289,6 +295,19 @@ export class EulenClientService {
 				if (data.whitelist === true) {
 					requestData.whitelist = true;
 					this.logger.log(`✅ Whitelist enabled for this transaction`);
+				}
+
+				// Add splitFee parameters if provided
+				if (data.splitFee && data.depixSplitAddress) {
+					requestData.splitFee = data.splitFee;
+					requestData.depixSplitAddress = data.depixSplitAddress;
+					this.logger.log(`💸 Split fee enabled: ${data.splitFee} to ${data.depixSplitAddress}`);
+				}
+
+				// Add delayDepixInHours if provided (D+1 payment scheduling)
+				if (data.delayDepixInHours && data.delayDepixInHours > 0) {
+					requestData.delayDepixInHours = data.delayDepixInHours;
+					this.logger.log(`⏰ Delayed payment enabled: ${data.delayDepixInHours} hours`);
 				}
 
 				// Format and validate CPF/CNPJ
@@ -475,6 +494,9 @@ export class EulenClientService {
 		description?: string;
 		userTaxNumber?: string; // Tax number (CPF/CNPJ) for EUID restriction
 		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
+		splitFee?: string; // Percentual da taxa (ex: "0.5%")
+		depixSplitAddress?: string; // Endereço destino da taxa
+		delayDepixInHours?: number; // Delay para pagamento D+1 (janelas 6h/18h)
 	}): Promise<any> {
 		// Use the deposit endpoint to generate QR code
 		try {
@@ -499,6 +521,9 @@ export class EulenClientService {
 				description: data.description,
 				userTaxNumber: data.userTaxNumber, // Pass tax number for EUID restriction
 				whitelist: data.whitelist, // Pass whitelist parameter to bypass first purchase limit
+				splitFee: data.splitFee, // Pass split fee percentage
+				depixSplitAddress: data.depixSplitAddress, // Pass split fee destination address
+				delayDepixInHours: data.delayDepixInHours, // Pass delay for D+1 payment scheduling
 			});
 
 			// Check if we got the expected response structure

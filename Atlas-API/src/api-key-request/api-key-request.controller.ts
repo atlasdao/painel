@@ -214,4 +214,23 @@ export class ApiKeyRequestController {
 		const adminId = req.user.id || req.user.sub;
 		return await this.apiKeyRequestService.revokeApiKey(id, adminId, reason);
 	}
+
+	@Put(':id/revoke-self')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ summary: 'Revoke own API key (User)' })
+	@ApiResponse({
+		status: 200,
+		description: 'API key revoked successfully',
+		type: ApiKeyRequestResponseDto,
+	})
+	@ApiResponse({ status: 400, description: 'Can only revoke approved keys' })
+	@ApiResponse({ status: 403, description: 'Not authorized to revoke this API key' })
+	@ApiResponse({ status: 404, description: 'Request not found' })
+	async revokeOwnApiKey(
+		@Param('id') id: string,
+		@Req() req: any,
+	) {
+		const userId = req.user.id || req.user.sub;
+		return await this.apiKeyRequestService.revokeOwnApiKey(id, userId);
+	}
 }

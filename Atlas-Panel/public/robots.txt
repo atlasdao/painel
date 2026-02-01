@@ -1,0 +1,43 @@
+# Robots.txt para Atlas Painel
+# https://painel.atlasdao.info
+
+# Permitir todos os bots de busca nas paginas publicas
+User-agent: *
+Allow: /
+Allow: /termos
+Allow: /privacidade
+Allow: /devs
+Allow: /status
+
+# Bloquear areas protegidas e privadas
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /settings
+Disallow: /settings/
+Disallow: /transactions
+Disallow: /transactions/
+Disallow: /commerce
+Disallow: /commerce/
+Disallow: /deposit
+Disallow: /deposit/
+Disallow: /api-keys
+Disallow: /api-keys/
+Disallow: /api/
+Disallow: /confirm-email
+Disallow: /reset-password
+Disallow: /payment-confirmation
+
+# Bloquear links de pagamento (contem dados sensiveis)
+Disallow: /pay/
+
+# Bloquear paginas de autenticacao
+Disallow: /login
+Disallow: /register
+
+# Sitemap
+Sitemap: https://painel.atlasdao.info/sitemap.xml
+
+# Crawl-delay para evitar sobrecarga (em segundos)
+Crawl-delay: 1

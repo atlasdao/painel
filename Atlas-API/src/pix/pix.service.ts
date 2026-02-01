@@ -42,6 +42,16 @@ export class PixService {
 		private readonly levelsService: LevelsService,
 	) {}
 
+	/**
+	 * Get user's default wallet address
+	 */
+	async getUserDefaultWallet(userId: string): Promise<{ defaultWalletAddress: string | null } | null> {
+		return this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { defaultWalletAddress: true },
+		});
+	}
+
 	async createDeposit(
 		userId: string,
 		depositDto: DepositDto,
@@ -372,6 +382,9 @@ export class PixService {
 					verifiedTaxNumber: true,
 					apiKey: true,
 					whitelistDepix: true,
+					collateral: true, // Valor de colateral do usuário
+					splitFeePercentage: true, // Taxa de split fee do usuário
+					delayedPaymentEnabled: true, // Pagamento com delay D+1 (janelas 6h/18h)
 					userLevel: {
 						select: {
 							level: true,
@@ -616,8 +629,50 @@ export class PixService {
 			});
 
 			// Call Eulen API to generate QR Code
-			// Check if user is whitelisted and add whitelist parameter if needed
-			const isWhitelisted = user.whitelistDepix === true;
+			// Determine whitelist status based on: whitelistDepix flag OR collateral amount
+			let isWhitelisted = false;
+
+			// 1. Se usuário tem whitelist global habilitado, sempre usa whitelist
+			if (user.whitelistDepix === true) {
+				isWhitelisted = true;
+				this.logger.log(`✅ WHITELIST: User ${userId} has global whitelistDepix enabled`);
+			}
+			// 2. Se tem colateral configurado (não null e > 0), verificar se o valor está dentro do colateral
+			else if (user.collateral !== null && user.collateral !== undefined && user.collateral > 0) {
+				if (data.amount <= user.collateral) {
+					isWhitelisted = true;
+					this.logger.log(`✅ COLLATERAL: Amount R$ ${data.amount.toFixed(2)} <= collateral R$ ${user.collateral.toFixed(2)} - using whitelist`);
+				} else {
+					isWhitelisted = false;
+					this.logger.log(`⚠️ COLLATERAL: Amount R$ ${data.amount.toFixed(2)} > collateral R$ ${user.collateral.toFixed(2)} - NO whitelist`);
+				}
+			}
+			// 3. Se colateral é null/0 e whitelistDepix é false, não usa whitelist (comportamento padrão)
+			else {
+				this.logger.log(`ℹ️ WHITELIST: User ${userId} has no whitelist or collateral - standard flow (no whitelist)`);
+			}
+
+			// Endereço fixo para receber a taxa de split
+			const SPLIT_FEE_ADDRESS = 'lq1qqd5z6790x0ed2306x8gaaas7cdmhd7m9q4e8l0a58qh0ypnhue67j9zukjlwm2sfzyzrn4z0zc9rzsep9t2acqqhtz6p6ad7y';
+
+			// Usar a taxa personalizada do usuário ou o padrão de 0.5%
+			// Eulen API requires splitFee > 0% and < 20%
+			// IMPORTANT: Do NOT apply split fee for validation payments (R$ 1,00 is too small)
+			let splitFeePercentage = user.splitFeePercentage ?? 0.5;
+
+			// Disable split fee for validation payments - the amount is too small
+			if (isValidationPayment) {
+				splitFeePercentage = 0;
+				this.logger.log(`🔒 Validation payment detected - disabling split fee (amount too small)`);
+			}
+
+			// Clamp splitFee to valid range (0 to disable, max 19.99% to stay under 20%)
+			if (splitFeePercentage > 0 && splitFeePercentage >= 20) {
+				this.logger.warn(`⚠️ splitFeePercentage ${splitFeePercentage}% exceeds max 20%, capping to 19.99%`);
+				splitFeePercentage = 19.99;
+			}
+
+			const splitFeeString = splitFeePercentage > 0 ? `${splitFeePercentage}%` : undefined;
 
 			this.logger.log(
 				`Calling Eulen API to generate QR Code with data: ${JSON.stringify({
@@ -625,10 +680,26 @@ export class PixService {
 					depixAddress: data.depixAddress,
 					description: data.description,
 					whitelist: isWhitelisted,
+					splitFee: splitFeeString || 'disabled (0%)',
+					depixSplitAddress: splitFeeString ? SPLIT_FEE_ADDRESS : 'N/A',
 				})}`,
 			);
 
 			this.logger.log(`🔍 WHITELIST STATUS: User ${userId} whitelist status = ${isWhitelisted}`);
+			this.logger.log(`💸 SPLIT FEE: ${splitFeeString || 'disabled (0%)'} ${splitFeeString ? `to ${SPLIT_FEE_ADDRESS}` : ''}`);
+
+			// Calculate delayed payment if user has delayedPaymentEnabled
+			let delayDepixInHours: number | undefined;
+			let scheduledPaymentAt: Date | undefined;
+
+			if (user.delayedPaymentEnabled === true) {
+				const delayInfo = this.calculateDelayDepixInHours();
+				delayDepixInHours = delayInfo.hours;
+				scheduledPaymentAt = delayInfo.scheduledAt;
+				this.logger.log(`⏰ DELAYED PAYMENT: User ${userId} has delayed payment enabled`);
+				this.logger.log(`⏰ DELAYED PAYMENT: Calculated delay = ${delayDepixInHours} hours`);
+				this.logger.log(`⏰ DELAYED PAYMENT: Scheduled for ${scheduledPaymentAt.toISOString()}`);
+			}
 
 			const eulenResponse = await this.eulenClient.generatePixQRCode({
 				amount: data.amount,
@@ -636,6 +707,11 @@ export class PixService {
 				description: data.description,
 				userTaxNumber: data.payerCpfCnpj, // Pass tax number as EUID
 				whitelist: isWhitelisted, // Pass whitelist parameter to Eulen API
+				// Only send splitFee if percentage > 0 (Eulen API requires > 0% and < 20%)
+				splitFee: splitFeeString,
+				depixSplitAddress: splitFeeString ? SPLIT_FEE_ADDRESS : undefined,
+				// Pass delay for D+1 payment scheduling if enabled
+				delayDepixInHours: delayDepixInHours,
 			});
 
 			this.logger.log('✅ EULEN API responded successfully');
@@ -664,9 +740,14 @@ export class PixService {
 				},
 			});
 
+			// Calculate split fee amount
+			const splitFeeAmountValue = data.amount * (splitFeePercentage / 100);
+
 			// Update transaction with QR code data AND transaction ID
 			const updateData: any = {
 				externalId: eulenResponse.transactionId, // Save transaction ID for status checks
+				splitFeeApplied: splitFeePercentage, // Taxa aplicada (%)
+				splitFeeAmount: Math.round(splitFeeAmountValue * 100) / 100, // Valor em BRL
 				metadata: JSON.stringify({
 					...JSON.parse(transaction.metadata || '{}'),
 					depixAddress: data.depixAddress, // Ensure DePix address is in metadata
@@ -675,6 +756,12 @@ export class PixService {
 					serviceUsed: 'eulen', // Track which service was used
 					eulenResponse: eulenResponse, // Store real EULEN responses
 					transactionId: eulenResponse.transactionId, // Transaction ID reference
+					splitFeePercentage: splitFeePercentage, // Taxa aplicada
+					splitFeeAmount: Math.round(splitFeeAmountValue * 100) / 100, // Valor da taxa
+					// D+1 Delayed payment info (if enabled)
+					delayedPaymentEnabled: user.delayedPaymentEnabled || false,
+					delayDepixInHours: delayDepixInHours || null,
+					scheduledPaymentAt: scheduledPaymentAt?.toISOString() || null,
 				}),
 			};
 
@@ -1144,11 +1231,54 @@ export class PixService {
 			processing: TransactionStatus.PROCESSING,
 			completed: TransactionStatus.COMPLETED,
 			success: TransactionStatus.COMPLETED,
+			delayed: TransactionStatus.PROCESSING, // Payment received, waiting for D+1 delay
 			failed: TransactionStatus.FAILED,
 			cancelled: TransactionStatus.CANCELLED,
 			expired: TransactionStatus.EXPIRED,
 		};
 
 		return statusMap[eulenStatus.toLowerCase()] || TransactionStatus.PENDING;
+	}
+
+	/**
+	 * Calcula o delay em horas para pagamento D+1 com janelas de 6h e 18h.
+	 * Encontra a próxima janela de pagamento que seja pelo menos 24h no futuro.
+	 * Otimizado para O(1) - apenas comparações simples, sem loops.
+	 *
+	 * Exemplos:
+	 * - Venda às 10:00 dia 1 → elegível: 10:00 dia 2 → próxima janela: 18:00 dia 2 → delay = 32h
+	 * - Venda às 20:00 dia 1 → elegível: 20:00 dia 2 → próxima janela: 06:00 dia 3 → delay = 34h
+	 */
+	private calculateDelayDepixInHours(): { hours: number; scheduledAt: Date } {
+		const now = new Date();
+
+		// Tempo mínimo: 24h a partir de agora
+		const minPaymentTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+		// Extrair hora do tempo mínimo para decidir qual janela usar
+		const minHour = minPaymentTime.getHours();
+
+		// Criar data agendada baseada no tempo mínimo
+		const scheduledAt = new Date(minPaymentTime);
+
+		// Determinar próxima janela de pagamento (6h ou 18h)
+		// Se antes das 6h → janela das 6h do mesmo dia
+		// Se entre 6h e 18h → janela das 18h do mesmo dia
+		// Se após 18h → janela das 6h do dia seguinte
+		if (minHour < 6) {
+			scheduledAt.setHours(6, 0, 0, 0);
+		} else if (minHour < 18) {
+			scheduledAt.setHours(18, 0, 0, 0);
+		} else {
+			// Após 18h: próxima janela é 6h do dia seguinte
+			scheduledAt.setDate(scheduledAt.getDate() + 1);
+			scheduledAt.setHours(6, 0, 0, 0);
+		}
+
+		// Calcular delay em horas (arredondado para cima)
+		const delayMs = scheduledAt.getTime() - now.getTime();
+		const hours = Math.ceil(delayMs / (60 * 60 * 1000));
+
+		return { hours, scheduledAt };
 	}
 }

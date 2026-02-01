@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Heart, Loader, CheckCircle, Copy, ExternalLink, ChevronDown } from 'lucide-react';
+import { X, Heart, Loader, CheckCircle, Copy, ExternalLink, ChevronDown, HeartHandshake } from 'lucide-react';
 import { toast } from 'sonner';
 import BrandButton from '@/components/ui/BrandButton';
 import { api } from '@/app/lib/api';
@@ -346,12 +346,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-pink-500 to-red-500 rounded-xl">
+            <div className="p-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl">
               <Heart className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Fazer Doação</h2>
-              <p className="text-sm text-gray-400">Apoie nosso projeto</p>
+              <h2 className="text-xl font-bold text-white">Apoie a Atlas</h2>
+              <p className="text-sm text-gray-400">Ajude a manter nossos serviços</p>
             </div>
           </div>
           <button
@@ -368,8 +368,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {step === 'method' && (
             <div className="space-y-4">
               <div className="text-center mb-6">
-                <h3 className="text-lg font-semibold text-white mb-2">Ajude a manter a Atlas</h3>
-                <p className="text-gray-400 text-sm">Selecione como você gostaria de fazer sua doação</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Apoie o Projeto Atlas</h3>
+                <p className="text-gray-400 text-sm">Sua contribuição nos ajuda a manter e melhorar nossos serviços. Toda doação faz a diferença para continuarmos oferecendo uma plataforma de qualidade.</p>
               </div>
 
               <div className="space-y-3">
@@ -645,14 +645,14 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {/* Step 5: Success */}
           {step === 'success' && (
             <div className="space-y-6 text-center">
-              <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-24 h-24 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-12 h-12 text-white" />
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold text-white mb-2">Obrigado pela sua doação!</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Obrigado!</h3>
                 <p className="text-gray-400">
-                  Só assim a Atlas consegue manter o desenvolvimento código aberto, custear a estrutura e oferecer a melhor competitividade.
+                  Sua contribuição é muito importante para nós. Graças ao seu apoio, podemos continuar mantendo e melhorando a Atlas.
                 </p>
               </div>
 
@@ -691,14 +691,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                   variant="primary"
                   onClick={onClose}
                   className="w-full"
-                  icon={<Heart className="w-4 h-4" />}
                 >
                   Fechar
                 </BrandButton>
 
                 <button
                   onClick={() => {
-                    window.open('https://twitter.com/intent/tweet?text=Acabei%20de%20fazer%20uma%20doação%20para%20o%20projeto%20Atlas%20que%20promove%20a%20soberania%20e%20liberdade%20financeira%20dos%20comerciantes%20brasileiros!', '_blank');
+                    window.open('https://twitter.com/intent/tweet?text=Acabei%20de%20fazer%20uma%20doação%20para%20apoiar%20o%20projeto%20Atlas!%20💜%20Conheça%20em%20painel.atlasdao.info', '_blank');
                   }}
                   className="w-full text-sm text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-2"
                 >

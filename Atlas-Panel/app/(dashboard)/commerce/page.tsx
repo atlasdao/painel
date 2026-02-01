@@ -447,8 +447,9 @@ export default function CommercePage() {
       if (!isUnmountedRef.current) {
         setUserProfile(profile);
 
-        // Check if user has full commerce access (both validated and commerce mode active)
-        const hasFullCommerceAccess = profile.commerceMode && profile.isAccountValidated;
+        // Commerce mode is enabled by default for all users
+        // Only check if account is validated
+        const hasFullCommerceAccess = profile.isAccountValidated;
         setHasCommerceAccess(hasFullCommerceAccess);
       }
 
@@ -602,14 +603,6 @@ export default function CommercePage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
               <p className="text-gray-400">Verificando acesso ao modo comércio...</p>
             </div>
-          </div>
-        ) : !userProfile?.isAccountValidated ? (
-          <div className="px-4 md:px-6">
-            <CommerceLockScreen
-              defaultWalletAddress={userProfile?.defaultWalletAddress}
-              isAccountValidated={userProfile?.isAccountValidated}
-              commerceMode={userProfile?.commerceMode}
-            />
           </div>
         ) : !hasCommerceAccess ? (
           <div className="px-4 md:px-6">

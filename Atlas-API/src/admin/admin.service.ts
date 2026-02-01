@@ -13,8 +13,9 @@ import { LimitValidationService } from '../services/limit-validation.service';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity } from '@prisma/client';
+import { User, TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity, WarningType, WarningTargetAudience } from '@prisma/client';
 import { ApiKeyUtils } from '../common/utils/api-key.util';
+import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -415,6 +416,44 @@ export class AdminService {
 		});
 	}
 
+	async toggleDelayedPayment(userId: string, enable: boolean) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('User not found');
+		}
+
+		// Require commerce mode for delayed payment
+		if (enable && !user.commerceMode) {
+			throw new BadRequestException(
+				'O modo comércio deve estar ativado antes de habilitar o pagamento com delay',
+			);
+		}
+
+		const updateData: any = {
+			delayedPaymentEnabled: enable,
+		};
+
+		// Set timestamp when enabling
+		if (enable) {
+			updateData.delayedPaymentEnabledAt = new Date();
+		} else {
+			updateData.delayedPaymentEnabledAt = null;
+		}
+
+		return this.prisma.user.update({
+			where: { id: userId },
+			data: updateData,
+			select: {
+				id: true,
+				email: true,
+				username: true,
+				commerceMode: true,
+				delayedPaymentEnabled: true,
+				delayedPaymentEnabledAt: true,
+			},
+		});
+	}
+
 	async getDashboardData(limit: number = 5) {
 		const [stats, recentTransactions, recentUsers, auditStats] =
 			await Promise.all([
@@ -433,7 +472,10 @@ export class AdminService {
 		};
 	}
 
-	async getDashboardStats(): Promise<{
+	async getDashboardStats(params?: {
+		startDate?: Date;
+		endDate?: Date;
+	}): Promise<{
 		totalUsers: number;
 		activeUsers: number;
 		newUsersToday: number;
@@ -446,7 +488,20 @@ export class AdminService {
 		totalVolume: number;
 		todayVolume: number;
 		successRate: number;
+		totalContributions: number;
 	}> {
+		// Build date filter for transactions
+		const dateFilter: any = {};
+		if (params?.startDate || params?.endDate) {
+			dateFilter.createdAt = {};
+			if (params?.startDate) {
+				dateFilter.createdAt.gte = params.startDate;
+			}
+			if (params?.endDate) {
+				dateFilter.createdAt.lte = params.endDate;
+			}
+		}
+
 		// Get user stats
 		const [totalUsers, activeUsers, newUsersToday] = await Promise.all([
 			this.userRepository.count(),
@@ -454,7 +509,7 @@ export class AdminService {
 			this.userRepository.countNewUsersToday(),
 		]);
 
-		// Get transaction stats
+		// Get transaction stats with date filter
 		const [
 			totalTransactions,
 			todayTransactions,
@@ -465,19 +520,41 @@ export class AdminService {
 			totalVolume,
 			todayVolume,
 		] = await Promise.all([
-			this.transactionRepository.count(),
+			this.transactionRepository.count(dateFilter),
 			this.transactionRepository.countToday(),
-			this.transactionRepository.count({ status: TransactionStatus.PENDING }),
-			this.transactionRepository.count({ status: TransactionStatus.COMPLETED }),
-			this.transactionRepository.count({ status: TransactionStatus.FAILED }),
-			this.transactionRepository.count({ status: TransactionStatus.EXPIRED }),
+			this.transactionRepository.count({ ...dateFilter, status: TransactionStatus.PENDING }),
+			this.transactionRepository.count({ ...dateFilter, status: TransactionStatus.COMPLETED }),
+			this.transactionRepository.count({ ...dateFilter, status: TransactionStatus.FAILED }),
+			this.transactionRepository.count({ ...dateFilter, status: TransactionStatus.EXPIRED }),
 			this.transactionRepository.sumAmount({
+				...dateFilter,
 				status: TransactionStatus.COMPLETED,
 			}),
 			this.transactionRepository.sumAmountToday({
 				status: TransactionStatus.COMPLETED,
 			}),
 		]);
+
+		// Calculate contributions (split fees from completed transactions)
+		// Only count transactions that have splitFeeAmount recorded (after the feature was implemented)
+		const completedTransactionsWithFee = await this.prisma.transaction.findMany({
+			where: {
+				...dateFilter,
+				status: TransactionStatus.COMPLETED,
+				splitFeeAmount: {
+					not: null, // Only transactions where splitFee was actually applied
+				},
+			},
+			select: {
+				splitFeeAmount: true,
+			},
+		});
+
+		// Sum the actual split fee amounts from transactions
+		let totalContributions = 0;
+		for (const tx of completedTransactionsWithFee) {
+			totalContributions += tx.splitFeeAmount || 0;
+		}
 
 		// Calculate success rate
 		const successRate =
@@ -513,6 +590,9 @@ export class AdminService {
 
 			// Performance metrics
 			successRate,
+
+			// Contributions (split fees collected)
+			totalContributions: Math.round(totalContributions * 100) / 100,
 		};
 	}
 
@@ -1197,5 +1277,217 @@ export class AdminService {
 			}
 			throw new BadRequestException('Erro ao resolver incidente');
 		}
+	}
+
+	// ===== RATE LIMIT MANAGEMENT =====
+
+	async clearUserRateLimit(email: string, adminId: string): Promise<{ success: boolean; message: string; clearedCount: number }> {
+		// Find user by email
+		const user = await this.prisma.user.findUnique({
+			where: { email },
+			select: { id: true, email: true, username: true },
+		});
+
+		if (!user) {
+			throw new NotFoundException(`Usuário com email ${email} não encontrado`);
+		}
+
+		// Clear rate limit for this user
+		const clearedCount = RateLimitGuard.clearUserRateLimit(user.id);
+
+		// Log audit entry
+		await this.auditLogRepository.createLog({
+			userId: adminId,
+			action: 'CLEAR_USER_RATE_LIMIT',
+			resource: 'RateLimit',
+			resourceId: user.id,
+			requestBody: { email, clearedCount },
+		});
+
+		return {
+			success: true,
+			message: `Rate limit limpo para o usuário ${user.username} (${user.email})`,
+			clearedCount,
+		};
+	}
+
+	// ===== SYSTEM WARNINGS MANAGEMENT =====
+
+	async getAllWarnings() {
+		const warnings = await this.prisma.systemWarning.findMany({
+			orderBy: [
+				{ priority: 'desc' },
+				{ createdAt: 'desc' },
+			],
+			include: {
+				_count: {
+					select: { dismissals: true },
+				},
+			},
+		});
+
+		return {
+			success: true,
+			data: warnings,
+		};
+	}
+
+	async getWarningById(warningId: string) {
+		const warning = await this.prisma.systemWarning.findUnique({
+			where: { id: warningId },
+			include: {
+				dismissals: {
+					take: 100,
+					orderBy: { dismissedAt: 'desc' },
+				},
+				_count: {
+					select: { dismissals: true },
+				},
+			},
+		});
+
+		if (!warning) {
+			throw new NotFoundException('Aviso não encontrado');
+		}
+
+		return {
+			success: true,
+			data: warning,
+		};
+	}
+
+	async createWarning(
+		adminId: string,
+		data: {
+			title: string;
+			message: string;
+			type?: WarningType;
+			targetAudience?: WarningTargetAudience;
+			isDismissible?: boolean;
+			startDate?: string;
+			endDate?: string;
+			priority?: number;
+			link?: string;
+			linkText?: string;
+		}
+	) {
+		const warning = await this.prisma.systemWarning.create({
+			data: {
+				title: data.title,
+				message: data.message,
+				type: data.type || 'INFO',
+				targetAudience: data.targetAudience || 'ALL',
+				isDismissible: data.isDismissible ?? true,
+				startDate: data.startDate ? new Date(data.startDate) : null,
+				endDate: data.endDate ? new Date(data.endDate) : null,
+				priority: data.priority || 0,
+				link: data.link || null,
+				linkText: data.linkText || null,
+				createdBy: adminId,
+			},
+		});
+
+		// Create audit log
+		await this.auditLogRepository.createLog({
+			userId: adminId,
+			action: 'CREATE_SYSTEM_WARNING',
+			resource: 'SystemWarning',
+			resourceId: warning.id,
+			requestBody: data,
+		});
+
+		return {
+			success: true,
+			message: 'Aviso criado com sucesso',
+			data: warning,
+		};
+	}
+
+	async updateWarning(
+		warningId: string,
+		data: {
+			title?: string;
+			message?: string;
+			type?: WarningType;
+			targetAudience?: WarningTargetAudience;
+			isActive?: boolean;
+			isDismissible?: boolean;
+			startDate?: string;
+			endDate?: string;
+			priority?: number;
+			link?: string;
+			linkText?: string;
+		}
+	) {
+		const existing = await this.prisma.systemWarning.findUnique({
+			where: { id: warningId },
+		});
+
+		if (!existing) {
+			throw new NotFoundException('Aviso não encontrado');
+		}
+
+		const warning = await this.prisma.systemWarning.update({
+			where: { id: warningId },
+			data: {
+				...(data.title && { title: data.title }),
+				...(data.message && { message: data.message }),
+				...(data.type && { type: data.type }),
+				...(data.targetAudience && { targetAudience: data.targetAudience }),
+				...(data.isActive !== undefined && { isActive: data.isActive }),
+				...(data.isDismissible !== undefined && { isDismissible: data.isDismissible }),
+				...(data.startDate !== undefined && { startDate: data.startDate ? new Date(data.startDate) : null }),
+				...(data.endDate !== undefined && { endDate: data.endDate ? new Date(data.endDate) : null }),
+				...(data.priority !== undefined && { priority: data.priority }),
+				...(data.link !== undefined && { link: data.link || null }),
+				...(data.linkText !== undefined && { linkText: data.linkText || null }),
+			},
+		});
+
+		return {
+			success: true,
+			message: 'Aviso atualizado com sucesso',
+			data: warning,
+		};
+	}
+
+	async deleteWarning(warningId: string) {
+		const existing = await this.prisma.systemWarning.findUnique({
+			where: { id: warningId },
+		});
+
+		if (!existing) {
+			throw new NotFoundException('Aviso não encontrado');
+		}
+
+		await this.prisma.systemWarning.delete({
+			where: { id: warningId },
+		});
+
+		return {
+			success: true,
+			message: 'Aviso excluído com sucesso',
+		};
+	}
+
+	async toggleWarning(warningId: string, isActive: boolean) {
+		const existing = await this.prisma.systemWarning.findUnique({
+			where: { id: warningId },
+		});
+
+		if (!existing) {
+			throw new NotFoundException('Aviso não encontrado');
+		}
+
+		const warning = await this.prisma.systemWarning.update({
+			where: { id: warningId },
+			data: { isActive },
+		});
+
+		return {
+			success: true,
+			message: isActive ? 'Aviso ativado' : 'Aviso desativado',
+			data: warning,
+		};
 	}
 }

@@ -27,7 +27,7 @@ import { AdminService } from './admin.service';
 import { HealthService } from '../health/health.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TransactionCleanupService } from '../services/transaction-cleanup.service';
-import { TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity } from '@prisma/client';
+import { TransactionStatus, TransactionType, UserRole, IncidentStatus, IncidentSeverity, WarningType, WarningTargetAudience } from '@prisma/client';
 
 @ApiTags('Admin')
 @Controller({ path: 'admin', version: '1' })
@@ -350,11 +350,50 @@ export class AdminController {
 
 	@Get('dashboard')
 	@ApiOperation({ summary: 'Get dashboard statistics (Admin only)' })
+	@ApiQuery({
+		name: 'startDate',
+		type: String,
+		required: false,
+		description: 'Start date filter (ISO 8601 format)'
+	})
+	@ApiQuery({
+		name: 'endDate',
+		type: String,
+		required: false,
+		description: 'End date filter (ISO 8601 format)'
+	})
 	@ApiResponse({ status: 200, description: 'Dashboard statistics retrieved' })
 	@ApiResponse({ status: 403, description: 'Admin access required' })
-	async getDashboardStats(@Req() req: any) {
+	async getDashboardStats(
+		@Req() req: any,
+		@Query('startDate') startDateStr?: string,
+		@Query('endDate') endDateStr?: string,
+	) {
 		this.checkAdminRole(req.user);
-		return this.adminService.getDashboardStats();
+
+		// Parse date strings to Date objects
+		let startDate: Date | undefined;
+		let endDate: Date | undefined;
+
+		if (startDateStr) {
+			startDate = new Date(startDateStr);
+			if (isNaN(startDate.getTime())) {
+				throw new BadRequestException('Invalid start date format');
+			}
+			// Set to start of day
+			startDate.setHours(0, 0, 0, 0);
+		}
+
+		if (endDateStr) {
+			endDate = new Date(endDateStr);
+			if (isNaN(endDate.getTime())) {
+				throw new BadRequestException('Invalid end date format');
+			}
+			// Set end date to end of day (23:59:59.999) for inclusive filtering
+			endDate.setHours(23, 59, 59, 999);
+		}
+
+		return this.adminService.getDashboardStats({ startDate, endDate });
 	}
 
 	@Get('dashboard/data')
@@ -644,6 +683,23 @@ export class AdminController {
 		return this.adminService.togglePaymentLinks(userId, enable);
 	}
 
+	@Put('users/:id/delayed-payment')
+	@ApiTags('Admin - Commerce Mode')
+	@ApiOperation({ summary: 'Toggle delayed payment (D+1) for user (Admin only)' })
+	@ApiParam({ name: 'id', description: 'User ID' })
+	@ApiResponse({ status: 200, description: 'Delayed payment setting updated' })
+	@ApiResponse({ status: 400, description: 'Commerce mode must be enabled' })
+	@ApiResponse({ status: 404, description: 'User not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async toggleDelayedPayment(
+		@Req() req: any,
+		@Param('id') userId: string,
+		@Body('enable') enable: boolean,
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.toggleDelayedPayment(userId, enable);
+	}
+
 	// Incident Management Endpoints
 	@Get('system/incidents')
 	@ApiTags('Admin - Incident Management')
@@ -728,5 +784,127 @@ export class AdminController {
 	) {
 		this.checkAdminRole(req.user);
 		return this.adminService.resolveIncident(incidentId, req.user.sub, resolveDto.message);
+	}
+
+	// ===== RATE LIMIT MANAGEMENT =====
+
+	@Post('system/clear-rate-limit')
+	@ApiTags('Admin - Rate Limit')
+	@ApiOperation({ summary: 'Clear rate limit for a specific user by email (Admin only)' })
+	@ApiResponse({ status: 200, description: 'Rate limit cleared successfully' })
+	@ApiResponse({ status: 404, description: 'User not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async clearUserRateLimit(
+		@Req() req: any,
+		@Body() data: { email: string }
+	) {
+		this.checkAdminRole(req.user);
+		const adminId = req.user.id || req.user.sub;
+		return this.adminService.clearUserRateLimit(data.email, adminId);
+	}
+
+	// ===== SYSTEM WARNINGS MANAGEMENT =====
+
+	@Get('system/warnings')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Get all system warnings (Admin only)' })
+	@ApiResponse({ status: 200, description: 'Warnings retrieved successfully' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async getAllWarnings(@Req() req: any) {
+		this.checkAdminRole(req.user);
+		return this.adminService.getAllWarnings();
+	}
+
+	@Get('system/warnings/:id')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Get warning by ID (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Warning ID' })
+	@ApiResponse({ status: 200, description: 'Warning retrieved successfully' })
+	@ApiResponse({ status: 404, description: 'Warning not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async getWarningById(@Req() req: any, @Param('id') warningId: string) {
+		this.checkAdminRole(req.user);
+		return this.adminService.getWarningById(warningId);
+	}
+
+	@Post('system/warnings')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Create new system warning (Admin only)' })
+	@ApiResponse({ status: 201, description: 'Warning created successfully' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async createWarning(
+		@Req() req: any,
+		@Body() createWarningDto: {
+			title: string;
+			message: string;
+			type?: WarningType;
+			targetAudience?: WarningTargetAudience;
+			isDismissible?: boolean;
+			startDate?: string;
+			endDate?: string;
+			priority?: number;
+			link?: string;
+			linkText?: string;
+		}
+	) {
+		this.checkAdminRole(req.user);
+		const adminId = req.user.id || req.user.sub;
+		return this.adminService.createWarning(adminId, createWarningDto);
+	}
+
+	@Put('system/warnings/:id')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Update system warning (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Warning ID' })
+	@ApiResponse({ status: 200, description: 'Warning updated successfully' })
+	@ApiResponse({ status: 404, description: 'Warning not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async updateWarning(
+		@Req() req: any,
+		@Param('id') warningId: string,
+		@Body() updateWarningDto: {
+			title?: string;
+			message?: string;
+			type?: WarningType;
+			targetAudience?: WarningTargetAudience;
+			isActive?: boolean;
+			isDismissible?: boolean;
+			startDate?: string;
+			endDate?: string;
+			priority?: number;
+			link?: string;
+			linkText?: string;
+		}
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.updateWarning(warningId, updateWarningDto);
+	}
+
+	@Delete('system/warnings/:id')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Delete system warning (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Warning ID' })
+	@ApiResponse({ status: 200, description: 'Warning deleted successfully' })
+	@ApiResponse({ status: 404, description: 'Warning not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async deleteWarning(@Req() req: any, @Param('id') warningId: string) {
+		this.checkAdminRole(req.user);
+		return this.adminService.deleteWarning(warningId);
+	}
+
+	@Put('system/warnings/:id/toggle')
+	@ApiTags('Admin - System Warnings')
+	@ApiOperation({ summary: 'Toggle warning active status (Admin only)' })
+	@ApiParam({ name: 'id', description: 'Warning ID' })
+	@ApiResponse({ status: 200, description: 'Warning toggled successfully' })
+	@ApiResponse({ status: 404, description: 'Warning not found' })
+	@ApiResponse({ status: 403, description: 'Admin access required' })
+	async toggleWarning(
+		@Req() req: any,
+		@Param('id') warningId: string,
+		@Body('isActive') isActive: boolean
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.toggleWarning(warningId, isActive);
 	}
 }

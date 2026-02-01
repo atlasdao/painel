@@ -28,7 +28,9 @@ model User {
   commerceModeActivatedAt DateTime?
   whitelistDepix          Boolean              @default(false)
   whitelistDepixActivatedAt DateTime?
+  collateral              Float?               // Valor de colateral em BRL (null/0 = desligado). QR codes <= colateral usam whitelist
   paymentLinksEnabled     Boolean              @default(false)
+  splitFeePercentage      Float                @default(0.5) // Taxa percentual para splitFee (padrão 0.5%)
   apiDailyLimit           Float                @default(20000)
   apiMonthlyLimit         Float                @default(100000)
   profilePicture          String?
@@ -38,8 +40,15 @@ model User {
   pixKeyType              PixKeyType?
   twoFactorEnabled        Boolean              @default(false)
   twoFactorSecret         String?
+  twoFactorBackupCodes    String?              // Encrypted JSON array of backup codes
+  twoFactorPeriodicCheck  Boolean              @default(false) // Require 2FA every 12h
+  twoFactorLastVerified   DateTime?            // Last time 2FA was verified
+  twoFactorFailedAttempts Int                  @default(0)
+  twoFactorLockedUntil    DateTime?
   notifyApprovedSales     Boolean              @default(true)
   notifyReviewSales       Boolean              @default(true)
+  delayedPaymentEnabled   Boolean              @default(false) // Pagamento com delay D+1 (janelas 6h/18h)
+  delayedPaymentEnabledAt DateTime?            // Data de ativação do pagamento com delay
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
   lastLoginAt             DateTime?
@@ -59,6 +68,15 @@ model User {
   withdrawalRequests      WithdrawalRequest[]
   incidents               Incident[]
   incidentUpdates         IncidentUpdate[]
+
+  // Colaboradores
+  collaborators           Collaborator[]   @relation("AccountCollaborators") // Colaboradores desta conta
+  collaborations          Collaborator[]   @relation("UserCollaborations")   // Contas que tenho acesso
+
+  // Security & Risk (Atlas Security System)
+  devices                 UserDevice[]     // Dispositivos conhecidos do usuário
+  visitorSessions         VisitorSession[] // Sessões de visitante
+  riskProfile             RiskProfile?     // Perfil de risco
 
   @@index([email])
   @@index([username])
@@ -86,6 +104,8 @@ model Transaction {
   metadata      String?
   errorMessage  String?
   processedAt   DateTime?
+  splitFeeApplied Float?          // Taxa de split fee aplicada nesta transação (em %)
+  splitFeeAmount  Float?          // Valor em BRL da taxa cobrada
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   auditLogs     AuditLog[]
@@ -617,6 +637,19 @@ enum DonationStatus {
   REJECTED
 }
 
+// Colaboradores - Cargos
+enum CollaboratorRole {
+  AUXILIAR  // Visualização + criar QR/links (sem edição)
+  GESTOR    // Acesso total exceto gerenciar colaboradores
+}
+
+// Colaboradores - Status do convite
+enum CollaboratorStatus {
+  PENDING   // Convite enviado, aguardando aceite
+  ACTIVE    // Colaborador ativo
+  REVOKED   // Acesso revogado pelo dono
+}
+
 model BlockedEmailDomain {
   id           String   @id @default(uuid())
   domain       String   @unique
@@ -696,4 +729,429 @@ model ApiKeyUsageLog {
   @@index([apiKeyRequestId])
   @@index([createdAt])
   @@index([statusCode])
+}
+
+// Sistema de Colaboradores
+model Collaborator {
+  id              String             @id @default(uuid())
+
+  // Conta que está concedendo acesso (master)
+  accountOwnerId  String
+  accountOwner    User               @relation("AccountCollaborators", fields: [accountOwnerId], references: [id], onDelete: Cascade)
+
+  // Usuário colaborador (preenchido após aceitar convite)
+  collaboratorId  String?
+  collaborator    User?              @relation("UserCollaborations", fields: [collaboratorId], references: [id], onDelete: SetNull)
+
+  // Dados do convite
+  invitedEmail    String             // Email para qual foi enviado o convite
+  invitedName     String             // Nome informado no convite
+  role            CollaboratorRole   // Cargo: AUXILIAR ou GESTOR
+  status          CollaboratorStatus @default(PENDING)
+
+  // Token de convite
+  inviteToken     String             @unique
+  inviteExpires   DateTime           // 7 dias para aceitar
+
+  // Timestamps
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  acceptedAt      DateTime?          // Quando aceitou o convite
+  revokedAt       DateTime?          // Quando foi revogado
+
+  @@index([accountOwnerId])
+  @@index([collaboratorId])
+  @@index([invitedEmail])
+  @@index([inviteToken])
+  @@index([status])
+  @@unique([accountOwnerId, invitedEmail]) // Não pode convidar mesmo email 2x para mesma conta
+}
+
+// ============================================
+// SYSTEM WARNINGS / BANNERS
+// ============================================
+
+enum WarningType {
+  INFO       // Informativo (azul)
+  WARNING    // Alerta (amarelo)
+  CRITICAL   // Crítico (vermelho)
+  SUCCESS    // Sucesso (verde)
+}
+
+enum WarningTargetAudience {
+  ALL              // Todos os usuários
+  VALIDATED_USERS  // Apenas usuários validados
+  COMMERCE_USERS   // Apenas usuários com modo comércio
+  NEW_USERS        // Apenas usuários novos (< 7 dias)
+  ADMINS           // Apenas administradores
+}
+
+model SystemWarning {
+  id              String                @id @default(uuid())
+  title           String
+  message         String
+  type            WarningType           @default(INFO)
+  targetAudience  WarningTargetAudience @default(ALL)
+  isActive        Boolean               @default(true)
+  isDismissible   Boolean               @default(true)
+  startDate       DateTime?             // Opcional: quando começar a exibir
+  endDate         DateTime?             // Opcional: quando parar de exibir
+  priority        Int                   @default(0)  // Maior = mais prioritário
+  link            String?               // Link opcional para mais informações
+  linkText        String?               // Texto do link
+  createdBy       String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  dismissals      WarningDismissal[]
+
+  @@index([isActive])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([priority])
+}
+
+model WarningDismissal {
+  id          String        @id @default(uuid())
+  warningId   String
+  userId      String
+  dismissedAt DateTime      @default(now())
+  warning     SystemWarning @relation(fields: [warningId], references: [id], onDelete: Cascade)
+
+  @@unique([warningId, userId])  // Um usuário só pode dispensar um aviso uma vez
+  @@index([warningId])
+  @@index([userId])
+}
+
+// ============================================
+// ATLAS SECURITY SYSTEM - Risk & Fraud Detection
+// ============================================
+
+// Tipo de entidade bloqueada
+enum BlockedEntityType {
+  IP_ADDRESS
+  IP_RANGE
+  ASN
+  FINGERPRINT
+  EUID              // CPF/CNPJ verificado
+  EMAIL_DOMAIN
+  EMAIL_ADDRESS
+  DEVICE_ID
+}
+
+// Motivo do bloqueio
+enum BlockReason {
+  FRAUD_CONFIRMED
+  FRAUD_SUSPECTED
+  CHARGEBACK
+  MULTIPLE_ACCOUNTS
+  SUSPICIOUS_BEHAVIOR
+  MANUAL_REVIEW
+  TOR_EXIT_NODE
+  DATACENTER_IP
+  BOT_DETECTED
+}
+
+// Status do perfil de risco
+enum RiskStatus {
+  CLEAR           // Sem problemas detectados
+  LOW_RISK        // Risco baixo, monitorar
+  MEDIUM_RISK     // Risco médio, pode requerer revisão
+  HIGH_RISK       // Alto risco, requer revisão manual
+  BLOCKED         // Bloqueado por fraude confirmada
+  UNDER_REVIEW    // Em análise manual
+}
+
+// Tipo de evento de risco
+enum RiskEventType {
+  FINGERPRINT_CHANGE      // Mudança de fingerprint
+  IP_SUSPICIOUS           // IP suspeito detectado
+  MULTIPLE_ACCOUNTS       // Múltiplas contas mesmo dispositivo
+  EUID_DUPLICATE          // EUID já usado em outra conta
+  BEHAVIOR_ANOMALY        // Anomalia comportamental
+  BOT_DETECTED            // Bot detectado
+  VPN_DETECTED            // VPN detectada
+  TOR_DETECTED            // TOR detectado
+  DATACENTER_DETECTED     // IP de datacenter
+  RAPID_TRANSACTIONS      // Transações muito rápidas
+  HIGH_VALUE_NEW_USER     // Alto valor para usuário novo
+  DEVICE_MISMATCH         // Device não corresponde ao perfil
+  FRAUD_ATTEMPT           // Tentativa de fraude detectada
+  MANUAL_FLAG             // Marcado manualmente por admin
+}
+
+// Fingerprint do dispositivo (identificação única)
+model DeviceFingerprint {
+  id                  String   @id @default(uuid())
+
+  // Hashes de fingerprint
+  visitorId           String   @unique  // ID único do FingerprintJS
+  canvasHash          String?           // Hash do canvas
+  webglHash           String?           // Hash do WebGL
+  audioHash           String?           // Hash do audio context
+
+  // Informações de hardware
+  screenResolution    String?           // ex: "1920x1080"
+  colorDepth          Int?              // ex: 24
+  timezone            String?           // ex: "America/Sao_Paulo"
+  timezoneOffset      Int?              // ex: -180
+  language            String?           // ex: "pt-BR"
+  platform            String?           // ex: "Win32"
+  hardwareConcurrency Int?              // Número de cores
+  deviceMemory        Int?              // RAM em GB
+
+  // Detecção de bot/automação
+  isBot               Boolean  @default(false)
+  botScore            Float    @default(0)   // 0-1, probabilidade de ser bot
+  isIncognito         Boolean  @default(false)
+  hasLiedBrowser      Boolean  @default(false)
+  hasLiedOs           Boolean  @default(false)
+  hasLiedResolution   Boolean  @default(false)
+  hasLiedLanguages    Boolean  @default(false)
+
+  // WebRTC (detecção de IP real atrás de VPN)
+  webrtcLocalIps      String[] @default([])   // IPs locais detectados
+  webrtcPublicIp      String?                 // IP público via WebRTC
+
+  // Fonts e plugins
+  fontsHash           String?   // Hash das fontes instaladas
+  pluginsHash         String?   // Hash dos plugins do browser
+
+  // Metadata
+  firstSeenAt         DateTime @default(now())
+  lastSeenAt          DateTime @default(now())
+  timesSeenCount      Int      @default(1)
+
+  // Relações
+  userDevices         UserDevice[]
+  visitorSessions     VisitorSession[]
+
+  @@index([visitorId])
+  @@index([canvasHash])
+  @@index([webglHash])
+  @@index([isBot])
+  @@index([firstSeenAt])
+}
+
+// Relação muitos-para-muitos entre User e DeviceFingerprint
+model UserDevice {
+  id                  String            @id @default(uuid())
+  userId              String
+  fingerprintId       String
+
+  // Informações do device específico para este usuário
+  userAgent           String?           // User agent do browser
+  browserName         String?           // ex: "Chrome"
+  browserVersion      String?           // ex: "120.0.0"
+  osName              String?           // ex: "Windows"
+  osVersion           String?           // ex: "10"
+  deviceType          String?           // ex: "desktop", "mobile", "tablet"
+
+  // Trust level
+  isTrusted           Boolean  @default(false)  // Dispositivo confiável?
+  trustScore          Float    @default(50)     // 0-100
+
+  // Timestamps
+  firstSeenAt         DateTime @default(now())
+  lastSeenAt          DateTime @default(now())
+  loginCount          Int      @default(1)
+
+  // Relações
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fingerprint         DeviceFingerprint  @relation(fields: [fingerprintId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprintId])
+  @@index([userId])
+  @@index([fingerprintId])
+  @@index([isTrusted])
+  @@index([lastSeenAt])
+}
+
+// Sessão de visitante (desde antes do login)
+model VisitorSession {
+  id                  String            @id @default(uuid())
+
+  // Identificação
+  sessionToken        String            @unique  // Token único da sessão
+  fingerprintId       String?                    // Pode ser null se não conseguiu capturar
+  userId              String?                    // Null até fazer login/registro
+
+  // Informações de IP
+  ipAddress           String
+  ipCountry           String?           // ex: "BR"
+  ipCity              String?           // ex: "São Paulo"
+  ipRegion            String?           // ex: "SP"
+  ipAsn               Int?              // ex: 15169
+  ipOrg               String?           // ex: "Google LLC"
+  ipIsp               String?           // ex: "Google Fiber"
+
+  // Classificação do IP
+  isVpn               Boolean  @default(false)
+  isTor               Boolean  @default(false)
+  isProxy             Boolean  @default(false)
+  isDatacenter        Boolean  @default(false)
+  isMobile            Boolean  @default(false)
+  ipRiskScore         Float    @default(0)       // 0-100
+
+  // User Agent
+  userAgent           String?
+
+  // Métricas comportamentais (coletadas via JS)
+  mouseMovements      Int      @default(0)       // Quantidade de movimentos
+  keystrokes          Int      @default(0)       // Quantidade de teclas
+  scrollEvents        Int      @default(0)       // Quantidade de scrolls
+  clickEvents         Int      @default(0)       // Quantidade de cliques
+  touchEvents         Int      @default(0)       // Quantidade de toques (mobile)
+  sessionDuration     Int      @default(0)       // Duração em segundos
+  pagesVisited        Int      @default(1)       // Páginas visitadas
+
+  // Padrões comportamentais
+  avgMouseSpeed       Float?                     // Velocidade média do mouse
+  avgKeystrokeDelay   Float?                     // Delay médio entre teclas
+  behaviorScore       Float    @default(50)      // Score comportamental 0-100
+
+  // Referrer e origem
+  referrer            String?
+  landingPage         String?
+  utmSource           String?
+  utmMedium           String?
+  utmCampaign         String?
+
+  // Eventos na sessão
+  hasLoggedIn         Boolean  @default(false)
+  hasRegistered       Boolean  @default(false)
+  hasValidated        Boolean  @default(false)   // Validou conta
+  hasTransacted       Boolean  @default(false)   // Fez transação
+
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  expiresAt           DateTime                   // Sessão expira em 24h
+
+  // Relações
+  fingerprint         DeviceFingerprint? @relation(fields: [fingerprintId], references: [id])
+  user                User?              @relation(fields: [userId], references: [id])
+
+  @@index([sessionToken])
+  @@index([fingerprintId])
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([isVpn, isTor, isDatacenter])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// Perfil de risco do usuário
+model RiskProfile {
+  id                  String     @id @default(uuid())
+  userId              String     @unique
+
+  // Status geral
+  status              RiskStatus @default(CLEAR)
+  overallScore        Float      @default(0)    // 0-100, score geral de risco
+
+  // Scores por categoria (0-100 cada)
+  deviceScore         Float      @default(0)    // Risco baseado em dispositivos
+  ipScore             Float      @default(0)    // Risco baseado em IPs
+  behaviorScore       Float      @default(0)    // Risco baseado em comportamento
+  transactionScore    Float      @default(0)    // Risco baseado em transações
+  identityScore       Float      @default(0)    // Risco baseado em identidade
+
+  // Flags específicas
+  hasMultipleAccounts Boolean    @default(false)  // Detectou múltiplas contas
+  hasSuspiciousDevice Boolean    @default(false)  // Dispositivo suspeito
+  hasSuspiciousIp     Boolean    @default(false)  // IP suspeito
+  hasAnomalousBehavior Boolean   @default(false)  // Comportamento anômalo
+  hasFraudHistory     Boolean    @default(false)  // Histórico de fraude
+
+  // Contas vinculadas (mesmo dispositivo/EUID/IP)
+  linkedAccountIds    String[]   @default([])     // IDs de contas vinculadas
+  linkedReason        String?                     // Motivo da vinculação
+
+  // Revisão manual
+  requiresReview      Boolean    @default(false)
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  reviewNotes         String?
+
+  // Timestamps
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  lastAnalyzedAt      DateTime   @default(now())
+
+  // Relação
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([overallScore])
+  @@index([requiresReview])
+  @@index([lastAnalyzedAt])
+}
+
+// Entidades bloqueadas (IPs, fingerprints, EUIDs, etc)
+model BlockedEntity {
+  id                  String            @id @default(uuid())
+
+  type                BlockedEntityType
+  value               String                     // O valor bloqueado (IP, fingerprint, EUID, etc)
+
+  reason              BlockReason
+  reasonDetails       String?                    // Detalhes adicionais
+
+  // Quem bloqueou
+  blockedBy           String?                    // ID do admin que bloqueou (null = automático)
+  isAutomatic         Boolean    @default(true)  // Bloqueio automático?
+
+  // Validade
+  isActive            Boolean    @default(true)
+  expiresAt           DateTime?                  // Null = permanente
+
+  // Estatísticas
+  blockedCount        Int        @default(0)     // Quantas vezes foi bloqueado
+  lastBlockedAt       DateTime   @default(now())
+
+  // Timestamps
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@unique([type, value])
+  @@index([type])
+  @@index([value])
+  @@index([isActive])
+  @@index([reason])
+  @@index([expiresAt])
+}
+
+// Log de eventos de risco (para auditoria e aprendizado)
+model RiskEvent {
+  id                  String        @id @default(uuid())
+
+  // Identificação
+  userId              String?                    // Pode ser null para visitantes
+  sessionId           String?                    // ID da VisitorSession
+  fingerprintId       String?
+  ipAddress           String?
+
+  // Evento
+  eventType           RiskEventType
+  severity            Int           @default(1)  // 1-10, gravidade
+  riskScore           Float         @default(0)  // Score atribuído a este evento
+
+  // Detalhes
+  details             String?                    // JSON com detalhes específicos
+  metadata            String?                    // Metadata adicional
+
+  // Ação tomada
+  actionTaken         String?                    // ex: "blocked", "flagged", "none"
+
+  // Timestamps
+  createdAt           DateTime      @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([fingerprintId])
+  @@index([ipAddress])
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
 }

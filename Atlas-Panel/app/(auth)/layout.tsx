@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import CommunityFooter from '@/components/CommunityFooter';
 
 export default function AuthLayout({
   children,
@@ -6,7 +7,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-gray-900 relative overflow-hidden">
       {/* Subtle texture overlay */}
       <div
         className="absolute inset-0 opacity-[0.03]"
@@ -22,24 +23,32 @@ export default function AuthLayout({
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-900/5 rounded-full filter blur-3xl" />
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-900/5 rounded-full filter blur-3xl" />
 
-      <div className="relative z-10 max-w-md w-full">
-        <div className="text-center mb-6">
-          <Image
-            src="/atlas-logo.jpg"
-            alt="Atlas Logo"
-            width={80}
-            height={80}
-            className="mx-auto rounded-lg shadow-xl border-2 border-gray-700"
-            priority
-          />
-          <h2 className="mt-4 text-2xl font-bold text-white">
-            Atlas Panel
-          </h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Sistema de Pagamentos PIX/DePix
-          </p>
+      {/* Main content */}
+      <div className="flex-1 flex items-center justify-center py-12 px-4">
+        <div className="relative z-10 max-w-md w-full">
+          <div className="text-center mb-6">
+            <Image
+              src="/atlas-logo.jpg"
+              alt="Atlas Logo"
+              width={80}
+              height={80}
+              className="mx-auto rounded-lg shadow-xl border-2 border-gray-700"
+              priority
+            />
+            <h2 className="mt-4 text-2xl font-bold text-white">
+              Atlas Panel
+            </h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Sistema de Pagamentos PIX/DePix
+            </p>
+          </div>
+          {children}
         </div>
-        {children}
+      </div>
+
+      {/* Community Footer */}
+      <div className="relative z-10">
+        <CommunityFooter />
       </div>
     </div>
   );

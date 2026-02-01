@@ -7,7 +7,7 @@ import { authService } from '@/app/lib/auth';
 import toast, { Toaster } from 'react-hot-toast';
 import { Eye, EyeOff, LogIn, AlertCircle, Shield, ArrowLeft, CheckCircle } from 'lucide-react';
 
-type AuthState = 'CREDENTIALS' | 'VERIFYING' | 'TWO_FACTOR' | 'SUCCESS';
+type AuthState = 'CREDENTIALS' | 'VERIFYING' | 'TWO_FACTOR' | 'BACKUP_CODE' | 'SUCCESS';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [sessionToken, setSessionToken] = useState('');
   const [userEmail, setUserEmail] = useState(''); // Store actual email for 2FA
+  const [backupCode, setBackupCode] = useState('');
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Handle initial login
@@ -172,13 +173,54 @@ export default function LoginPage() {
     }
   };
 
+  // Handle backup code verification
+  const handleVerifyBackupCode = async () => {
+    if (backupCode.length < 6) {
+      setErrors(['Digite o código de backup completo']);
+      return;
+    }
+
+    setLoading(true);
+    setErrors([]);
+
+    try {
+      const emailToUse = userEmail || email;
+      const response = await authService.verify2FAWithBackupCode(emailToUse, backupCode);
+
+      setAuthState('SUCCESS');
+      toast.success('Verificação concluída! Redirecionando...');
+
+      setTimeout(() => {
+        if (response.user && 'id' in response.user) {
+          const redirectDestination = authService.getRedirectDestination(response.user);
+          window.location.href = redirectDestination;
+        } else {
+          window.location.href = '/dashboard';
+        }
+      }, 500);
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'Código de backup inválido';
+      setErrors([message]);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle back from 2FA
   const handleBack = () => {
-    setAuthState('CREDENTIALS');
-    setOtpCode(['', '', '', '', '', '']);
-    setSessionToken('');
-    setUserEmail('');
-    setErrors([]);
+    if (authState === 'BACKUP_CODE') {
+      setAuthState('TWO_FACTOR');
+      setBackupCode('');
+      setErrors([]);
+    } else {
+      setAuthState('CREDENTIALS');
+      setOtpCode(['', '', '', '', '', '']);
+      setSessionToken('');
+      setUserEmail('');
+      setBackupCode('');
+      setErrors([]);
+    }
   };
 
   return (
@@ -187,19 +229,19 @@ export default function LoginPage() {
       <div className="card bg-gray-800 border-gray-700 transition-all duration-300">
         {/* Header */}
         <div className="mb-6">
-          {authState === 'TWO_FACTOR' && (
+          {(authState === 'TWO_FACTOR' || authState === 'BACKUP_CODE') && (
             <button
               onClick={handleBack}
               className="mb-4 flex items-center text-gray-400 hover:text-white transition-colors"
               disabled={loading}
             >
               <ArrowLeft size={20} className="mr-2" />
-              Voltar
+              {authState === 'BACKUP_CODE' ? 'Voltar para código do app' : 'Voltar'}
             </button>
           )}
 
           <div className="flex items-center mb-2">
-            {authState === 'TWO_FACTOR' && (
+            {(authState === 'TWO_FACTOR' || authState === 'BACKUP_CODE') && (
               <Shield className="text-blue-400 mr-3" size={28} />
             )}
             {authState === 'SUCCESS' && (
@@ -210,6 +252,7 @@ export default function LoginPage() {
               {authState === 'CREDENTIALS' && 'Entrar'}
               {authState === 'VERIFYING' && 'Verificando...'}
               {authState === 'TWO_FACTOR' && 'Verificação 2FA'}
+              {authState === 'BACKUP_CODE' && 'Código de Backup'}
               {authState === 'SUCCESS' && 'Sucesso!'}
             </h2>
           </div>
@@ -218,6 +261,7 @@ export default function LoginPage() {
             {authState === 'CREDENTIALS' && 'Acesse sua conta para continuar'}
             {authState === 'VERIFYING' && 'Verificando suas credenciais...'}
             {authState === 'TWO_FACTOR' && 'Digite o código do seu aplicativo autenticador'}
+            {authState === 'BACKUP_CODE' && 'Digite um dos seus códigos de backup'}
             {authState === 'SUCCESS' && 'Redirecionando para o painel...'}
           </p>
         </div>
@@ -387,9 +431,86 @@ export default function LoginPage() {
               <p>Digite o código de 6 dígitos do seu aplicativo autenticador</p>
               <p className="mt-2">
                 Não tem acesso ao aplicativo?{' '}
-                <button className="text-blue-400 hover:text-blue-300 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthState('BACKUP_CODE');
+                    setErrors([]);
+                  }}
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                >
                   Usar código de backup
                 </button>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Backup Code Form */}
+        {authState === 'BACKUP_CODE' && (
+          <div className="space-y-6">
+            {/* Backup Code Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Código de Backup
+              </label>
+              <input
+                type="text"
+                value={backupCode}
+                onChange={(e) => {
+                  setBackupCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                  setErrors([]);
+                }}
+                placeholder="XXXXXXXX"
+                maxLength={8}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+                disabled={loading}
+                autoFocus
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Cada código de backup só pode ser usado uma vez
+              </p>
+            </div>
+
+            {/* Error Display for Backup Code */}
+            {errors.length > 0 && (
+              <div className="bg-red-900/20 border border-red-500 rounded-lg p-3">
+                <div className="flex items-start">
+                  <AlertCircle className="text-red-400 mr-2 flex-shrink-0 mt-0.5" size={16} />
+                  <div>
+                    {errors.map((error, index) => (
+                      <p key={index} className="text-red-400 text-sm">
+                        {error}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Verify Backup Code Button */}
+            <button
+              onClick={handleVerifyBackupCode}
+              disabled={loading || backupCode.length < 6}
+              className="btn btn-primary w-full flex items-center justify-center"
+            >
+              {loading ? (
+                <>
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300 mr-2"></span>
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <Shield className="mr-2" size={20} />
+                  Verificar Código de Backup
+                </>
+              )}
+            </button>
+
+            {/* Info */}
+            <div className="p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <p className="text-xs text-blue-300">
+                Os códigos de backup foram gerados quando você ativou o 2FA. Se você não salvou seus códigos de backup, entre em contato com o suporte.
               </p>
             </div>
           </div>

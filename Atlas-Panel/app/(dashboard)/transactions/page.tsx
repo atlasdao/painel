@@ -41,15 +41,28 @@ interface PeriodOption {
 // Status and type styling functions
 const getStatusBadge = (status: string) => {
   const statusStyles = {
-    'COMPLETED': 'bg-green-500/20 text-green-400 border-green-500/30',
+    'COMPLETED': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     'PENDING': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    'PROCESSING': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    'PROCESSING': 'bg-green-500/20 text-green-400 border-green-500/30',
     'IN_REVIEW': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     'FAILED': 'bg-red-500/20 text-red-400 border-red-500/30',
-    'EXPIRED': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    'EXPIRED': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
     'CANCELLED': 'bg-gray-500/20 text-gray-400 border-gray-500/30'
   };
-  return statusStyles[status as keyof typeof statusStyles] || statusStyles['EXPIRED'];
+  return statusStyles[status as keyof typeof statusStyles] || statusStyles['CANCELLED'];
+};
+
+const getStatusTooltip = (status: string) => {
+  const tooltips: Record<string, string> = {
+    'COMPLETED': 'Recebido em sua carteira',
+    'PROCESSING': 'Pago. Liberação na próxima remessa',
+    'PENDING': 'Aguardando pagamento',
+    'IN_REVIEW': 'Contate o suporte',
+    'FAILED': 'Pagamento cancelado ou não concluído',
+    'EXPIRED': 'Tempo limite excedido',
+    'CANCELLED': 'Transação cancelada'
+  };
+  return tooltips[status] || '';
 };
 
 const getTypeIcon = (type: string) => {
@@ -255,14 +268,15 @@ export default function TransactionsPage() {
     }).format(amount);
   };
 
-  // Format date
+  // Format date with São Paulo timezone
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
     });
   };
 
@@ -516,7 +530,10 @@ export default function TransactionsPage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs border flex-shrink-0 ${getStatusBadge(transaction.status)}`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs border flex-shrink-0 cursor-help ${getStatusBadge(transaction.status)}`}
+                          title={getStatusTooltip(transaction.status)}
+                        >
                           {translateStatus(transaction.status)}
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -530,7 +547,7 @@ export default function TransactionsPage() {
                           <p className="text-xs text-gray-500 truncate flex-1 min-w-0">
                             {transaction.description}
                           </p>
-                          {transaction.status === 'COMPLETED' && (
+                          {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -544,7 +561,7 @@ export default function TransactionsPage() {
                           )}
                         </div>
                       )}
-                      {!transaction.description && transaction.status === 'COMPLETED' && (
+                      {!transaction.description && (transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
                         <div className="flex justify-end mt-1">
                           <button
                             onClick={(e) => {
@@ -579,7 +596,10 @@ export default function TransactionsPage() {
                     )}
                   </div>
                   <div className="text-center">
-                    <span className={`px-3 py-1 rounded-full text-sm border ${getStatusBadge(transaction.status)}`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm border cursor-help ${getStatusBadge(transaction.status)}`}
+                      title={getStatusTooltip(transaction.status)}
+                    >
                       {translateStatus(transaction.status)}
                     </span>
                   </div>
@@ -596,7 +616,7 @@ export default function TransactionsPage() {
                     <div className="text-gray-400">
                       <Eye className="w-4 h-4" />
                     </div>
-                    {transaction.status === 'COMPLETED' && (
+                    {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

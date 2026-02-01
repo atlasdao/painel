@@ -81,6 +81,9 @@ async function bootstrap() {
 			'Authorization',
 			'X-API-Key',
 			'X-Request-ID',
+			'X-Account-Id',
+			'X-Collaborator-Id',
+			'X-Account-Type',
 		],
 		exposedHeaders: [
 			'X-RateLimit-Limit',

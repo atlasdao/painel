@@ -165,6 +165,18 @@ export class TransactionStatusSyncService {
 					newStatus = TransactionStatus.EXPIRED;
 					break;
 
+				case 'delayed':
+					// Payment received but waiting for scheduled delay time (D+1)
+					newStatus = TransactionStatus.PROCESSING;
+					payerInfo = {
+						payerEUID: eulenStatus.response.payerEUID,
+						payerName: eulenStatus.response.payerName,
+						payerTaxNumber: eulenStatus.response.payerTaxNumber,
+						bankTxId: eulenStatus.response.bankTxId,
+						delayUntil: eulenStatus.response.delayUntil,
+					};
+					break;
+
 				case 'pending':
 					// Status hasn't changed, no update needed
 					return;

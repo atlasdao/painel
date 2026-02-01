@@ -31,13 +31,16 @@ export class PaymentConfirmationController {
 			);
 
 			// Find transaction by ID or external ID
+			// Include both COMPLETED (Recebido) and PROCESSING (Pago - waiting D+1 delay)
 			const transaction = await this.prisma.transaction.findFirst({
 				where: {
 					OR: [
 						{ id: transactionId },
 						{ externalId: transactionId },
 					],
-					status: 'COMPLETED',
+					status: {
+						in: ['COMPLETED', 'PROCESSING'],
+					},
 				},
 				include: {
 					user: {
@@ -53,7 +56,7 @@ export class PaymentConfirmationController {
 					`⚠️ Transaction not found or not paid: ${transactionId}`,
 				);
 				throw new HttpException(
-					'Pagamento não encontrado ou ainda não foi confirmado',
+					'Pagamento não encontrado ou ainda não foi pago',
 					HttpStatus.NOT_FOUND,
 				);
 			}
@@ -71,11 +74,13 @@ export class PaymentConfirmationController {
 			const paymentLinkData = metadata.paymentLinkData || {};
 
 			// Format response
+			// PROCESSING = Pago (waiting D+1), COMPLETED = Recebido
 			const response = {
 				id: transaction.id,
 				amount: transaction.amount,
 				description: paymentLinkData.description || metadata.description || 'Pagamento PIX',
-				status: 'paid',
+				status: transaction.status === 'PROCESSING' ? 'paid' : 'completed',
+				statusLabel: transaction.status === 'PROCESSING' ? 'Pago' : 'Recebido',
 				createdAt: transaction.createdAt.toISOString(),
 				paidAt: transaction.processedAt?.toISOString() || transaction.updatedAt.toISOString(),
 				buyerName: webhookEvent.payerName || metadata.buyerName,

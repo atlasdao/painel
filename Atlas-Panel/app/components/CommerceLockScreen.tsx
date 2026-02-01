@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Lock, ShieldCheck, AlertCircle, ChevronRight, Store, CheckCircle, Coins, FileText } from 'lucide-react';
+import { Lock, ShieldCheck, ChevronRight, Store, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { accountValidationService } from '@/app/lib/services';
-import CommerceApplicationForm from './CommerceApplicationForm';
 import AccountValidationModal from './AccountValidationModal';
 
 interface CommerceLockScreenProps {
@@ -18,7 +17,6 @@ export default function CommerceLockScreen({
   commerceMode = false,
   defaultWalletAddress = null
 }: CommerceLockScreenProps) {
-  const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationAmount, setValidationAmount] = useState<number>(2.0);
 
@@ -38,19 +36,6 @@ export default function CommerceLockScreen({
 
     fetchValidationAmount();
   }, []);
-
-  const validationRequirements = [
-    {
-      icon: FileText,
-      title: 'Responder o formulário de aprovação',
-      description: 'Forneça informações sobre seu negócio'
-    },
-    {
-      icon: Coins,
-      title: 'Depositar garantia de 100.000 satoshis',
-      description: 'Devolvida após 3 meses + 200 transações sem problemas'
-    }
-  ];
 
   const benefits = [
     'Criar links de pagamento personalizados',
@@ -86,14 +71,11 @@ export default function CommerceLockScreen({
             </div>
 
             <h2 className="text-3xl font-bold text-white mb-4">
-              {!isAccountValidated ? 'Validação de Conta Necessária' : 'Ativação do Modo Comércio'}
+              Validação de Conta Necessária
             </h2>
 
             <p className="text-gray-300 text-lg mb-2">
-              {!isAccountValidated
-                ? 'Você precisa validar sua conta antes de ativar o Modo Comércio'
-                : 'Complete os requisitos abaixo para ativar o Modo Comércio'
-              }
+              Você precisa validar sua conta para ativar o Modo Comércio
             </p>
 
             <p className="text-gray-400 text-sm">
@@ -101,30 +83,7 @@ export default function CommerceLockScreen({
             </p>
           </div>
 
-          {/* Requirements Section - Only show for validated accounts */}
-          {isAccountValidated && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-blue-400" />
-                Requisitos para Ativação
-              </h3>
-              <div className="space-y-4">
-                {validationRequirements.map((req, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <div className="mt-1">
-                      <req.icon className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-200 font-medium">{req.title}</p>
-                      <p className="text-gray-400 text-sm mt-1">{req.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Account Validation Prompt - For non-validated users */}
+          {/* Account Validation Prompt */}
           {!isAccountValidated && (
             <div className="mb-8 p-6 bg-yellow-900/10 border border-yellow-500/30 rounded-lg">
               <div className="flex items-start gap-4">
@@ -157,29 +116,16 @@ export default function CommerceLockScreen({
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Button */}
           <div className="flex flex-col gap-4">
-            {!isAccountValidated && (
-              <button
-                onClick={() => setShowValidationModal(true)}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
-              >
-                <ShieldCheck className="w-5 h-5" />
-                Validar Conta
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            )}
-
-            {isAccountValidated && !commerceMode && (
-              <button
-                onClick={() => setShowApplicationForm(true)}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
-              >
-                <FileText className="w-5 h-5" />
-                Responder Formulário de Aplicação
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={() => setShowValidationModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
+            >
+              <ShieldCheck className="w-5 h-5" />
+              Validar Conta
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
 
         </div>
@@ -195,19 +141,6 @@ export default function CommerceLockScreen({
             toast.success('Conta validada com sucesso!');
           }}
           defaultWallet={defaultWalletAddress}
-        />
-      )}
-
-      {/* Application Form Modal */}
-      {showApplicationForm && (
-        <CommerceApplicationForm
-          isOpen={showApplicationForm}
-          onClose={() => setShowApplicationForm(false)}
-          onSuccess={() => {
-            setShowApplicationForm(false);
-            toast.success('Formulário enviado com sucesso! Aguarde a aprovação.');
-            // Optionally refresh the page or update state
-          }}
         />
       )}
     </div>

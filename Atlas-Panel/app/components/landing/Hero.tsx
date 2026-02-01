@@ -8,8 +8,8 @@ export default function Hero() {
   const [isHovered, setIsHovered] = useState(false);
 
   const benefits = [
-    'Crie links de pagamento em segundos',
-    'Apenas R$ 0,99 por transação',
+    'Privacidade e anonimato garantidos',
+    'Seus dados nunca são compartilhados',
     'Receba na hora via PIX'
   ];
 
@@ -27,19 +27,19 @@ export default function Hero() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left content */}
           <div>
-            <div className="inline-flex items-center gap-2 bg-blue-900/50 border border-blue-700/50 text-blue-400 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Zap className="w-4 h-4" />
-              <span>Comece a vender em 1 minuto</span>
+            <div className="inline-flex items-center gap-2 bg-purple-900/50 border border-purple-700/50 text-purple-400 px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <Shield className="w-4 h-4" />
+              <span>Privacidade em primeiro lugar</span>
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-              Receba Pagamentos
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Sem Complicação</span>
+              Pagamentos com
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Privacidade Total</span>
             </h1>
 
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              Crie links de pagamento e comece a receber via PIX instantaneamente.
-              Apenas R$ 0,99 por transação. Sem mensalidade, sem burocracia.
+              Receba via PIX com segurança e anonimato. Seus dados protegidos, suas transações privadas.
+              Taxas justas para quem valoriza a própria liberdade.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -93,11 +93,11 @@ export default function Hero() {
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                  <p className="text-2xl font-bold text-white">R$ 0,99</p>
-                  <p className="text-xs text-gray-400">por transação</p>
+                <div className="bg-gray-900 rounded-lg p-4 border border-purple-700/50">
+                  <p className="text-2xl font-bold text-purple-400">100%</p>
+                  <p className="text-xs text-gray-400">privacidade</p>
                 </div>
-                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                <div className="bg-gray-900 rounded-lg p-4 border border-green-700/50">
                   <p className="text-2xl font-bold text-green-400">Instantâneo</p>
                   <p className="text-xs text-gray-400">receba na hora</p>
                 </div>

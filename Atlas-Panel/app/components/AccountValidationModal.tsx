@@ -160,14 +160,16 @@ export default function AccountValidationModal({
   };
 
   const handleValidationPayment = async () => {
-    if (useCustomWallet && !customDepixAddress) {
-      toast.error('Por favor, informe o endereço DePix personalizado');
+    // Validate that we have a wallet address
+    const walletToUse = useCustomWallet ? customDepixAddress : (defaultWallet || customDepixAddress);
+
+    if (!walletToUse || walletToUse.trim() === '') {
+      toast.error('Por favor, informe o endereço DePix');
       return;
     }
 
     setLoading(true);
     try {
-      const walletToUse = useCustomWallet ? customDepixAddress : defaultWallet || undefined;
       const payment = await accountValidationService.createValidationPayment(walletToUse);
 
       if (payment.qrCode && typeof payment.qrCode === 'string' && payment.qrCode.length > 0) {

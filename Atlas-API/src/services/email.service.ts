@@ -5,15 +5,31 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class EmailService {
 	private transporter: nodemailer.Transporter;
+	private comunicacaoTransporter: nodemailer.Transporter;
 
 	constructor(private readonly configService: ConfigService) {
+		// Transporter para contato@atlasdao.info
 		this.transporter = nodemailer.createTransport({
-			host: 'localhost',
+			host: '127.0.0.1',
 			port: 587,
 			secure: false,
 			auth: {
 				user: this.configService.get<string>('SMTP_LOGIN_EMAIL'),
 				pass: this.configService.get<string>('SMTP_LOGIN_PASSWORD'),
+			},
+			tls: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		// Transporter para comunicacao@atlasdao.info
+		this.comunicacaoTransporter = nodemailer.createTransport({
+			host: '127.0.0.1',
+			port: 587,
+			secure: false,
+			auth: {
+				user: this.configService.get<string>('SMTP_LOGIN_EMAIL_COMUNICACAO'),
+				pass: this.configService.get<string>('SMTP_LOGIN_PASSWORD_COMUNICACAO'),
 			},
 			tls: {
 				rejectUnauthorized: false,
@@ -40,7 +56,7 @@ export class EmailService {
 		};
 
 		try {
-			await this.transporter.sendMail(mailOptions);
+			await this.comunicacaoTransporter.sendMail(mailOptions);
 		} catch (error) {
 			console.error('Error sending email verification:', error);
 			throw new Error('Failed to send email verification');
@@ -299,7 +315,7 @@ export class EmailService {
 		};
 
 		try {
-			await this.transporter.sendMail(mailOptions);
+			await this.comunicacaoTransporter.sendMail(mailOptions);
 		} catch (error) {
 			console.error('Error sending approved sale email:', error);
 			// Don't throw - notification emails shouldn't break the flow
@@ -440,7 +456,7 @@ export class EmailService {
 		};
 
 		try {
-			await this.transporter.sendMail(mailOptions);
+			await this.comunicacaoTransporter.sendMail(mailOptions);
 		} catch (error) {
 			console.error('Error sending review sale email:', error);
 			// Don't throw - notification emails shouldn't break the flow
@@ -548,5 +564,86 @@ export class EmailService {
   </table>
 </body>
 </html>`;
+	}
+
+	async sendCollaboratorInviteEmail(
+		email: string,
+		invitedName: string,
+		ownerUsername: string,
+		roleTitle: string,
+		rolePermissions: string[],
+		inviteLink: string,
+	): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER_COMUNICACAO');
+		const permissionsList = rolePermissions.map((p) => `<li style="margin: 5px 0;">${p}</li>`).join('');
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 550px; margin: 0 auto; background: #ffffff;">
+    <tr>
+      <td style="padding: 25px; text-align: center; background-color: #7c3aed;">
+        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">PAINEL ATLAS</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 30px 25px;">
+        <h2 style="margin: 0 0 20px; font-size: 20px; color: #333;">Olá, ${invitedName}!</h2>
+
+        <p style="margin: 0 0 20px; font-size: 15px; color: #555;">
+          <strong>${ownerUsername}</strong> convidou você para colaborar na conta dele no Painel Atlas como <strong style="color: #7c3aed;">${roleTitle}</strong>.
+        </p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; border-radius: 8px; margin-bottom: 25px;">
+          <tr>
+            <td style="padding: 20px;">
+              <p style="margin: 0 0 10px; font-size: 14px; color: #333; font-weight: bold;">O que você poderá fazer:</p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #555;">
+                ${permissionsList}
+              </ul>
+            </td>
+          </tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding: 10px 0 30px;">
+              <a href="${inviteLink}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 35px; font-weight: bold; font-size: 14px; border-radius: 6px;">ACEITAR CONVITE</a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0 0 8px; font-size: 13px; color: #888;">⏰ Este convite expira em 7 dias.</p>
+        <p style="margin: 0; font-size: 13px; color: #888;">Se você não conhece ${ownerUsername} ou não solicitou este acesso, ignore este email.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px 25px; text-align: center; border-top: 1px solid #eee;">
+        <p style="margin: 0; font-size: 12px; color: #999;">&copy; 2025 Painel Atlas. Todos os direitos reservados.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+		const mailOptions = {
+			from: `"Painel Atlas" <${senderEmail}>`,
+			replyTo: 'contato@atlasdao.info',
+			to: email,
+			subject: `${ownerUsername} convidou você para colaborar no Painel Atlas`,
+			html,
+			text: `Olá ${invitedName}!\n\n${ownerUsername} convidou você para colaborar na conta dele no Painel Atlas como ${roleTitle}.\n\nAceite o convite acessando: ${inviteLink}\n\nEste convite expira em 7 dias.`,
+		};
+
+		try {
+			await this.comunicacaoTransporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending collaborator invite email:', error);
+			throw new Error('Failed to send collaborator invite email');
+		}
 	}
 }

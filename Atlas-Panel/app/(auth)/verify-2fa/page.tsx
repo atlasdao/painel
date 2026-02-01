@@ -11,54 +11,35 @@ function Verify2FAContent() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
-  const [tempToken, setTempToken] = useState('');
-  const [resendTimer, setResendTimer] = useState(0);
+  const [sessionToken, setSessionToken] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [backupCode, setBackupCode] = useState('');
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Get temp token from sessionStorage or URL params
-    const token = searchParams.get('token') || sessionStorage.getItem('2fa_temp_token');
-    const userEmail = sessionStorage.getItem('2fa_email');
-    const loginEmail = sessionStorage.getItem('login_email');
+    // Get session data from URL params or sessionStorage
+    const token = searchParams.get('token') || sessionStorage.getItem('2fa_session_token');
+    const email = searchParams.get('email') || sessionStorage.getItem('2fa_email');
 
-    console.log('2FA Page - Checking session data:', {
-      token: !!token,
-      userEmail: !!userEmail,
-      loginEmail: !!loginEmail
-    });
-
-    if (!token && !userEmail && !loginEmail) {
-      console.log('No session data found, showing warning but not redirecting immediately');
+    if (!token && !email) {
       toast.error('Sessão de verificação não encontrada. Por favor, faça login novamente.');
-      // Don't redirect immediately, let user see the page
-      setTimeout(() => {
-        if (!sessionStorage.getItem('login_email')) {
-          router.push('/login');
-        }
-      }, 3000);
+      setTimeout(() => router.push('/login'), 2000);
       return;
     }
 
     if (token) {
-      setTempToken(token);
-      // Clear token from sessionStorage after reading
-      sessionStorage.removeItem('2fa_temp_token');
+      setSessionToken(token);
+      sessionStorage.removeItem('2fa_session_token');
     }
 
-    // Don't clear email yet, we need it for verification
-    // sessionStorage.removeItem('2fa_email');
+    if (email) {
+      setUserEmail(email);
+    }
 
     // Focus first input
     inputRefs.current[0]?.focus();
   }, [searchParams, router]);
-
-  useEffect(() => {
-    // Countdown timer for resend
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendTimer]);
 
   const handleChange = (index: number, value: string) => {
     // Only allow digits
@@ -128,42 +109,35 @@ function Verify2FAContent() {
     setLoading(true);
 
     try {
-      // Get stored email and password from sessionStorage
-      const userEmail = sessionStorage.getItem('login_email') || '';
-      const userPassword = sessionStorage.getItem('login_password') || '';
-
-      if (!userEmail || !userPassword) {
+      if (!userEmail) {
         toast.error('Sessão expirada. Por favor, faça login novamente.');
         router.push('/login');
         return;
       }
 
-      // Try to login with 2FA code
-      const response = await authService.loginWith2FA(userEmail, userPassword, verificationCode);
+      // Verify 2FA code using the dedicated endpoint
+      const response = await authService.verify2FA(userEmail, verificationCode);
 
-      if (response && !('requiresTwoFactor' in response)) {
-        // Success
+      if (response && response.access_token) {
         toast.success('Verificação concluída!');
+        sessionStorage.removeItem('2fa_email');
 
-        // Clear stored credentials
-        sessionStorage.removeItem('login_email');
-        sessionStorage.removeItem('login_password');
-
-        // Small delay for visual feedback
         setTimeout(() => {
-          router.push('/dashboard');
+          if (response.user) {
+            const redirectDestination = authService.getRedirectDestination(response.user);
+            window.location.href = redirectDestination;
+          } else {
+            window.location.href = '/dashboard';
+          }
         }, 500);
       } else {
         toast.error('Código inválido');
-        // Clear code on error
         setCode(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Erro ao verificar código';
       toast.error(message);
-
-      // Clear code on error
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -171,12 +145,42 @@ function Verify2FAContent() {
     }
   };
 
-  const handleResend = async () => {
-    if (resendTimer > 0) return;
+  const handleBackupCodeVerify = async () => {
+    if (backupCode.length < 6) {
+      toast.error('Digite o código de backup completo');
+      return;
+    }
 
-    setResendTimer(30); // 30 seconds cooldown
-    toast.success('Novo código enviado');
-    // In a real implementation, this would trigger a new code to be sent
+    setLoading(true);
+
+    try {
+      if (!userEmail) {
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
+        router.push('/login');
+        return;
+      }
+
+      const response = await authService.verify2FAWithBackupCode(userEmail, backupCode);
+
+      if (response && response.access_token) {
+        toast.success('Verificação concluída!');
+        sessionStorage.removeItem('2fa_email');
+
+        setTimeout(() => {
+          if (response.user) {
+            const redirectDestination = authService.getRedirectDestination(response.user);
+            window.location.href = redirectDestination;
+          } else {
+            window.location.href = '/dashboard';
+          }
+        }, 500);
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Código de backup inválido';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -207,60 +211,104 @@ function Verify2FAContent() {
 
             {/* Title */}
             <h2 className="text-2xl font-bold text-white text-center mb-2">
-              Verificação em 2 Etapas
+              {useBackupCode ? 'Código de Backup' : 'Verificação em 2 Etapas'}
             </h2>
             <p className="text-gray-400 text-center mb-8">
-              Digite o código de 6 dígitos do seu aplicativo autenticador
+              {useBackupCode
+                ? 'Digite um dos seus códigos de backup'
+                : 'Digite o código de 6 dígitos do seu aplicativo autenticador'}
             </p>
 
-            {/* Code Input */}
-            <div className="flex justify-center gap-2 mb-8">
-              {code.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={el => {
-                    inputRefs.current[index] = el;
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={handlePaste}
-                  disabled={loading}
-                  className={`
-                    w-12 h-14 text-center text-xl font-semibold
-                    bg-gray-700 border-2 text-white
-                    rounded-lg transition-all duration-200
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    ${digit ? 'border-blue-500 bg-gray-700/50' : 'border-gray-600'}
-                    ${loading ? 'animate-pulse' : ''}
-                  `}
-                  placeholder="•"
-                />
-              ))}
-            </div>
+            {!useBackupCode ? (
+              <>
+                {/* Code Input */}
+                <div className="flex justify-center gap-2 mb-8">
+                  {code.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={el => {
+                        inputRefs.current[index] = el;
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      onPaste={handlePaste}
+                      disabled={loading}
+                      className={`
+                        w-12 h-14 text-center text-xl font-semibold
+                        bg-gray-700 border-2 text-white
+                        rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        ${digit ? 'border-blue-500 bg-gray-700/50' : 'border-gray-600'}
+                        ${loading ? 'animate-pulse' : ''}
+                      `}
+                      placeholder="•"
+                    />
+                  ))}
+                </div>
 
-            {/* Verify Button */}
-            <button
-              onClick={() => handleVerify()}
-              disabled={loading || code.some(d => !d)}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Verificando...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Verificar Código
-                </>
-              )}
-            </button>
+                {/* Verify Button */}
+                <button
+                  onClick={() => handleVerify()}
+                  disabled={loading || code.some(d => !d)}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Verificar Código
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Backup Code Input */}
+                <div className="mb-8">
+                  <input
+                    type="text"
+                    value={backupCode}
+                    onChange={(e) => setBackupCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                    placeholder="XXXXXXXX"
+                    maxLength={8}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+                    disabled={loading}
+                    autoFocus
+                  />
+                  <p className="mt-2 text-xs text-gray-500 text-center">
+                    Cada código de backup só pode ser usado uma vez
+                  </p>
+                </div>
+
+                {/* Verify Backup Button */}
+                <button
+                  onClick={handleBackupCodeVerify}
+                  disabled={loading || backupCode.length < 6}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Verificar Código de Backup
+                    </>
+                  )}
+                </button>
+              </>
+            )}
 
             {/* Help Section */}
             <div className="mt-6 pt-6 border-t border-gray-700">
@@ -274,12 +322,14 @@ function Verify2FAContent() {
                 </button>
 
                 <button
-                  onClick={handleResend}
-                  disabled={resendTimer > 0}
-                  className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    setUseBackupCode(!useBackupCode);
+                    setBackupCode('');
+                    setCode(['', '', '', '', '', '']);
+                  }}
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  <RefreshCw className={`w-4 h-4 ${resendTimer > 0 ? 'animate-spin' : ''}`} />
-                  {resendTimer > 0 ? `Reenviar (${resendTimer}s)` : 'Reenviar código'}
+                  {useBackupCode ? 'Usar código do app' : 'Usar código de backup'}
                 </button>
               </div>
 
@@ -288,16 +338,11 @@ function Verify2FAContent() {
                 <div className="flex items-start gap-2">
                   <Smartphone className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-blue-300">
-                    Abra seu aplicativo autenticador (Google Authenticator, Authy, etc.) e digite o código de 6 dígitos mostrado.
+                    {useBackupCode
+                      ? 'Os códigos de backup foram gerados quando você ativou o 2FA. Se você não salvou seus códigos, entre em contato com o suporte.'
+                      : 'Abra seu aplicativo autenticador (Google Authenticator, Authy, etc.) e digite o código de 6 dígitos mostrado.'}
                   </p>
                 </div>
-              </div>
-
-              {/* Recovery Option */}
-              <div className="mt-3 text-center">
-                <button className="text-xs text-gray-400 hover:text-gray-300 underline">
-                  Usar código de recuperação
-                </button>
               </div>
             </div>
           </div>
