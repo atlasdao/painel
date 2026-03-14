@@ -60,7 +60,7 @@ const PAYMENT_GROUPS = [
   {
     id: 'pix',
     name: 'PIX',
-    description: 'Pagamento instantâneo brasileiro',
+    description: 'Pagamento instantaneo brasileiro',
     icon: PixIcon,
     color: 'from-green-500 to-emerald-500',
     methods: [
@@ -93,7 +93,7 @@ const PAYMENT_GROUPS = [
   {
     id: 'usdt',
     name: 'USDT',
-    description: 'Tether em múltiplas redes',
+    description: 'Tether em multiplas redes',
     icon: UsdtIcon,
     color: 'from-purple-600 to-indigo-500',
     methods: [
@@ -304,8 +304,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setStep('confirmation');
       }
     } catch (error: any) {
-      console.error('Erro ao processar doação:', error);
-      toast.error(error.response?.data?.message || 'Erro ao processar doação. Tente novamente.');
+      console.error('Erro ao processar doacao:', error);
+      toast.error(error.response?.data?.message || 'Erro ao processar doacao. Tente novamente.');
       setStep('amount'); // Go back to amount step on error
     } finally {
       setLoading(false);
@@ -314,7 +314,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
   const handleConfirmPayment = async () => {
     if (!donationData.transactionId || !donationResponse) {
-      toast.error('ID da transação é obrigatório');
+      toast.error('ID da transacao e obrigatorio');
       return;
     }
 
@@ -324,10 +324,10 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         transactionId: donationData.transactionId
       });
       setStep('success');
-      toast.success('Doação confirmada com sucesso!');
+      toast.success('Doacao confirmada com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao confirmar doação:', error);
-      toast.error(error.response?.data?.message || 'Erro ao confirmar doação. Tente novamente.');
+      console.error('Erro ao confirmar doacao:', error);
+      toast.error(error.response?.data?.message || 'Erro ao confirmar doacao. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -335,30 +335,30 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copiado para a área de transferência!`);
+    toast.success(`${label} copiado para a area de transferencia!`);
   };
 
   if (!isOpen) return null;
 
   return (
     <div key={modalRenderKey} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border-default)]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl">
-              <Heart className="w-6 h-6 text-white" />
+            <div className="p-2 bg-[var(--accent)] rounded-xl">
+              <Heart className="w-6 h-6 text-[var(--text-primary)]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Apoie a Atlas</h2>
-              <p className="text-sm text-gray-400">Ajude a manter nossos serviços</p>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Apoie a Atlas</h2>
+              <p className="text-sm text-[var(--text-muted)]">Ajude a manter nossos servicos</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-[var(--text-muted)]" />
           </button>
         </div>
 
@@ -368,8 +368,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {step === 'method' && (
             <div className="space-y-4">
               <div className="text-center mb-6">
-                <h3 className="text-lg font-semibold text-white mb-2">Apoie o Projeto Atlas</h3>
-                <p className="text-gray-400 text-sm">Sua contribuição nos ajuda a manter e melhorar nossos serviços. Toda doação faz a diferença para continuarmos oferecendo uma plataforma de qualidade.</p>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Apoie o Projeto Atlas</h3>
+                <p className="text-[var(--text-muted)] text-sm">Sua contribuicao nos ajuda a manter e melhorar nossos servicos. Toda doacao faz a diferenca para continuarmos oferecendo uma plataforma de qualidade.</p>
               </div>
 
               <div className="space-y-3">
@@ -381,36 +381,36 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     <div key={group.id} className="space-y-2">
                       <button
                         onClick={() => handleGroupSelect(group.id)}
-                        className="flex items-center gap-4 p-4 bg-gray-800 hover:bg-gray-750 rounded-xl border border-gray-700 hover:border-gray-600 transition-all group w-full"
+                        className="flex items-center gap-4 p-4 bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all group w-full"
                         data-dropdown-trigger
                       >
-                        <div className={`w-12 h-12 bg-gradient-to-r ${group.color} rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
+                        <div className={`w-12 h-12 bg-gradient-to-r ${group.color} rounded-xl flex items-center justify-center text-[var(--text-primary)] group-hover:scale-110 transition-transform`}>
                           <IconComponent />
                         </div>
                         <div className="flex-1 text-left">
-                          <h4 className="font-semibold text-white">{group.name}</h4>
-                          <p className="text-sm text-gray-400">{group.description}</p>
+                          <h4 className="font-semibold text-[var(--text-primary)]">{group.name}</h4>
+                          <p className="text-sm text-[var(--text-muted)]">{group.description}</p>
                         </div>
                         {group.methods.length > 1 && (
-                          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         )}
                       </button>
 
                       {/* Network Selection Dropdown */}
                       {isExpanded && group.methods.length > 1 && (
-                        <div ref={dropdownRef} className="ml-4 space-y-2 border-l-2 border-gray-700 pl-4">
+                        <div ref={dropdownRef} className="ml-4 space-y-2 border-l-2 border-[var(--border-default)] pl-4">
                           {group.methods.map((method) => (
                             <button
                               key={method.id}
                               onClick={() => handleMethodSelect(method.id)}
-                              className="flex items-center gap-3 p-3 bg-gray-750 hover:bg-gray-700 rounded-lg border border-gray-600 hover:border-gray-500 transition-all w-full text-left"
+                              className="flex items-center gap-3 p-3 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-hover)] hover:border-[var(--border-hover)] transition-all w-full text-left"
                             >
-                              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                              <div className="w-2 h-2 bg-[var(--text-muted)] rounded-full"></div>
                               <div>
-                                <h5 className="font-medium text-white text-sm">{method.name}</h5>
+                                <h5 className="font-medium text-[var(--text-primary)] text-sm">{method.name}</h5>
                                 {method.instantConfirm && (
-                                  <span className="inline-block mt-1 px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                                    Confirmação automática
+                                  <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs rounded-full">
+                                    Confirmacao automatica
                                   </span>
                                 )}
                               </div>
@@ -429,18 +429,18 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {step === 'amount' && (
             <div className="space-y-6">
               <div className="text-center">
-                <div className={`w-16 h-16 bg-gradient-to-r ${selectedPaymentGroup?.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4`}>
+                <div className={`w-16 h-16 bg-gradient-to-r ${selectedPaymentGroup?.color} rounded-2xl flex items-center justify-center text-[var(--text-primary)] mx-auto mb-4`}>
                   {selectedPaymentGroup?.icon && <selectedPaymentGroup.icon />}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Valor da Doação</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Valor da Doacao</h3>
+                <p className="text-[var(--text-muted)] text-sm">
                   {selectedPaymentGroup?.name} - {selectedPaymentMethodDetails?.name}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                     Valor {getCurrencyPrefix(selectedMethod!)} {getCurrencySymbol(selectedMethod!)}
                   </label>
                   <input
@@ -449,7 +449,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     min={selectedMethod?.startsWith('BTC_') ? '1' : '0.01'}
                     value={donationData.amount || ''}
                     onChange={(e) => setDonationData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white text-lg text-center focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-hover)] rounded-xl text-[var(--text-primary)] text-lg text-center focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                     placeholder="0"
                     autoFocus
                   />
@@ -461,7 +461,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     <button
                       key={value}
                       onClick={() => setDonationData(prev => ({ ...prev, amount: value }))}
-                      className="py-2 px-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors border border-gray-600 hover:border-gray-500"
+                      className="py-2 px-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] rounded-lg text-[var(--text-primary)] text-sm transition-colors border border-[var(--border-hover)] hover:border-[var(--border-hover)]"
                     >
                       {getCurrencyPrefix(selectedMethod!)}{value}{getCurrencySymbol(selectedMethod!)}
                     </button>
@@ -470,13 +470,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                 {/* Message input on same screen */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                     Mensagem (opcional)
                   </label>
                   <textarea
                     value={donationData.message || ''}
                     onChange={(e) => setDonationData(prev => ({ ...prev, message: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-hover)] rounded-xl text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Deixe uma mensagem de apoio..."
                   />
@@ -497,7 +497,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                   className="flex-1"
                   disabled={donationData.amount <= 0}
                 >
-                  Processar Doação
+                  Processar Doacao
                 </BrandButton>
               </div>
             </div>
@@ -507,11 +507,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {step === 'payment' && (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Loader className="w-8 h-8 text-white animate-spin" />
+                <div className="w-16 h-16 bg-[var(--accent)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Loader className="w-8 h-8 text-[var(--text-primary)] animate-spin" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Processando Doação</h3>
-                <p className="text-gray-400 text-sm">Aguarde enquanto processamos sua doação...</p>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Processando Doacao</h3>
+                <p className="text-[var(--text-muted)] text-sm">Aguarde enquanto processamos sua doacao...</p>
               </div>
             </div>
           )}
@@ -520,16 +520,16 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {step === 'confirmation' && donationResponse && (
             <div className="space-y-6">
               <div className="text-center">
-                <div className={`w-16 h-16 bg-gradient-to-r ${selectedPaymentGroup?.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4`}>
+                <div className={`w-16 h-16 bg-gradient-to-r ${selectedPaymentGroup?.color} rounded-2xl flex items-center justify-center text-[var(--text-primary)] mx-auto mb-4`}>
                   {selectedPaymentGroup?.icon && <selectedPaymentGroup.icon />}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                   {selectedMethod === 'PIX' ? 'Pagamento PIX' : 'Realizar Pagamento'}
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-[var(--text-muted)] text-sm">
                   {selectedMethod === 'PIX'
                     ? 'Escaneie o QR Code ou copie a chave PIX'
-                    : 'Envie o pagamento para o endereço abaixo'
+                    : 'Envie o pagamento para o endereco abaixo'
                   }
                 </p>
               </div>
@@ -546,36 +546,36 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
               )}
 
               {/* Payment Details */}
-              <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                <h4 className="text-white font-semibold mb-3">Detalhes do Pagamento</h4>
+              <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-default)]">
+                <h4 className="text-[var(--text-primary)] font-semibold mb-3">Detalhes do Pagamento</h4>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Valor:</span>
-                    <span className="text-white">
+                    <span className="text-[var(--text-muted)]">Valor:</span>
+                    <span className="text-[var(--text-primary)]">
                       {getCurrencyPrefix(selectedMethod!)}{donationResponse.data.amount}{getCurrencySymbol(selectedMethod!)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Método:</span>
-                    <span className="text-white">{selectedPaymentGroup?.name} - {selectedPaymentMethodDetails?.name}</span>
+                    <span className="text-[var(--text-muted)]">Metodo:</span>
+                    <span className="text-[var(--text-primary)]">{selectedPaymentGroup?.name} - {selectedPaymentMethodDetails?.name}</span>
                   </div>
 
                   {/* Wallet Address - Only show for non-PIX payments */}
                   {selectedMethod !== 'PIX' && WALLET_ADDRESSES[selectedMethod!] && (
-                    <div className="mt-4 p-3 bg-gray-900 rounded-lg border border-gray-600">
+                    <div className="mt-4 p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border-hover)]">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400 font-medium">
-                          Endereço da Carteira:
+                        <span className="text-[var(--text-muted)] font-medium">
+                          Endereco da Carteira:
                         </span>
                         <button
-                          onClick={() => copyToClipboard(WALLET_ADDRESSES[selectedMethod!], 'Endereço')}
-                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs"
+                          onClick={() => copyToClipboard(WALLET_ADDRESSES[selectedMethod!], 'Endereco')}
+                          className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-xs"
                         >
                           <Copy className="w-3 h-3" />
                           Copiar
                         </button>
                       </div>
-                      <div className="text-white text-xs font-mono break-all bg-gray-800 p-2 rounded border">
+                      <div className="text-[var(--text-primary)] text-xs font-mono break-all bg-[var(--bg-secondary)] p-2 rounded border">
                         {WALLET_ADDRESSES[selectedMethod!]}
                       </div>
                     </div>
@@ -583,9 +583,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                   {/* PIX Instructions */}
                   {selectedMethod === 'PIX' && (
-                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                      <p className="text-blue-400 text-xs">
-                        💡 Escaneie o QR Code com seu app bancário ou copie o código PIX para finalizar o pagamento.
+                    <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/20 rounded-lg">
+                      <p className="text-blue-700 dark:text-blue-400 text-xs">
+                        Escaneie o QR Code com seu app bancario ou copie o codigo PIX para finalizar o pagamento.
                       </p>
                     </div>
                   )}
@@ -593,24 +593,24 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                   {/* Transaction ID input for non-PIX payments */}
                   {selectedMethod !== 'PIX' && (
                     <>
-                      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                        <p className="text-yellow-400 text-xs">
-                          ⚠️ Após realizar o pagamento, digite o ID/Hash da transação abaixo para confirmar sua doação.
+                      <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+                        <p className="text-yellow-700 dark:text-yellow-400 text-xs">
+                          Apos realizar o pagamento, digite o ID/Hash da transacao abaixo para confirmar sua doacao.
                         </p>
                       </div>
                       <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          ID da Transação *
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                          ID da Transacao *
                         </label>
                         <input
                           type="text"
                           value={donationData.transactionId || ''}
                           onChange={(e) => setDonationData(prev => ({ ...prev, transactionId: e.target.value }))}
-                          className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                          placeholder="Cole aqui o ID/Hash da transação"
+                          className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-hover)] rounded-xl text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                          placeholder="Cole aqui o ID/Hash da transacao"
                         />
-                        <p className="text-xs text-gray-500 mt-2">
-                          Digite o hash da transação fornecido pela sua carteira após realizar o pagamento
+                        <p className="text-xs text-[var(--text-muted)] mt-2">
+                          Digite o hash da transacao fornecido pela sua carteira apos realizar o pagamento
                         </p>
                       </div>
                     </>
@@ -622,9 +622,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
               <div className="space-y-3">
                 {selectedMethod === 'PIX' ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-2 text-yellow-400">
+                    <div className="flex items-center justify-center gap-2 text-yellow-600 dark:text-yellow-400">
                       <Loader className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Aguardando confirmação automática do pagamento...</span>
+                      <span className="text-sm">Aguardando confirmacao automatica do pagamento...</span>
                     </div>
                   </div>
                 ) : (
@@ -645,40 +645,40 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           {/* Step 5: Success */}
           {step === 'success' && (
             <div className="space-y-6 text-center">
-              <div className="w-24 h-24 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-12 h-12 text-white" />
+              <div className="w-24 h-24 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-12 h-12 text-[var(--text-primary)]" />
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold text-white mb-2">Obrigado!</h3>
-                <p className="text-gray-400">
-                  Sua contribuição é muito importante para nós. Graças ao seu apoio, podemos continuar mantendo e melhorando a Atlas.
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Obrigado!</h3>
+                <p className="text-[var(--text-muted)]">
+                  Sua contribuicao e muito importante para nos. Gracas ao seu apoio, podemos continuar mantendo e melhorando a Atlas.
                 </p>
               </div>
 
               {donationResponse && (
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                  <h4 className="text-white font-semibold mb-3">Resumo da Doação</h4>
+                <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-default)]">
+                  <h4 className="text-[var(--text-primary)] font-semibold mb-3">Resumo da Doacao</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Valor:</span>
-                      <span className="text-white">
+                      <span className="text-[var(--text-muted)]">Valor:</span>
+                      <span className="text-[var(--text-primary)]">
                         {getCurrencyPrefix(selectedMethod!)}{donationResponse.data.amount}{getCurrencySymbol(selectedMethod!)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Método:</span>
-                      <span className="text-white">{selectedPaymentGroup?.name} - {selectedPaymentMethodDetails?.name}</span>
+                      <span className="text-[var(--text-muted)]">Metodo:</span>
+                      <span className="text-[var(--text-primary)]">{selectedPaymentGroup?.name} - {selectedPaymentMethodDetails?.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Status:</span>
-                      <span className="text-green-400">
+                      <span className="text-[var(--text-muted)]">Status:</span>
+                      <span className="text-green-600 dark:text-green-400">
                         {donationResponse.data.status === 'CONFIRMED' ? 'Confirmado' : 'Processando'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Data:</span>
-                      <span className="text-white">
+                      <span className="text-[var(--text-muted)]">Data:</span>
+                      <span className="text-[var(--text-primary)]">
                         {new Date(donationResponse.data.createdAt).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
@@ -699,7 +699,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                   onClick={() => {
                     window.open('https://twitter.com/intent/tweet?text=Acabei%20de%20fazer%20uma%20doação%20para%20apoiar%20o%20projeto%20Atlas!%20💜%20Conheça%20em%20painel.atlasdao.info', '_blank');
                   }}
-                  className="w-full text-sm text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-2"
+                  className="w-full text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-center gap-2"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Compartilhar nas redes sociais

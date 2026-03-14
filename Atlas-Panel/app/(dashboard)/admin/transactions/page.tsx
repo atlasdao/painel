@@ -49,76 +49,75 @@ export default function AdminTransactionsPage() {
     totalVolume: 0,
   });
 
-  // Use ref to track if this is initial load to avoid infinite loops
-  const initialLoadRef = useRef(true);
+  // Debounce timer for search input
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
+  // Debounce search input
   useEffect(() => {
-    if (initialLoadRef.current) {
-      initialLoadRef.current = false;
-      loadTransactions();
-    } else {
-      // Reset to page 1 when filters change
-      setCurrentPage(1);
-    }
-  }, [filters.status, filters.type, filters.userId, filters.search]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [filters.search]);
 
+  // When any filter changes, reset to page 1 and reload
   useEffect(() => {
-    if (!initialLoadRef.current) {
-      loadTransactions();
+    setCurrentPage(1);
+    loadTransactions(1);
+  }, [filters.status, filters.type, filters.userId, debouncedSearch, filters.startDate, filters.endDate]);
+
+  // When page changes (but not from filter reset), reload
+  const prevPageRef = useRef(1);
+  useEffect(() => {
+    if (prevPageRef.current !== currentPage) {
+      prevPageRef.current = currentPage;
+      loadTransactions(currentPage);
     }
   }, [currentPage]);
 
-  const loadTransactions = async () => {
-    const page = currentPage;
+  const loadTransactions = async (page?: number) => {
+    const targetPage = page || currentPage;
     setLoading(true);
     try {
-      // For filtered searches, load all data to get accurate stats
-      // For paginated view, load only the current page
-      const hasFilters = filters.status || filters.type || filters.userId || filters.search;
+      const hasFilters = filters.status || filters.type || filters.userId || debouncedSearch || filters.startDate || filters.endDate;
+      const offset = (targetPage - 1) * transactionsPerPage;
+
+      const apiParams: Parameters<typeof adminService.getAllTransactions>[0] = {
+        limit: hasFilters ? 5000 : transactionsPerPage,
+        offset: hasFilters ? 0 : offset,
+        status: filters.status || undefined,
+        type: filters.type || undefined,
+        userId: filters.userId || undefined,
+        search: debouncedSearch || undefined,
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
+      };
 
       if (hasFilters) {
-        // Load all filtered data for stats
-        const allData = await adminService.getAllTransactions({
-          status: filters.status || undefined,
-          type: filters.type || undefined,
-          userId: filters.userId || undefined,
-        });
+        // Load all filtered data for accurate stats + client-side pagination
+        const allData = await adminService.getAllTransactions(apiParams);
 
-        // Filter by search term if provided
-        let filteredData = allData;
-        if (filters.search) {
-          const searchTerm = filters.search.toLowerCase();
-          filteredData = allData.filter(t =>
-            t.id.toLowerCase().includes(searchTerm) ||
-            t.userId.toLowerCase().includes(searchTerm)
-          );
-        }
-
-        setTotalTransactions(filteredData.length);
-        calculateStats(filteredData);
+        setTotalTransactions(allData.length);
+        calculateStats(allData);
 
         // Paginate the filtered results
-        const startIndex = (page - 1) * transactionsPerPage;
+        const startIndex = (targetPage - 1) * transactionsPerPage;
         const endIndex = startIndex + transactionsPerPage;
-        setTransactions(filteredData.slice(startIndex, endIndex));
+        setTransactions(allData.slice(startIndex, endIndex));
       } else {
         // Load paginated data for current page
-        const offset = (page - 1) * transactionsPerPage;
-        const data = await adminService.getAllTransactions({
-          limit: transactionsPerPage,
-          offset: offset,
-        });
-
+        const data = await adminService.getAllTransactions(apiParams);
         setTransactions(data);
 
-        // For unfiltered view, load first 1000 transactions to calculate stats
-        // This is a reasonable compromise between performance and accuracy
+        // For unfiltered view, load stats from a larger sample
         const statsData = await adminService.getAllTransactions({
           limit: 1000,
           offset: 0,
         });
         calculateStats(statsData);
-        setTotalTransactions(1000); // Estimate - could be improved with a count endpoint
+        setTotalTransactions(1000);
       }
     } catch (error) {
       console.error('Error loading transactions:', error);
@@ -181,38 +180,38 @@ export default function AdminTransactionsPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <CheckCircle className="w-4 h-4 text-green-400" />;
+        return <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />;
       case 'PENDING':
-        return <Clock className="w-4 h-4 text-yellow-400" />;
+        return <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />;
       case 'PROCESSING':
-        return <Activity className="w-4 h-4 text-blue-400" />;
+        return <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
       case 'FAILED':
-        return <XCircle className="w-4 h-4 text-red-400" />;
+        return <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
       case 'EXPIRED':
-        return <Clock className="w-4 h-4 text-orange-400" />;
+        return <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />;
       case 'CANCELLED':
-        return <XCircle className="w-4 h-4 text-gray-400" />;
+        return <XCircle className="w-4 h-4 text-[var(--text-muted)]" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-400" />;
+        return <AlertCircle className="w-4 h-4 text-[var(--text-muted)]" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'text-green-400 bg-green-900/50';
+        return 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50';
       case 'PENDING':
-        return 'text-yellow-400 bg-yellow-900/50';
+        return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/50';
       case 'PROCESSING':
-        return 'text-blue-400 bg-blue-900/50';
+        return 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50';
       case 'FAILED':
-        return 'text-red-400 bg-red-900/50';
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/50';
       case 'EXPIRED':
-        return 'text-orange-400 bg-orange-900/50';
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/50';
       case 'CANCELLED':
-        return 'text-gray-400 bg-gray-700';
+        return 'text-[var(--text-muted)] bg-[var(--bg-elevated)]';
       default:
-        return 'text-gray-400 bg-gray-700';
+        return 'text-[var(--text-muted)] bg-[var(--bg-elevated)]';
     }
   };
 
@@ -232,22 +231,16 @@ export default function AdminTransactionsPage() {
       setLoading(true);
       toast.loading('Exportando transações...');
 
-      // Load all transactions for export (with filters if any)
-      const allData = await adminService.getAllTransactions({
+      // Load all transactions for export (with all filters applied server-side)
+      const dataToExport = await adminService.getAllTransactions({
+        limit: 10000,
         status: filters.status || undefined,
         type: filters.type || undefined,
         userId: filters.userId || undefined,
+        search: filters.search || undefined,
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
       });
-
-      // Filter by search term if provided
-      let dataToExport = allData;
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        dataToExport = allData.filter(t =>
-          t.id.toLowerCase().includes(searchTerm) ||
-          t.userId.toLowerCase().includes(searchTerm)
-        );
-      }
 
       const headers = ['ID', 'Tipo', 'Status', 'Valor', 'Usuário', 'Data'];
       const rows = dataToExport.map((t) => [
@@ -290,7 +283,7 @@ export default function AdminTransactionsPage() {
             <h1 className="text-3xl font-bold gradient-text">
               Todas as Transações
             </h1>
-            <p className="text-gray-400 mt-2">
+            <p className="text-[var(--text-muted)] mt-2">
               Gerencie todas as transações do sistema
             </p>
           </div>
@@ -305,80 +298,80 @@ export default function AdminTransactionsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Total</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm text-[var(--text-muted)]">Total</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {stats.total}
                 </p>
               </div>
-              <Activity className="w-8 h-8 text-purple-400" />
+              <Activity className="w-8 h-8 text-[var(--accent)]" />
             </div>
           </div>
 
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Concluídas</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm text-[var(--text-muted)]">Concluídas</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {stats.completed}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
+              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
           </div>
 
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Pendentes</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm text-[var(--text-muted)]">Pendentes</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {stats.pending}
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-400" />
+              <Clock className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
             </div>
           </div>
 
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Falhadas</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm text-[var(--text-muted)]">Falhadas</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {stats.failed}
                 </p>
               </div>
-              <XCircle className="w-8 h-8 text-red-400" />
+              <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
           </div>
 
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Volume Total</p>
-                <p className="text-xl font-bold text-white">
+                <p className="text-sm text-[var(--text-muted)]">Volume Total</p>
+                <p className="text-xl font-bold text-[var(--text-primary)]">
                   {formatCurrency(stats.totalVolume)}
                 </p>
               </div>
-              <DollarSign className="w-8 h-8 text-green-400" />
+              <DollarSign className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+        <div className="bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-default)]">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Buscar
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                 <input
                   type="text"
-                  placeholder="ID ou usuário..."
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+                  placeholder="ID, nome, email, CPF..."
+                  className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent)] placeholder-[var(--text-muted)]"
                   value={filters.search}
                   onChange={(e) =>
                     setFilters({ ...filters, search: e.target.value })
@@ -388,11 +381,11 @@ export default function AdminTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Status
               </label>
               <select
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent)]"
                 value={filters.status}
                 onChange={(e) =>
                   setFilters({ ...filters, status: e.target.value })
@@ -407,11 +400,11 @@ export default function AdminTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Tipo
               </label>
               <select
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent)]"
                 value={filters.type}
                 onChange={(e) =>
                   setFilters({ ...filters, type: e.target.value })
@@ -425,12 +418,12 @@ export default function AdminTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Data Inicial
               </label>
               <input
                 type="date"
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent)]"
                 value={filters.startDate}
                 onChange={(e) =>
                   setFilters({ ...filters, startDate: e.target.value })
@@ -439,12 +432,12 @@ export default function AdminTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Data Final
               </label>
               <input
                 type="date"
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--accent)]"
                 value={filters.endDate}
                 onChange={(e) =>
                   setFilters({ ...filters, endDate: e.target.value })
@@ -464,7 +457,7 @@ export default function AdminTransactionsPage() {
                     search: '',
                   })
                 }
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                className="w-full px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-hover)] transition-colors"
               >
                 Limpar Filtros
               </button>
@@ -473,54 +466,54 @@ export default function AdminTransactionsPage() {
         </div>
 
         {/* Transactions Table */}
-        <div className="glass-card shadow-lg border border-gray-700 overflow-hidden">
+        <div className="glass-card shadow-lg border border-[var(--border-default)] overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-12">
-              <Activity className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">Nenhuma transação encontrada</p>
+              <Activity className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+              <p className="text-[var(--text-muted)]">Nenhuma transação encontrada</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="table-modern">
-                <thead className="bg-gray-700">
+                <thead className="bg-[var(--bg-elevated)]">
                   <tr>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Tipo
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Status
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Valor
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Usuário
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Cliente
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Data
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--text-secondary)]">
                       Ações
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700">
+                <tbody className="divide-y divide-[var(--border-default)]">
                   {transactions.map((transaction) => (
                     <tr
                       key={transaction.id}
-                      className="hover:bg-gray-700/50 transition-colors"
+                      className="hover:bg-[var(--bg-elevated)]/50 transition-colors"
                     >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           {getTypeIcon(transaction.type)}
-                          <span className="text-sm text-gray-200">
+                          <span className="text-sm text-[var(--text-secondary)]">
                             {transaction.type === 'DEPOSIT'
                               ? 'Depósito'
                               : transaction.type === 'WITHDRAW'
@@ -542,22 +535,22 @@ export default function AdminTransactionsPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm font-semibold text-white">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
                           {formatCurrency(transaction.amount)}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-300">
+                        <span className="text-sm text-[var(--text-secondary)]">
                           {transaction.user?.username || 'N/A'}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-300">
+                        <span className="text-sm text-[var(--text-secondary)]">
                           {formatBuyerName(transaction.buyerName)}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-400">
+                        <span className="text-sm text-[var(--text-muted)]">
                           {formatDate(transaction.createdAt)}
                         </span>
                       </td>
@@ -575,7 +568,7 @@ export default function AdminTransactionsPage() {
                           </button>
                           <button
                             onClick={() => window.open(`/payment-confirmation/${transaction.id}`, '_blank')}
-                            className="text-gray-400 hover:text-blue-400 transition-colors"
+                            className="text-[var(--text-muted)] hover:text-blue-400 transition-colors"
                             title="Ver comprovante"
                           >
                             <FileText className="w-4 h-4" />
@@ -589,8 +582,8 @@ export default function AdminTransactionsPage() {
 
               {/* Pagination */}
               {totalTransactions > transactionsPerPage && (
-                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-700">
-                  <div className="text-sm text-gray-400">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-default)]">
+                  <div className="text-sm text-[var(--text-muted)]">
                     Mostrando {Math.min((currentPage - 1) * transactionsPerPage + 1, totalTransactions)} a{' '}
                     {Math.min(currentPage * transactionsPerPage, totalTransactions)} de {totalTransactions} transações
                   </div>
@@ -598,7 +591,7 @@ export default function AdminTransactionsPage() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded hover:bg-[var(--border-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Anterior
                     </button>
@@ -623,7 +616,7 @@ export default function AdminTransactionsPage() {
                           className={`px-3 py-1 text-sm rounded ${
                             currentPage === pageNum
                               ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 text-white hover:bg-gray-600'
+                              : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--border-hover)]'
                           }`}
                         >
                           {pageNum}
@@ -634,7 +627,7 @@ export default function AdminTransactionsPage() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalTransactions / transactionsPerPage)))}
                       disabled={currentPage >= Math.ceil(totalTransactions / transactionsPerPage)}
-                      className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded hover:bg-[var(--border-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Próxima
                     </button>
@@ -649,14 +642,14 @@ export default function AdminTransactionsPage() {
         {showModal && selectedTransaction && (
           <div className="modal-backdrop flex items-center justify-center z-50 p-4">
             <div className="glass-card shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                <h2 className="text-xl font-bold text-white flex items-center">
+              <div className="flex items-center justify-between p-6 border-b border-[var(--border-default)]">
+                <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center">
                   {getTypeIcon(selectedTransaction.type)}
                   <span className="ml-2">Detalhes da Transação</span>
                 </h2>
                 <button
                   onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -666,9 +659,9 @@ export default function AdminTransactionsPage() {
                 {/* Transaction Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">ID da Transação</h3>
-                    <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                      <code className="text-sm font-mono text-white">{selectedTransaction.id}</code>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">ID da Transação</h3>
+                    <div className="flex items-center justify-between bg-[var(--bg-elevated)] p-3 rounded-lg">
+                      <code className="text-sm font-mono text-[var(--text-primary)]">{selectedTransaction.id}</code>
                       <button
                         onClick={() => copyToClipboard(selectedTransaction.id, 'ID da transação')}
                         className="text-blue-400 hover:text-blue-300 transition-colors"
@@ -679,9 +672,9 @@ export default function AdminTransactionsPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Usuário</h3>
-                    <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                      <code className="text-sm font-mono text-white">{selectedTransaction.userId}</code>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Usuário</h3>
+                    <div className="flex items-center justify-between bg-[var(--bg-elevated)] p-3 rounded-lg">
+                      <code className="text-sm font-mono text-[var(--text-primary)]">{selectedTransaction.userId}</code>
                       <button
                         onClick={() => copyToClipboard(selectedTransaction.userId, 'ID do usuário')}
                         className="text-blue-400 hover:text-blue-300 transition-colors"
@@ -695,10 +688,10 @@ export default function AdminTransactionsPage() {
                 {/* Status and Type */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Tipo</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Tipo</h3>
                     <div className="flex items-center">
                       {getTypeIcon(selectedTransaction.type)}
-                      <span className="ml-2 text-lg font-medium text-white">
+                      <span className="ml-2 text-lg font-medium text-[var(--text-primary)]">
                         {selectedTransaction.type === 'DEPOSIT' ? 'Depósito' :
                          selectedTransaction.type === 'WITHDRAW' ? 'Saque' : 'Transferência'}
                       </span>
@@ -706,7 +699,7 @@ export default function AdminTransactionsPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Status</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Status</h3>
                     <div className="flex items-center">
                       {getStatusIcon(selectedTransaction.status)}
                       <span className={`ml-2 text-sm font-semibold px-2 py-1 rounded-full ${getStatusColor(selectedTransaction.status)}`}>
@@ -716,8 +709,8 @@ export default function AdminTransactionsPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Valor</h3>
-                    <div className="text-2xl font-bold text-white">
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Valor</h3>
+                    <div className="text-2xl font-bold text-[var(--text-primary)]">
                       {formatCurrency(selectedTransaction.amount)}
                     </div>
                   </div>
@@ -726,11 +719,11 @@ export default function AdminTransactionsPage() {
                 {/* PIX Information */}
                 {selectedTransaction.pixKey && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">
                       {selectedTransaction.type === 'DEPOSIT' ? '🔹 Endereço DePix de Destino' : 'Chave PIX'}
                     </h3>
-                    <div className="flex items-center justify-between bg-gradient-to-r from-green-900/30 to-green-800/20 border border-green-600 p-3 rounded-lg">
-                      <code className="text-sm font-mono text-green-400 break-all">{selectedTransaction.pixKey}</code>
+                    <div className="flex items-center justify-between bg-gradient-to-r from-green-900/30 to-green-800/20 border border-green-300 dark:border-green-600 p-3 rounded-lg">
+                      <code className="text-sm font-mono text-green-600 dark:text-green-400 break-all">{selectedTransaction.pixKey}</code>
                       <button
                         onClick={() => copyToClipboard(selectedTransaction.pixKey!, 'Chave PIX')}
                         className="text-blue-400 hover:text-blue-300 transition-colors ml-2 flex-shrink-0"
@@ -744,9 +737,9 @@ export default function AdminTransactionsPage() {
                 {/* External ID */}
                 {selectedTransaction.externalId && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">ID Externo (Depix)</h3>
-                    <div className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-                      <code className="text-sm font-mono text-yellow-400">{selectedTransaction.externalId}</code>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">ID Externo (Depix)</h3>
+                    <div className="flex items-center justify-between bg-[var(--bg-elevated)] p-3 rounded-lg">
+                      <code className="text-sm font-mono text-yellow-600 dark:text-yellow-400">{selectedTransaction.externalId}</code>
                       <button
                         onClick={() => copyToClipboard(selectedTransaction.externalId!, 'ID externo')}
                         className="text-blue-400 hover:text-blue-300 transition-colors"
@@ -760,22 +753,22 @@ export default function AdminTransactionsPage() {
                 {/* Description */}
                 {selectedTransaction.description && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Descrição</h3>
-                    <p className="text-white bg-gray-700 p-3 rounded-lg">{selectedTransaction.description}</p>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Descrição</h3>
+                    <p className="text-[var(--text-primary)] bg-[var(--bg-elevated)] p-3 rounded-lg">{selectedTransaction.description}</p>
                   </div>
                 )}
 
                 {/* Timestamps */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Criação</h3>
-                    <p className="text-white">{formatDate(selectedTransaction.createdAt)}</p>
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Data de Criação</h3>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedTransaction.createdAt)}</p>
                   </div>
 
                   {selectedTransaction.processedAt && (
                     <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Processamento</h3>
-                      <p className="text-white">{formatDate(selectedTransaction.processedAt)}</p>
+                      <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Data de Processamento</h3>
+                      <p className="text-[var(--text-primary)]">{formatDate(selectedTransaction.processedAt)}</p>
                     </div>
                   )}
                 </div>
@@ -791,11 +784,11 @@ export default function AdminTransactionsPage() {
                         {/* Depix API Details */}
                         {eulenResponse && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes</h3>
-                            <div className="bg-gray-700 p-4 rounded-lg space-y-3">
+                            <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Detalhes</h3>
+                            <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
                               {eulenResponse.qrCode && (
                                 <div>
-                                  <h4 className="text-xs font-medium text-gray-400 mb-1">QR Code PIX</h4>
+                                  <h4 className="text-xs font-medium text-[var(--text-muted)] mb-1">QR Code PIX</h4>
                                   <div className="flex items-center justify-between">
                                     <code className="text-xs font-mono text-blue-400 break-all">
                                       {eulenResponse.qrCode.substring(0, 50)}...
@@ -812,7 +805,7 @@ export default function AdminTransactionsPage() {
 
                               {eulenResponse.qrCodeImage && (
                                 <div>
-                                  <h4 className="text-xs font-medium text-gray-400 mb-1">URL da Imagem QR</h4>
+                                  <h4 className="text-xs font-medium text-[var(--text-muted)] mb-1">URL da Imagem QR</h4>
                                   <a
                                     href={eulenResponse.qrCodeImage}
                                     target="_blank"
@@ -829,10 +822,10 @@ export default function AdminTransactionsPage() {
 
                         {/* Raw Metadata */}
                         <details className="group">
-                          <summary className="text-sm font-medium text-gray-400 mb-2 cursor-pointer hover:text-gray-300 transition-colors">
+                          <summary className="text-sm font-medium text-[var(--text-muted)] mb-2 cursor-pointer hover:text-[var(--text-secondary)] transition-colors">
                             📋 Metadados Brutos (clique para expandir)
                           </summary>
-                          <pre className="text-xs text-gray-300 bg-gray-900 p-3 rounded-lg overflow-x-auto mt-2 border border-gray-600">
+                          <pre className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] p-3 rounded-lg overflow-x-auto mt-2 border border-[var(--border-hover)]">
                             {JSON.stringify(metadata, null, 2)}
                           </pre>
                         </details>
@@ -841,8 +834,8 @@ export default function AdminTransactionsPage() {
                   } catch (error) {
                     return (
                       <div>
-                        <h3 className="text-sm font-medium text-gray-400 mb-2">Metadados</h3>
-                        <pre className="text-sm text-white bg-gray-700 p-3 rounded-lg overflow-x-auto">
+                        <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Metadados</h3>
+                        <pre className="text-sm text-[var(--text-primary)] bg-[var(--bg-elevated)] p-3 rounded-lg overflow-x-auto">
                           {selectedTransaction.metadata}
                         </pre>
                       </div>
@@ -853,15 +846,15 @@ export default function AdminTransactionsPage() {
                 {/* Error Message */}
                 {selectedTransaction.errorMessage && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Mensagem de Erro</h3>
-                    <p className="text-red-400 bg-red-900/20 border border-red-600 p-3 rounded-lg">
+                    <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Mensagem de Erro</h3>
+                    <p className="text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-600 p-3 rounded-lg">
                       {selectedTransaction.errorMessage}
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end p-6 border-t border-gray-700">
+              <div className="flex justify-end p-6 border-t border-[var(--border-default)]">
                 <button
                   onClick={handleCloseModal}
                   className="btn-outline transition duration-200"

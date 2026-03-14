@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../common/services/cache.service';
+import { EulenClientService } from '../services/eulen-client.service';
+import { firstValueFrom } from 'rxjs';
 
 export interface HealthStatus {
 	status: 'healthy' | 'degraded' | 'unhealthy';
@@ -42,15 +46,23 @@ export class HealthService {
 	private readonly startTime = Date.now();
 	private requestCount = 0;
 	private errorCount = 0;
+	private lastSnapshotCount = 0;
 	private requestHistory: number[] = [];
+
+	// In-memory cache for latest service check results (updated by cron)
+	private latestServiceChecks: ServiceHealth[] = [];
 
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly cacheService: CacheService,
+		private readonly httpService: HttpService,
+		private readonly eulenClient: EulenClientService,
 	) {
-		// Track request metrics
+		// Track request metrics delta per minute
 		setInterval(() => {
-			this.requestHistory.push(this.requestCount);
+			const delta = this.requestCount - this.lastSnapshotCount;
+			this.lastSnapshotCount = this.requestCount;
+			this.requestHistory.push(delta);
 			if (this.requestHistory.length > 60) {
 				this.requestHistory.shift();
 			}
@@ -83,16 +95,13 @@ export class HealthService {
 		services: ServiceHealth[];
 		metrics: SystemMetrics;
 	}> {
-		const services: ServiceHealth[] = [];
-
-		// Check database
-		services.push(await this.checkDatabase());
-
-		// Check cache
-		services.push(await this.checkCache());
-
-		// Check external services
-		services.push(await this.checkExternalServices());
+		// Use cached service checks if available (populated by cron)
+		let services: ServiceHealth[];
+		if (this.latestServiceChecks.length > 0) {
+			services = this.latestServiceChecks;
+		} else {
+			services = await this.runAllChecks();
+		}
 
 		const status = await this.check();
 		const metrics = await this.getMetrics();
@@ -104,11 +113,9 @@ export class HealthService {
 		const checks: ServiceHealth[] = [];
 
 		try {
-			// Check if database is ready
 			const dbCheck = await this.checkDatabase();
 			checks.push(dbCheck);
 
-			// Check if cache is ready
 			const cacheCheck = await this.checkCache();
 			checks.push(cacheCheck);
 
@@ -135,12 +142,12 @@ export class HealthService {
 
 		return {
 			memory: {
-				used: Math.round(usedMem / 1024 / 1024), // MB
-				total: Math.round(totalMem / 1024 / 1024), // MB
+				used: Math.round(usedMem / 1024 / 1024),
+				total: Math.round(totalMem / 1024 / 1024),
 				percentage: Math.round((usedMem / totalMem) * 100),
 			},
 			cpu: {
-				usage: process.cpuUsage().user / 1000000, // Convert to seconds
+				usage: process.cpuUsage().user / 1000000,
 			},
 			requests: {
 				total: this.requestCount,
@@ -153,31 +160,23 @@ export class HealthService {
 		};
 	}
 
-	private async checkDatabase(): Promise<ServiceHealth> {
-		const startTime = Date.now();
+	// ========================
+	// Real health checks
+	// ========================
 
+	async checkDatabase(): Promise<ServiceHealth> {
+		const startTime = Date.now();
 		try {
 			await this.prisma.$queryRaw`SELECT 1`;
-			const responseTime = Date.now() - startTime;
-
-			return {
-				name: 'Database',
-				status: 'up',
-				responseTime,
-			};
+			return { name: 'Database', status: 'up', responseTime: Date.now() - startTime };
 		} catch (error) {
 			this.logger.error('Database health check failed:', error);
-			return {
-				name: 'Database',
-				status: 'down',
-				error: error.message,
-			};
+			return { name: 'Database', status: 'down', error: error.message };
 		}
 	}
 
-	private async checkCache(): Promise<ServiceHealth> {
+	async checkCache(): Promise<ServiceHealth> {
 		const startTime = Date.now();
-
 		try {
 			const testKey = 'health:check';
 			await this.cacheService.set(testKey, 'ok', { ttl: 10 });
@@ -188,45 +187,211 @@ export class HealthService {
 				throw new Error('Cache verification failed');
 			}
 
-			const responseTime = Date.now() - startTime;
-
-			return {
-				name: 'Cache',
-				status: 'up',
-				responseTime,
-			};
+			return { name: 'Cache', status: 'up', responseTime: Date.now() - startTime };
 		} catch (error) {
 			this.logger.error('Cache health check failed:', error);
-			return {
-				name: 'Cache',
-				status: 'down',
-				error: error.message,
-			};
+			return { name: 'Cache', status: 'down', error: error.message };
 		}
 	}
 
-	private async checkExternalServices(): Promise<ServiceHealth> {
-		// Check if external payment service is reachable
+	private async checkApiGateway(): Promise<ServiceHealth> {
 		const startTime = Date.now();
-
+		const port = process.env.PORT || 19997;
 		try {
-			// This would normally check your payment provider
-			// For now, we'll simulate it
-			const responseTime = Date.now() - startTime;
-
-			return {
-				name: 'Payment Service',
-				status: 'up',
-				responseTime,
-			};
+			const response = await firstValueFrom(
+				this.httpService.get(`http://localhost:${port}/health`, { timeout: 3000 }),
+			);
+			if (response.status === 200) {
+				return { name: 'API Gateway', status: 'up', responseTime: Date.now() - startTime };
+			}
+			return { name: 'API Gateway', status: 'degraded', responseTime: Date.now() - startTime };
 		} catch (error) {
-			return {
-				name: 'Payment Service',
-				status: 'degraded',
-				error: 'Service temporarily unavailable',
-			};
+			return { name: 'API Gateway', status: 'down', error: error.message };
 		}
 	}
+
+	private async checkDashboard(): Promise<ServiceHealth> {
+		const startTime = Date.now();
+		try {
+			const response = await firstValueFrom(
+				this.httpService.get('http://localhost:11337', { timeout: 3000 }),
+			);
+			if (response.status >= 200 && response.status < 400) {
+				return { name: 'Dashboard', status: 'up', responseTime: Date.now() - startTime };
+			}
+			return { name: 'Dashboard', status: 'degraded', responseTime: Date.now() - startTime };
+		} catch (error) {
+			return { name: 'Dashboard', status: 'down', error: error.message };
+		}
+	}
+
+	private async checkPaymentService(): Promise<ServiceHealth> {
+		const startTime = Date.now();
+		try {
+			await this.eulenClient.ping();
+			return { name: 'Payment Service', status: 'up', responseTime: Date.now() - startTime };
+		} catch (error) {
+			const responseTime = Date.now() - startTime;
+			const status = error?.response?.status || error?.status || error?.getStatus?.();
+			// 401 = auth issue, 429/520 = rate limited — service is reachable but limited
+			if (status === 401) {
+				return { name: 'Payment Service', status: 'degraded', responseTime, error: 'Auth issue' };
+			}
+			if (status === 429 || status === 520) {
+				return { name: 'Payment Service', status: 'up', responseTime, error: 'Rate limited' };
+			}
+			// HttpException from NestJS may wrap the original status
+			if (error?.message?.includes('429') || error?.message?.includes('rate') || error?.message?.includes('Too many')) {
+				return { name: 'Payment Service', status: 'up', responseTime, error: 'Rate limited' };
+			}
+			return { name: 'Payment Service', status: 'down', error: error.message };
+		}
+	}
+
+	private async checkWebhooks(): Promise<ServiceHealth> {
+		const startTime = Date.now();
+		try {
+			await this.prisma.webhookEvent.findFirst({
+				orderBy: { createdAt: 'desc' },
+				select: { id: true },
+			});
+			return { name: 'Webhooks', status: 'up', responseTime: Date.now() - startTime };
+		} catch (error) {
+			return { name: 'Webhooks', status: 'down', error: error.message };
+		}
+	}
+
+	private async checkAuthentication(): Promise<ServiceHealth> {
+		const startTime = Date.now();
+		try {
+			const jwtSecret = process.env.JWT_SECRET;
+			if (!jwtSecret) {
+				return { name: 'Authentication', status: 'down', error: 'JWT_SECRET not configured' };
+			}
+			// Verify the auth module is responsive by querying the DB for a user count (lightweight)
+			await this.prisma.user.count({ take: 1 });
+			return { name: 'Authentication', status: 'up', responseTime: Date.now() - startTime };
+		} catch (error) {
+			return { name: 'Authentication', status: 'down', error: error.message };
+		}
+	}
+
+	/**
+	 * Run all health checks and return results
+	 */
+	async runAllChecks(): Promise<ServiceHealth[]> {
+		const checks = await Promise.allSettled([
+			this.checkApiGateway(),
+			this.checkPaymentService(),
+			this.checkDashboard(),
+			this.checkDatabase(),
+			this.checkCache(),
+			this.checkWebhooks(),
+			this.checkAuthentication(),
+		]);
+
+		return checks.map((result, index) => {
+			const names = ['API Gateway', 'Payment Service', 'Dashboard', 'Database', 'Cache', 'Webhooks', 'Authentication'];
+			if (result.status === 'fulfilled') {
+				return result.value;
+			}
+			return { name: names[index], status: 'down' as const, error: result.reason?.message };
+		});
+	}
+
+	// ========================
+	// Cron: health checks every 2 minutes + persist uptime
+	// ========================
+
+	@Cron('*/2 * * * *')
+	async cronHealthCheck() {
+		try {
+			const services = await this.runAllChecks();
+			this.latestServiceChecks = services;
+
+			// Persist uptime per service
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
+			for (const service of services) {
+				const isSuccess = service.status === 'up';
+				try {
+					await this.prisma.uptimeRecord.upsert({
+						where: {
+							date_serviceName: { date: today, serviceName: service.name },
+						},
+						create: {
+							date: today,
+							serviceName: service.name,
+							totalChecks: 1,
+							successChecks: isSuccess ? 1 : 0,
+							uptime: isSuccess ? 100 : 0,
+						},
+						update: {
+							totalChecks: { increment: 1 },
+							successChecks: isSuccess ? { increment: 1 } : undefined,
+							uptime: undefined, // will be calculated below
+						},
+					});
+
+					// Recalculate uptime percentage
+					const record = await this.prisma.uptimeRecord.findUnique({
+						where: {
+							date_serviceName: { date: today, serviceName: service.name },
+						},
+					});
+					if (record && record.totalChecks > 0) {
+						const uptimePercent = Number(((record.successChecks / record.totalChecks) * 100).toFixed(2));
+						await this.prisma.uptimeRecord.update({
+							where: { id: record.id },
+							data: { uptime: uptimePercent },
+						});
+					}
+				} catch (err) {
+					this.logger.error(`Failed to persist uptime for ${service.name}: ${err.message}`);
+				}
+			}
+		} catch (error) {
+			this.logger.error('Cron health check failed:', error);
+		}
+	}
+
+	// ========================
+	// Uptime history from DB
+	// ========================
+
+	async getUptimeHistory(days = 7): Promise<{ date: string; uptime: number }[]> {
+		const since = new Date();
+		since.setDate(since.getDate() - days);
+		since.setHours(0, 0, 0, 0);
+
+		const records = await this.prisma.uptimeRecord.findMany({
+			where: { date: { gte: since } },
+			orderBy: { date: 'asc' },
+		});
+
+		// Group by date and compute average uptime across all services
+		const grouped = new Map<string, { total: number; count: number }>();
+		for (const r of records) {
+			const key = r.date.toISOString().split('T')[0];
+			const existing = grouped.get(key) || { total: 0, count: 0 };
+			existing.total += r.uptime;
+			existing.count += 1;
+			grouped.set(key, existing);
+		}
+
+		const result: { date: string; uptime: number }[] = [];
+		for (const [date, { total, count }] of grouped) {
+			result.push({ date, uptime: Number((total / count).toFixed(2)) });
+		}
+
+		// If we have no data yet, return empty array
+		return result;
+	}
+
+	// ========================
+	// Metrics helpers
+	// ========================
 
 	private getUptime(): number {
 		return Math.floor((Date.now() - this.startTime) / 1000);
@@ -234,7 +399,6 @@ export class HealthService {
 
 	private getRequestsPerMinute(): number {
 		if (this.requestHistory.length === 0) return 0;
-
 		const recent = this.requestHistory.slice(-5);
 		const average = recent.reduce((a, b) => a + b, 0) / recent.length;
 		return Math.round(average);
@@ -252,6 +416,10 @@ export class HealthService {
 	incrementErrorCount(): void {
 		this.errorCount++;
 	}
+
+	// ========================
+	// Incidents
+	// ========================
 
 	async getActiveIncidents() {
 		return this.prisma.incident.findMany({

@@ -166,8 +166,8 @@ export default function PeriodFilter({
       {/* Quick Period Shortcuts */}
       <div className="period-shortcuts mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-4 h-4 text-purple-400" />
-          <span className="text-sm font-medium text-white">Período</span>
+          <Clock className="w-4 h-4 text-[var(--accent)]" />
+          <span className="text-sm font-medium text-[var(--text-primary)]">Período</span>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -211,10 +211,10 @@ export default function PeriodFilter({
         </button>
 
         {showCustomDate && (
-          <div className="custom-date-inputs mt-3 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 animate-slide-down">
+          <div className="custom-date-inputs mt-3 p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)] animate-slide-down">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                   Data inicial
                 </label>
                 <input
@@ -222,11 +222,11 @@ export default function PeriodFilter({
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
                   max={formatDateForInput(new Date())}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                   Data final
                 </label>
                 <input
@@ -235,7 +235,7 @@ export default function PeriodFilter({
                   onChange={(e) => setCustomEndDate(e.target.value)}
                   min={customStartDate}
                   max={formatDateForInput(new Date())}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-colors"
                 />
               </div>
             </div>
@@ -244,7 +244,7 @@ export default function PeriodFilter({
               <button
                 onClick={handleCustomDateSubmit}
                 disabled={!customStartDate || !customEndDate || isLoading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-target"
+                className="flex-1 px-4 py-2 bg-[var(--accent)] text-[var(--text-primary)] text-sm font-medium rounded-lg hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-target"
               >
                 Aplicar
               </button>
@@ -254,7 +254,7 @@ export default function PeriodFilter({
                   setCustomStartDate('');
                   setCustomEndDate('');
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors touch-target"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-sm font-medium rounded-lg transition-colors touch-target"
               >
                 Cancelar
               </button>
@@ -265,18 +265,18 @@ export default function PeriodFilter({
 
       {/* Current Selection Info */}
       {selectedPeriod && (
-        <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+        <div className="mt-4 p-3 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
                 {selectedPeriod.label}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[var(--text-muted)]">
                 {selectedPeriod.startDate.toLocaleDateString('pt-BR')} - {selectedPeriod.endDate.toLocaleDateString('pt-BR')}
               </p>
             </div>
             {isLoading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500/20 border-t-purple-500"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-[var(--accent)]/20 border-t-[var(--accent)]"></div>
             )}
           </div>
         </div>

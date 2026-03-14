@@ -7,7 +7,7 @@ import { userService, profileService } from '@/app/lib/services';
 import api, { API_URL, getAccountContext } from '@/app/lib/api';
 import AvatarUploader from '@/app/components/AvatarUploader';
 import Modal2FA from '@/app/components/Modal2FA';
-import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Webhook } from 'lucide-react';
+import { User, Users, Lock, Shield, Save, Loader, Eye, EyeOff, AlertTriangle, TrendingUp, Calendar, Link, Clock, Key, Send, CheckCircle, XCircle, AlertCircle, QrCode, Wallet, Bell, Code, Copy, Webhook, Gauge, DollarSign } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 import { triggerConfetti } from '@/app/lib/confetti';
@@ -15,14 +15,20 @@ import { LiquidWalletValidator } from '@/app/lib/validators/wallet';
 import { validatePixKey, formatPixKey, detectPixKeyType, getPixKeyTypeLabel } from '@/app/lib/validators/pix';
 import UserLimitsDisplay from '@/app/components/UserLimitsDisplay';
 import ErrorBoundary from '@/app/components/ErrorBoundary';
+import { useTheme } from '@/app/hooks/useTheme';
 import dynamic from 'next/dynamic';
+import IncreaseCollateralModal from '@/app/components/IncreaseCollateralModal';
+import DecreaseCollateralModal from '@/app/components/DecreaseCollateralModal';
+import CollateralHistoryModal from '@/app/components/CollateralHistoryModal';
+import { Plus, Minus, History } from 'lucide-react';
 
 export default function SettingsPage() {
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const { theme, setTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'wallet' | 'notifications' | 'api'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'wallet' | 'notifications' | 'api' | 'limits'>('profile');
   const [loading, setLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
@@ -50,6 +56,7 @@ export default function SettingsPage() {
     isAccountValidated: false,
     commerceMode: false,
     commerceModeActivatedAt: null,
+    collateral: null as number | null,
   });
 
   // Password State
@@ -77,6 +84,11 @@ export default function SettingsPage() {
   const [regenerateToken, setRegenerateToken] = useState('');
   const [showApiKeys, setShowApiKeys] = useState<{ [key: string]: boolean }>({});
 
+  // Collateral Modals State
+  const [showIncreaseCollateralModal, setShowIncreaseCollateralModal] = useState(false);
+  const [showDecreaseCollateralModal, setShowDecreaseCollateralModal] = useState(false);
+  const [showCollateralHistoryModal, setShowCollateralHistoryModal] = useState(false);
+
   // Wallet State
   const [walletForm, setWalletForm] = useState({
     address: '',
@@ -88,9 +100,6 @@ export default function SettingsPage() {
 
   // Notification Settings
   const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    transactionAlerts: true,
-    securityAlerts: true,
     marketingEmails: false,
     notifyApprovedSales: true,
     notifyReviewSales: true,
@@ -116,7 +125,7 @@ export default function SettingsPage() {
 
     // Set tab from URL, but prevent wallet access for collaborators
     if (tabFromUrl) {
-      const validTabs = ['profile', 'security', 'wallet', 'notifications', 'api'];
+      const validTabs = ['profile', 'security', 'wallet', 'notifications', 'api', 'limits'];
       if (validTabs.includes(tabFromUrl)) {
         // If collaborator tries to access wallet tab, redirect to profile
         if (tabFromUrl === 'wallet' && accountContext.isCollaborating) {
@@ -302,6 +311,7 @@ export default function SettingsPage() {
           isAccountValidated: user.isAccountValidated || false,
           commerceMode: user.commerceMode || false,
           commerceModeActivatedAt: user.commerceModeActivatedAt || null,
+          collateral: user.collateral ?? null,
         });
 
         // Set wallet form with current values
@@ -312,11 +322,11 @@ export default function SettingsPage() {
         });
 
         // Set notification settings from user profile
-        setNotifications(prev => ({
-          ...prev,
+        setNotifications({
           notifyApprovedSales: user.notifyApprovedSales ?? true,
           notifyReviewSales: user.notifyReviewSales ?? true,
-        }));
+          marketingEmails: user.marketingEmails ?? false,
+        });
       }
     } catch (error) {
       console.error('[LOAD] Error loading profile:', error);
@@ -591,6 +601,7 @@ export default function SettingsPage() {
     { id: 'profile', label: 'Perfil', icon: User },
     { id: 'security', label: 'Segurança', icon: Shield },
     { id: 'wallet', label: 'Carteira', icon: Wallet, hideForCollaborator: true },
+    { id: 'limits', label: 'Limites', icon: Gauge },
     { id: 'api', label: 'API', icon: Code },
     { id: 'notifications', label: 'Notificações', icon: Bell },
   ];
@@ -606,8 +617,8 @@ export default function SettingsPage() {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Carregando configurações...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)] mx-auto mb-4"></div>
+          <p className="text-[var(--text-muted)]">Carregando configurações...</p>
         </div>
       </div>
     );
@@ -618,27 +629,27 @@ export default function SettingsPage() {
       <Toaster position="top-right" />
 
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent animate-slide-up">Configurações</h1>
+        <h1 className="text-4xl font-bold mb-8 text-[var(--text-primary)] animate-slide-up">Configurações</h1>
 
         {/* Tab Navigation */}
         <div className="mb-8 animate-bounce-in relative" style={{ animationDelay: '100ms' }}>
-          <div className="relative bg-gray-800/50 rounded-xl backdrop-blur-xl p-1">
+          <div className="relative bg-[var(--bg-card)] rounded-xl backdrop-blur-xl p-1">
             {/* Left Gradient Indicator */}
             {showLeftGradient && (
-              <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full animate-pulse" />
+              <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[var(--bg-card)] via-[var(--bg-card)]/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
+                <div className="w-1.5 h-8 bg-[var(--accent)] rounded-full animate-pulse" />
               </div>
             )}
 
             {/* Right Gradient Indicator */}
             {showRightGradient && (
-              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full animate-pulse" />
+              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[var(--bg-card)] via-[var(--bg-card)]/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
+                <div className="w-1.5 h-8 bg-[var(--accent)] rounded-full animate-pulse" />
               </div>
             )}
 
             <div ref={scrollContainerRef} className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-1 min-w-max md:min-w-0 md:grid md:grid-cols-5">
+              <div className="flex gap-1 min-w-max md:min-w-0 md:grid md:grid-cols-6">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -647,8 +658,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveTab(tab.id as any)}
                       className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-3 rounded-lg transition-all duration-300 font-medium group whitespace-nowrap ${
                         activeTab === tab.id
-                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50 hover:scale-105'
+                          ? 'bg-[var(--accent)] text-white shadow-lg scale-105'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:scale-105'
                       }`}
                     >
                       <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform flex-shrink-0 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`} />
@@ -667,8 +678,8 @@ export default function SettingsPage() {
           {activeTab === 'profile' && (
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                  <User className="text-purple-400" size={24} />
+                <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
+                  <User className="text-[var(--accent)]" size={24} />
                   Informações do Perfil
                 </h2>
 
@@ -684,26 +695,26 @@ export default function SettingsPage() {
                 {/* Profile Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-bounce-in" style={{ animationDelay: '300ms' }}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       Nome de Usuário
                     </label>
                     <input
                       type="text"
                       value={profile.username}
                       disabled
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white disabled:opacity-50 transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] disabled:opacity-50 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       Email
                     </label>
                     <input
                       type="email"
                       value={profile.email}
                       disabled
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white disabled:opacity-50 transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] disabled:opacity-50 transition-all"
                     />
                   </div>
 
@@ -712,18 +723,18 @@ export default function SettingsPage() {
 
                 {/* API Key Quick Access */}
                 {apiKeyRequests.some(r => r.status === 'APPROVED') && (
-                  <div className="mt-8 p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg">
+                  <div className="mt-8 p-4 bg-gradient-to-r from-green-100 dark:from-green-500/10 to-blue-100 dark:to-blue-500/10 border border-green-300 dark:border-green-500/20 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Key className="w-5 h-5 text-green-400" />
+                        <Key className="w-5 h-5 text-green-600 dark:text-green-400" />
                         <div>
-                          <h4 className="text-sm font-medium text-white">API Key Ativa</h4>
-                          <p className="text-xs text-gray-400">Você possui acesso à nossa API</p>
+                          <h4 className="text-sm font-medium text-[var(--text-primary)]">API Key Ativa</h4>
+                          <p className="text-xs text-[var(--text-muted)]">Você possui acesso à nossa API</p>
                         </div>
                       </div>
                       <button
                         onClick={() => setActiveTab('api')}
-                        className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                        className="px-4 py-2 bg-green-100 dark:bg-green-600/20 hover:bg-green-200 dark:hover:bg-green-600/30 text-green-700 dark:text-green-400 rounded-lg transition-colors text-sm font-medium"
                       >
                         Ver API Key
                       </button>
@@ -731,8 +742,121 @@ export default function SettingsPage() {
                   </div>
                 )}
 
+                {/* Appearance Section */}
+                <div className="mt-8 atlas-card">
+                  <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4">Aparencia</h3>
+                  <div className="flex gap-3">
+                    {(['system', 'light', 'dark'] as const).map((t) => (
+                      <button key={t} onClick={() => setTheme(t)}
+                        className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${theme === t ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]'}`}>
+                        {t === 'system' ? 'Sistema' : t === 'light' ? 'Claro' : 'Escuro'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Limits Tab */}
+          {activeTab === 'limits' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
+                  <Gauge className="text-[var(--accent)]" size={24} />
+                  Limites e Colateral
+                </h2>
+
+                {/* Collateral Section */}
+                <div className="mb-8 p-6 bg-[var(--bg-card)] rounded-xl backdrop-blur-xl border border-[var(--border-default)]">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-3">
+                      <DollarSign className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                      Colateral
+                    </h3>
+                  </div>
+
+                  <div className="glass-card p-6 border border-cyan-500/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-[var(--text-muted)] mb-1">Valor de Colateral</p>
+                        <p className="text-3xl font-bold text-[var(--text-primary)]">
+                          {profile.collateral !== null && profile.collateral > 0
+                            ? `R$ ${profile.collateral.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : 'Não configurado'}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Maximo: R$ 6.000,00</p>
+                      </div>
+                      <div className={`p-3 rounded-full ${profile.collateral !== null && profile.collateral > 0 ? 'bg-cyan-500/20' : 'bg-[var(--bg-elevated)]'}`}>
+                        <DollarSign className={`w-8 h-8 ${profile.collateral !== null && profile.collateral > 0 ? 'text-cyan-600 dark:text-cyan-400' : 'text-[var(--text-muted)]'}`} />
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    {profile.collateral !== null && profile.collateral > 0 && (
+                      <div className="mt-4">
+                        <div className="h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500"
+                            style={{ width: `${Math.min((profile.collateral / 6000) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] mt-1 text-right">
+                          {((profile.collateral / 6000) * 100).toFixed(1)}% do maximo
+                        </p>
+                      </div>
+                    )}
+
+                    {profile.collateral !== null && profile.collateral > 0 && (
+                      <div className="mt-4 p-3 bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/30 rounded-lg">
+                        <p className="text-sm text-cyan-700 dark:text-cyan-300">
+                          Voce pode receber pagamentos de ate R$ {profile.collateral.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de novos clientes.
+                        </p>
+                      </div>
+                    )}
+
+                    {(profile.collateral === null || profile.collateral <= 0) && (
+                      <div className="mt-4 p-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg">
+                        <p className="text-sm text-[var(--text-muted)]">
+                          O colateral nao esta configurado para sua conta.
+                        </p>
+                        <p className="text-sm text-[var(--text-muted)] mt-2">
+                          Para receber pagamentos maiores do que R$ 500,00 de <span className="text-[var(--text-primary)] font-medium">novos clientes</span>, voce precisa depositar um colateral igual ao valor que deseja ter de limite por venda.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => setShowIncreaseCollateralModal(true)}
+                        disabled={(profile.collateral || 0) >= 6000}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-100 dark:bg-cyan-600/20 hover:bg-cyan-200 dark:hover:bg-cyan-600/30 border border-cyan-300 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-400 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Aumentar
+                      </button>
+                      <button
+                        onClick={() => setShowDecreaseCollateralModal(true)}
+                        disabled={!profile.collateral || profile.collateral <= 0}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-secondary)] rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Minus className="w-4 h-4" />
+                        Diminuir
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowCollateralHistoryModal(true)}
+                      className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg text-sm transition-all"
+                    >
+                      <History className="w-4 h-4" />
+                      Ver Historico
+                    </button>
+                  </div>
+                </div>
+
                 {/* User Limits Section */}
-                <div className="mt-8">
+                <div>
                   <ErrorBoundary componentName="UserLimitsDisplay">
                     <UserLimitsDisplay />
                   </ErrorBoundary>
@@ -746,8 +870,8 @@ export default function SettingsPage() {
             <div className="space-y-8">
               {/* Change Password Section */}
               <div className="animate-slide-up">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-3">
-                  <Lock className="text-purple-400" size={20} />
+                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-3">
+                  <Lock className="text-[var(--accent)]" size={20} />
                   Alterar Senha
                 </h3>
                 <div className="space-y-4">
@@ -757,12 +881,12 @@ export default function SettingsPage() {
                       placeholder="Senha Atual"
                       value={passwordForm.currentPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -774,12 +898,12 @@ export default function SettingsPage() {
                       placeholder="Nova Senha"
                       value={passwordForm.newPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -790,13 +914,13 @@ export default function SettingsPage() {
                     placeholder="Confirmar Nova Senha"
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none"
                   />
 
                   <button
                     onClick={handlePasswordChange}
                     disabled={loading || !passwordForm.currentPassword || !passwordForm.newPassword}
-                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : 'Alterar Senha'}
                   </button>
@@ -804,30 +928,30 @@ export default function SettingsPage() {
               </div>
 
               {/* 2FA Section */}
-              <div className="border-t border-gray-700 pt-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Autenticação de Dois Fatores (2FA)</h3>
+              <div className="border-t border-[var(--border-default)] pt-8">
+                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-4">Autenticação de Dois Fatores (2FA)</h3>
 
                 {profile.twoFactorEnabled ? (
                   <div className="space-y-6">
                     {/* Status Card */}
-                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <div className="p-4 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Shield className="w-6 h-6 text-green-500" />
+                        <Shield className="w-6 h-6 text-green-600 dark:text-green-500" />
                         <div>
-                          <p className="text-green-400 font-medium">2FA Ativado</p>
-                          <p className="text-sm text-gray-400">Sua conta está protegida com autenticação de dois fatores</p>
+                          <p className="text-green-700 dark:text-green-400 font-medium">2FA Ativado</p>
+                          <p className="text-sm text-[var(--text-muted)]">Sua conta está protegida com autenticação de dois fatores</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Periodic Check Toggle */}
-                    <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                    <div className="p-4 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Clock className="w-5 h-5 text-blue-400" />
+                          <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           <div>
-                            <p className="text-white font-medium">Verificação Periódica (12h)</p>
-                            <p className="text-sm text-gray-400">Solicitar código 2FA a cada 12 horas de uso</p>
+                            <p className="text-[var(--text-primary)] font-medium">Verificação Periódica (12h)</p>
+                            <p className="text-sm text-[var(--text-muted)]">Solicitar código 2FA a cada 12 horas de uso</p>
                           </div>
                         </div>
                         <button
@@ -836,7 +960,7 @@ export default function SettingsPage() {
                           className={`relative w-14 h-7 rounded-full transition-all duration-300 ${
                             twoFAStatus.periodicCheckEnabled
                               ? 'bg-blue-600'
-                              : 'bg-gray-600'
+                              : 'bg-[var(--bg-elevated)]'
                           }`}
                         >
                           <div
@@ -849,27 +973,27 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Backup Codes Status */}
-                    <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                    <div className="p-4 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Key className="w-5 h-5 text-yellow-400" />
+                          <Key className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                           <div>
-                            <p className="text-white font-medium">Códigos de Backup</p>
-                            <p className="text-sm text-gray-400">
+                            <p className="text-[var(--text-primary)] font-medium">Códigos de Backup</p>
+                            <p className="text-sm text-[var(--text-muted)]">
                               {twoFAStatus.remainingBackupCodes} código(s) restante(s)
                             </p>
                           </div>
                         </div>
                         <button
                           onClick={() => setShowRegenerateBackupModal(true)}
-                          className="px-4 py-2 bg-yellow-600/20 text-yellow-400 rounded-lg hover:bg-yellow-600/30 transition-colors text-sm font-medium"
+                          className="px-4 py-2 bg-yellow-100 dark:bg-yellow-600/20 text-yellow-700 dark:text-yellow-400 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-600/30 transition-colors text-sm font-medium"
                         >
                           Regenerar Códigos
                         </button>
                       </div>
                       {twoFAStatus.remainingBackupCodes <= 2 && (
-                        <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-                          <p className="text-xs text-yellow-400 flex items-center gap-2">
+                        <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
+                          <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4" />
                             Poucos códigos de backup restantes. Considere gerar novos códigos.
                           </p>
@@ -880,9 +1004,9 @@ export default function SettingsPage() {
                     {/* Regenerate Backup Codes Modal */}
                     {showRegenerateBackupModal && (
                       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-700">
-                          <h3 className="text-lg font-semibold text-white mb-4">Regenerar Códigos de Backup</h3>
-                          <p className="text-sm text-gray-400 mb-4">
+                        <div className="bg-[var(--bg-secondary)] rounded-xl p-6 max-w-md w-full border border-[var(--border-default)]">
+                          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Regenerar Códigos de Backup</h3>
+                          <p className="text-sm text-[var(--text-muted)] mb-4">
                             Digite o código do seu aplicativo autenticador para gerar novos códigos de backup. Os códigos antigos serão invalidados.
                           </p>
                           <input
@@ -891,7 +1015,7 @@ export default function SettingsPage() {
                             onChange={(e) => setRegenerateToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="000000"
                             maxLength={6}
-                            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none mb-4"
+                            className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] text-center text-xl tracking-widest placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none mb-4"
                           />
                           <div className="flex gap-3">
                             <button
@@ -899,14 +1023,14 @@ export default function SettingsPage() {
                                 setShowRegenerateBackupModal(false);
                                 setRegenerateToken('');
                               }}
-                              className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                              className="flex-1 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                               Cancelar
                             </button>
                             <button
                               onClick={handleRegenerateBackupCodes}
                               disabled={loading || regenerateToken.length !== 6}
-                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                              className="flex-1 px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
                             >
                               {loading ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : 'Gerar Novos Códigos'}
                             </button>
@@ -917,17 +1041,17 @@ export default function SettingsPage() {
 
                     {/* Show Backup Codes if just regenerated */}
                     {showBackupCodes && twoFASetup.backupCodes && (
-                      <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                      <div className="p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
                         <div className="flex items-center gap-2 mb-3">
-                          <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                          <p className="text-yellow-400 font-medium">Salve seus códigos de backup!</p>
+                          <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                          <p className="text-yellow-700 dark:text-yellow-400 font-medium">Salve seus códigos de backup!</p>
                         </div>
-                        <p className="text-sm text-gray-400 mb-3">
+                        <p className="text-sm text-[var(--text-muted)] mb-3">
                           Guarde estes códigos em um local seguro. Cada código só pode ser usado uma vez.
                         </p>
                         <div className="grid grid-cols-2 gap-2 mb-4">
                           {twoFASetup.backupCodes.map((code, index) => (
-                            <div key={index} className="px-3 py-2 bg-gray-800 rounded font-mono text-sm text-white text-center">
+                            <div key={index} className="px-3 py-2 bg-[var(--bg-secondary)] rounded font-mono text-sm text-[var(--text-primary)] text-center">
                               {code}
                             </div>
                           ))}
@@ -937,14 +1061,14 @@ export default function SettingsPage() {
                             navigator.clipboard.writeText(twoFASetup.backupCodes?.join('\n') || '');
                             toast.success('Códigos copiados!');
                           }}
-                          className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center justify-center gap-2"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors text-sm flex items-center justify-center gap-2"
                         >
                           <Copy className="w-4 h-4" />
                           Copiar Todos os Códigos
                         </button>
                         <button
                           onClick={() => setShowBackupCodes(false)}
-                          className="w-full mt-2 text-sm text-gray-400 hover:text-white transition-colors"
+                          className="w-full mt-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         >
                           Já salvei meus códigos
                         </button>
@@ -955,26 +1079,26 @@ export default function SettingsPage() {
                     <button
                       onClick={() => setShow2FAModal(true)}
                       disabled={loading}
-                      className="group relative px-6 py-3 bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-400 rounded-lg hover:from-red-600/30 hover:to-orange-600/30 transition-all duration-300 disabled:opacity-50 border border-red-500/20 hover:border-red-500/40 hover:shadow-lg hover:shadow-red-500/10 transform hover:scale-105 active:scale-95"
+                      className="group relative px-6 py-3 bg-gradient-to-r from-red-100 dark:from-red-600/20 to-orange-100 dark:to-orange-600/20 text-red-700 dark:text-red-400 rounded-lg hover:from-red-200 dark:hover:from-red-600/30 hover:to-orange-200 dark:hover:to-orange-600/30 transition-all duration-300 disabled:opacity-50 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 hover:shadow-lg hover:shadow-red-500/10 transform hover:scale-105 active:scale-95"
                     >
                       <span className="flex items-center gap-2">
                         <Shield className="w-5 h-5" />
                         Desativar 2FA
                       </span>
-                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                      <div className="absolute inset-0 rounded-lg bg-red-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     {!twoFASetup.qrCode ? (
                       <div>
-                        <p className="text-gray-400 mb-4">
+                        <p className="text-[var(--text-muted)] mb-4">
                           Adicione uma camada extra de segurança à sua conta com autenticação de dois fatores.
                         </p>
                         <button
                           onClick={handleSetup2FA}
                           disabled={loading}
-                          className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 transform hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-purple-500/25"
+                          className="group relative px-6 py-3 bg-[var(--accent)] text-white rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all duration-300 disabled:opacity-50 transform hover:scale-105 active:scale-95 hover:shadow-lg"
                         >
                           <span className="flex items-center gap-2">
                             {loading ? <Loader className="w-5 h-5 animate-spin" /> : (
@@ -984,24 +1108,24 @@ export default function SettingsPage() {
                               </>
                             )}
                           </span>
-                          <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 opacity-0 group-hover:opacity-20 blur transition-opacity duration-300"></div>
+                          <div className="absolute inset-0 rounded-lg bg-[var(--accent)] opacity-0 group-hover:opacity-20 blur transition-opacity duration-300"></div>
                         </button>
                       </div>
                     ) : (
-                      <div className="bg-gradient-to-br from-gray-900/50 via-purple-900/10 to-blue-900/10 rounded-xl p-6 border border-purple-500/20">
+                      <div className="bg-[var(--bg-card)] rounded-xl p-6 border border-[var(--border-default)]">
                         <div className="grid md:grid-cols-2 gap-6">
                           {/* QR Code Section */}
                           <div className="flex flex-col items-center justify-center">
                             <div className="mb-3 text-center">
-                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/20 rounded-full mb-3">
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                                <span className="text-xs font-medium text-purple-400">Passo 1</span>
+                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--accent-soft)] rounded-full mb-3">
+                                <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-[var(--accent)]">Passo 1</span>
                               </div>
-                              <p className="text-sm text-gray-300 font-medium">Escaneie com seu app</p>
+                              <p className="text-sm text-[var(--text-secondary)] font-medium">Escaneie com seu app</p>
                             </div>
                             {twoFASetup.qrCode && (
                               <div className="relative group">
-                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+                                <div className="absolute -inset-1 bg-[var(--accent)] rounded-lg blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
                                 <div className="relative bg-black rounded-lg p-1">
                                   <Image
                                     src={twoFASetup.qrCode}
@@ -1016,11 +1140,11 @@ export default function SettingsPage() {
 
                             {/* Manual Entry Key */}
                             {twoFASetup.secret && (
-                              <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                              <div className="mt-4 p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-1.5">
-                                    <Key className="w-3.5 h-3.5 text-blue-400" />
-                                    <p className="text-xs font-medium text-blue-400">Chave Manual</p>
+                                    <Key className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                    <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Chave Manual</p>
                                   </div>
                                   <button
                                     onClick={() => {
@@ -1030,15 +1154,15 @@ export default function SettingsPage() {
                                         duration: 2000,
                                       });
                                     }}
-                                    className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                    className="p-1.5 hover:bg-[var(--bg-elevated)] rounded transition-colors"
                                     title="Copiar"
                                   >
-                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                     </svg>
                                   </button>
                                 </div>
-                                <code className="block text-xs text-gray-300 font-mono break-all">
+                                <code className="block text-xs text-[var(--text-secondary)] font-mono break-all">
                                   {twoFASetup.secret}
                                 </code>
                               </div>
@@ -1051,9 +1175,9 @@ export default function SettingsPage() {
                               <div className="text-center mb-4">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 rounded-full mb-3">
                                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                                  <span className="text-xs font-medium text-blue-400">Passo 2</span>
+                                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Passo 2</span>
                                 </div>
-                                <p className="text-sm text-gray-300 font-medium">Digite o código de 6 dígitos</p>
+                                <p className="text-sm text-[var(--text-secondary)] font-medium">Digite o código de 6 dígitos</p>
                               </div>
 
                               <div className="flex justify-center gap-2">
@@ -1105,7 +1229,7 @@ export default function SettingsPage() {
                                       }
                                     }}
                                     maxLength={1}
-                                    className="w-12 h-12 text-center text-xl font-bold bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                    className="w-12 h-12 text-center text-xl font-bold bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 transition-all"
                                   />
                                 ))}
                               </div>
@@ -1113,7 +1237,7 @@ export default function SettingsPage() {
                               <button
                                 onClick={handleVerify2FA}
                                 disabled={loading || twoFAToken.length !== 6}
-                                className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 transform hover:scale-105 active:scale-95"
+                                className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all disabled:opacity-50 transform hover:scale-105 active:scale-95"
                               >
                                 {loading ? (
                                   <Loader className="w-5 h-5 animate-spin mx-auto" />
@@ -1125,7 +1249,7 @@ export default function SettingsPage() {
                                 )}
                               </button>
 
-                              <p className="text-xs text-center text-gray-500">
+                              <p className="text-xs text-center text-[var(--text-muted)]">
                                 Use Google Authenticator, Authy ou similar
                               </p>
                             </div>
@@ -1134,14 +1258,14 @@ export default function SettingsPage() {
 
                         {/* Backup Codes */}
                         {showBackupCodes && twoFASetup.backupCodes && (
-                          <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                            <h4 className="text-yellow-400 font-medium mb-3">Códigos de Backup</h4>
-                            <p className="text-sm text-gray-400 mb-3">
+                          <div className="p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+                            <h4 className="text-yellow-700 dark:text-yellow-400 font-medium mb-3">Códigos de Backup</h4>
+                            <p className="text-sm text-[var(--text-muted)] mb-3">
                               Guarde estes códigos em um lugar seguro. Cada código pode ser usado apenas uma vez.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               {twoFASetup.backupCodes.map((code, index) => (
-                                <code key={index} className="px-3 py-2 bg-gray-700/50 rounded text-white font-mono">
+                                <code key={index} className="px-3 py-2 bg-[var(--bg-elevated)] rounded text-[var(--text-primary)] font-mono">
                                   {code}
                                 </code>
                               ))}
@@ -1159,25 +1283,25 @@ export default function SettingsPage() {
           {/* Wallet Tab */}
           {activeTab === 'wallet' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Wallet className="text-purple-400" size={24} />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
+                <Wallet className="text-[var(--accent)]" size={24} />
                 Configurações de Recebimento
               </h2>
 
-              <div className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg mb-6">
-                <p className="text-blue-400">
+              <div className="p-4 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg mb-6">
+                <p className="text-blue-700 dark:text-blue-400">
                   Configure suas formas de recebimento para pagamentos e saques.
                 </p>
               </div>
 
               {/* Warning about Payment Links */}
-              <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg mb-6">
+              <div className="p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg mb-6">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="text-yellow-400 flex-shrink-0 mt-0.5" size={20} />
+                  <AlertTriangle className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" size={20} />
                   <div>
-                    <h4 className="text-yellow-400 font-semibold mb-2">Importante sobre Links de Pagamento</h4>
-                    <p className="text-gray-300 text-sm leading-relaxed">
-                      Alterar a carteira aqui <strong className="text-white">não afeta links de pagamento já criados</strong>.
+                    <h4 className="text-yellow-700 dark:text-yellow-400 font-semibold mb-2">Importante sobre Links de Pagamento</h4>
+                    <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
+                      Alterar a carteira aqui <strong className="text-[var(--text-primary)]">não afeta links de pagamento já criados</strong>.
                       Cada link mantém a carteira configurada no momento da sua criação ou última edição.
                       Para atualizar a carteira de um link existente, edite o link diretamente na seção "Links de Pagamento".
                     </p>
@@ -1188,26 +1312,26 @@ export default function SettingsPage() {
               {/* Current Settings Display */}
               <div className="grid gap-4 mb-6">
                 {profile.defaultWalletAddress && (
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <p className="text-sm text-gray-400 mb-2 flex items-center gap-2">
+                  <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                    <p className="text-sm text-[var(--text-muted)] mb-2 flex items-center gap-2">
                       <Wallet className="w-4 h-4" />
                       Carteira Liquid Atual
                     </p>
-                    <p className="text-white font-mono text-sm break-all">{profile.defaultWalletAddress}</p>
+                    <p className="text-[var(--text-primary)] font-mono text-sm break-all">{profile.defaultWalletAddress}</p>
                   </div>
                 )}
 
                 {profile.pixKey && (
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <p className="text-sm text-gray-400 mb-2 flex items-center gap-2">
+                  <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                    <p className="text-sm text-[var(--text-muted)] mb-2 flex items-center gap-2">
                       <Key className="w-4 h-4" />
                       Chave PIX Atual
                     </p>
-                    <p className="text-white font-mono text-sm break-all">
+                    <p className="text-[var(--text-primary)] font-mono text-sm break-all">
                       {formatPixKey(profile.pixKey)}
                     </p>
                     {detectPixKeyType(profile.pixKey) && (
-                      <p className="text-xs text-purple-400 mt-2">
+                      <p className="text-xs text-[var(--accent)] mt-2">
                         Tipo: {getPixKeyTypeLabel(detectPixKeyType(profile.pixKey)!)}
                       </p>
                     )}
@@ -1217,20 +1341,20 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Tipo de Carteira
                   </label>
                   <select
                     value={walletForm.type}
                     onChange={(e) => setWalletForm({ ...walletForm, type: e.target.value as any })}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none"
                   >
                     <option value="LIQUID">Liquid Network</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Endereço da Carteira
                   </label>
                   <div className="relative">
@@ -1265,11 +1389,11 @@ export default function SettingsPage() {
                           : 'Ex: bc1...'
                       }
                       className={`
-                        w-full px-4 py-3 pr-10 bg-gray-700/50 border rounded-lg text-white placeholder-gray-400 font-mono
-                        focus:outline-none transition-all
+                        w-full px-4 py-3 pr-10 bg-[var(--bg-elevated)] border rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] font-mono
+                        focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 transition-all
                         ${walletError
                           ? 'border-red-500 focus:border-red-500'
-                          : 'border-gray-600 focus:border-blue-500'
+                          : 'border-[var(--border-default)] focus:border-[var(--accent)]'
                         }
                       `}
                     />
@@ -1288,14 +1412,14 @@ export default function SettingsPage() {
 
                   {/* Error message */}
                   {walletError && (
-                    <p className="text-sm text-red-400 mt-1">
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                       {walletError}
                     </p>
                   )}
 
                   {/* Success message with address type */}
                   {!walletError && walletForm.address && walletForm.address.length > 10 && (
-                    <p className="text-sm text-green-400 mt-1">
+                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                       ✓ Endereço {LiquidWalletValidator.getAddressType(walletForm.address)} válido
                     </p>
                   )}
@@ -1303,7 +1427,7 @@ export default function SettingsPage() {
 
                 {/* PIX Key Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Chave PIX para Saques
                   </label>
                   <div className="relative">
@@ -1331,11 +1455,11 @@ export default function SettingsPage() {
                       }}
                       placeholder="CPF, Email, Telefone ou Chave Aleatória"
                       className={`
-                        w-full px-4 py-3 pr-10 bg-gray-700/50 border rounded-lg text-white placeholder-gray-400
-                        focus:outline-none transition-all
+                        w-full px-4 py-3 pr-10 bg-[var(--bg-elevated)] border rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)]
+                        focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 transition-all
                         ${pixKeyError
                           ? 'border-red-500 focus:border-red-500'
-                          : 'border-gray-600 focus:border-blue-500'
+                          : 'border-[var(--border-default)] focus:border-[var(--accent)]'
                         }
                       `}
                     />
@@ -1354,22 +1478,22 @@ export default function SettingsPage() {
 
                   {/* Error message */}
                   {pixKeyError && (
-                    <p className="text-sm text-red-400 mt-1">
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                       {pixKeyError}
                     </p>
                   )}
 
                   {/* Success message with key type */}
                   {!pixKeyError && walletForm.pixKey && detectPixKeyType(walletForm.pixKey) && (
-                    <p className="text-sm text-green-400 mt-1">
+                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                       ✓ {getPixKeyTypeLabel(detectPixKeyType(walletForm.pixKey)!)} válido
                     </p>
                   )}
 
                   {/* PIX Key format examples */}
-                  <div className="mt-2 p-3 bg-gray-800/50 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-2">Formatos aceitos:</p>
-                    <ul className="text-xs text-gray-500 space-y-1">
+                  <div className="mt-2 p-3 bg-[var(--bg-card)] rounded-lg">
+                    <p className="text-xs text-[var(--text-muted)] mb-2">Formatos aceitos:</p>
+                    <ul className="text-xs text-[var(--text-muted)] space-y-1">
                       <li>• CPF: 123.456.789-00</li>
                       <li>• Email: exemplo@email.com</li>
                       <li>• Telefone: (11) 98765-4321</li>
@@ -1394,7 +1518,7 @@ export default function SettingsPage() {
                     }
                   }}
                   disabled={loading || (!walletForm.address && !walletForm.pixKey)}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                  className="w-full py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                 >
                   {loading ? (
                     <Loader className="w-5 h-5 animate-spin mx-auto" />
@@ -1412,28 +1536,28 @@ export default function SettingsPage() {
           {/* API Tab */}
           {activeTab === 'api' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Code className="text-purple-400" size={24} />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
+                <Code className="text-[var(--accent)]" size={24} />
                 API & Integração
               </h2>
 
               {/* Current API Keys Section - Always visible at top */}
-              <div className="p-6 bg-gradient-to-br from-green-900/20 via-blue-900/10 to-purple-900/10 rounded-xl border border-green-500/20 mb-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <Key className="text-green-400" size={20} />
+              <div className="p-6 bg-[var(--bg-card)] rounded-xl border border-[var(--border-default)] mb-6">
+                <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                  <Key className="text-green-600 dark:text-green-400" size={20} />
                   Suas API Keys
                 </h3>
 
                 {apiKeyRequests.filter(r => r.status === 'APPROVED').length > 0 ? (
                   <div className="space-y-4">
                     {apiKeyRequests.filter(r => r.status === 'APPROVED').map((request) => (
-                      <div key={request.id} className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <div key={request.id} className="p-4 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <CheckCircle className="w-5 h-5 text-green-400" />
-                            <span className="text-green-400 font-medium">API Key Ativa</span>
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <span className="text-green-700 dark:text-green-400 font-medium">API Key Ativa</span>
                           </div>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-[var(--text-muted)]">
                             Criada em {new Date(request.createdAt).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
@@ -1441,11 +1565,11 @@ export default function SettingsPage() {
                         {request.generatedApiKey ? (
                           <>
                             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                              <span className="text-sm font-medium text-white">Sua API Key:</span>
+                              <span className="text-sm font-medium text-[var(--text-primary)]">Sua API Key:</span>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                   onClick={() => toggleApiKeyVisibility(request.id)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-600/20 hover:bg-blue-200 dark:hover:bg-blue-600/30 text-blue-700 dark:text-blue-400 rounded-lg transition-colors text-sm font-medium"
                                   title={showApiKeys[request.id] ? "Ocultar API Key" : "Mostrar API Key"}
                                 >
                                   {showApiKeys[request.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1453,7 +1577,7 @@ export default function SettingsPage() {
                                 </button>
                                 <button
                                   onClick={() => copyApiKey(request.generatedApiKey)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-600/20 hover:bg-green-200 dark:hover:bg-green-600/30 text-green-700 dark:text-green-400 rounded-lg transition-colors text-sm font-medium"
                                   title="Copiar API Key"
                                 >
                                   <Copy className="w-4 h-4" />
@@ -1461,7 +1585,7 @@ export default function SettingsPage() {
                                 </button>
                                 <button
                                   onClick={() => setShowRevokeConfirm(request.id)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors text-sm font-medium"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 text-red-700 dark:text-red-400 rounded-lg transition-colors text-sm font-medium"
                                   title="Revogar API Key"
                                 >
                                   <XCircle className="w-4 h-4" />
@@ -1471,19 +1595,19 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="relative">
-                              <code className="block text-sm text-white font-mono break-all bg-gray-800 border border-gray-600 p-3 rounded">
+                              <code className="block text-sm text-[var(--text-primary)] font-mono break-all bg-[var(--bg-secondary)] border border-[var(--border-default)] p-3 rounded">
                                 {formatApiKey(request.generatedApiKey, showApiKeys[request.id] || false)}
                               </code>
                             </div>
 
                             {/* Revoke Confirmation Modal */}
                             {showRevokeConfirm === request.id && (
-                              <div className="mt-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                              <div className="mt-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-lg">
                                 <div className="flex items-start gap-3">
-                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                                   <div className="flex-1">
-                                    <h4 className="text-red-400 font-medium mb-1">Confirmar Revogação</h4>
-                                    <p className="text-sm text-gray-400 mb-3">
+                                    <h4 className="text-red-700 dark:text-red-400 font-medium mb-1">Confirmar Revogação</h4>
+                                    <p className="text-sm text-[var(--text-muted)] mb-3">
                                       Tem certeza que deseja revogar esta API Key? Esta ação é irreversível e todas as integrações que usam esta chave deixarão de funcionar imediatamente.
                                     </p>
                                     <div className="flex items-center gap-2">
@@ -1506,7 +1630,7 @@ export default function SettingsPage() {
                                       </button>
                                       <button
                                         onClick={() => setShowRevokeConfirm(null)}
-                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
+                                        className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-lg transition-colors text-sm font-medium"
                                       >
                                         Cancelar
                                       </button>
@@ -1517,34 +1641,34 @@ export default function SettingsPage() {
                             )}
                           </>
                         ) : (
-                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                            <p className="text-yellow-400 text-sm">
+                          <div className="p-3 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+                            <p className="text-yellow-700 dark:text-yellow-400 text-sm">
                               API Key ainda não foi gerada. Entre em contato com o suporte.
                             </p>
                           </div>
                         )}
 
                         {request.apiKeyExpiresAt && (
-                          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                          <p className="text-xs text-[var(--text-muted)] mt-2 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             Expira em: {new Date(request.apiKeyExpiresAt).toLocaleDateString('pt-BR')}
                           </p>
                         )}
 
-                        <div className="mt-3 text-xs text-gray-400">
-                          <p><span className="text-gray-300">Uso:</span> {request.usageReason}</p>
-                          <p><span className="text-gray-300">Serviço:</span> {request.serviceUrl}</p>
+                        <div className="mt-3 text-xs text-[var(--text-muted)]">
+                          <p><span className="text-[var(--text-secondary)]">Uso:</span> {request.usageReason}</p>
+                          <p><span className="text-[var(--text-secondary)]">Serviço:</span> {request.serviceUrl}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Key className="w-8 h-8 text-gray-400" />
+                    <div className="w-16 h-16 bg-[var(--bg-elevated)] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Key className="w-8 h-8 text-[var(--text-muted)]" />
                     </div>
-                    <h4 className="text-lg font-medium text-white mb-2">Nenhuma API Key Ativa</h4>
-                    <p className="text-gray-400 mb-4">
+                    <h4 className="text-lg font-medium text-[var(--text-primary)] mb-2">Nenhuma API Key Ativa</h4>
+                    <p className="text-[var(--text-muted)] mb-4">
                       Você ainda não possui uma API Key aprovada. Solicite uma abaixo para começar a integrar.
                     </p>
                     {!apiKeyRequests.some(r => r.status === 'PENDING') && (
@@ -1554,7 +1678,7 @@ export default function SettingsPage() {
                           const formElement = document.querySelector('[data-api-request-form]');
                           formElement?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
+                        className="px-6 py-2 bg-[var(--accent)] text-white rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all transform hover:scale-105"
                       >
                         Solicitar API Key
                       </button>
@@ -1564,26 +1688,26 @@ export default function SettingsPage() {
               </div>
 
               {/* Info Box */}
-              <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg mb-6">
-                <p className="text-purple-400">
+              <div className="p-4 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg mb-6">
+                <p className="text-[var(--accent)]">
                   Integre nossos serviços de pagamento PIX em sua aplicação usando nossa API REST.
                 </p>
               </div>
 
               {/* API Documentation - Only show for approved API keys */}
               {apiKeyRequests.some(r => r.status === 'APPROVED') && (
-                <div className="mb-8 p-6 bg-gradient-to-br from-gray-900/50 via-blue-900/10 to-purple-900/10 rounded-xl border border-blue-500/20">
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <Code className="text-blue-400" size={20} />
+                <div className="mb-8 p-6 bg-[var(--bg-card)] rounded-xl border border-[var(--border-default)]">
+                  <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                    <Code className="text-blue-600 dark:text-blue-400" size={20} />
                     Documentação da API
                   </h3>
 
                   <div className="space-y-6">
                     {/* Base URL */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Base URL</h4>
-                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                        <code className="text-sm text-blue-400 font-mono">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">Base URL</h4>
+                      <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
+                        <code className="text-sm text-blue-600 dark:text-blue-400 font-mono">
                           {API_URL}
                         </code>
                       </div>
@@ -1591,12 +1715,12 @@ export default function SettingsPage() {
 
                     {/* Authentication */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Autenticação</h4>
-                      <p className="text-sm text-gray-400 mb-3">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">Autenticação</h4>
+                      <p className="text-sm text-[var(--text-muted)] mb-3">
                         Todas as requisições devem incluir sua API Key no header:
                       </p>
-                      <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                        <code className="text-sm text-green-400 font-mono">
+                      <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
+                        <code className="text-sm text-green-600 dark:text-green-400 font-mono">
                           X-API-Key: sua-api-key-aqui
                         </code>
                       </div>
@@ -1604,23 +1728,23 @@ export default function SettingsPage() {
 
                     {/* Endpoints */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Endpoints Disponíveis</h4>
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Endpoints Disponíveis</h4>
                       <div className="space-y-4">
 
                         {/* Create PIX Transaction */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/pix/create</code>
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/pix/create</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Criar uma transação PIX</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Criar uma transação PIX</p>
 
                           <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                            <summary className="text-sm text-[var(--accent)] cursor-pointer hover:opacity-80">
                               Ver exemplo de requisição
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-[var(--border-default)]">
+                              <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
 {`{
   "amount": 100.50,
   "description": "Pagamento de teste",
@@ -1644,10 +1768,10 @@ export default function SettingsPage() {
   }
 }`}
                               </pre>
-                              <p className="text-xs text-gray-400 mt-2">
+                              <p className="text-xs text-[var(--text-muted)] mt-2">
                                 ℹ️ taxNumber é opcional para valores abaixo de R$ 3.000
                               </p>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-[var(--text-muted)] mt-1">
                                 ✅ Sem limites de tier para External API
                               </p>
                             </div>
@@ -1655,19 +1779,19 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Check Transaction Status */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/pix/status/:id</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/pix/status/:id</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Verificar status de uma transação</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Verificar status de uma transação</p>
 
                           <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                            <summary className="text-sm text-[var(--accent)] cursor-pointer hover:opacity-80">
                               Ver exemplo de resposta
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-[var(--border-default)]">
+                              <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
 {`{
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "PENDING",
@@ -1686,7 +1810,7 @@ export default function SettingsPage() {
   }
 }`}
                               </pre>
-                              <p className="text-xs text-gray-400 mt-2">
+                              <p className="text-xs text-[var(--text-muted)] mt-2">
                                 ✅ QR Code gerado automaticamente na criação
                               </p>
                             </div>
@@ -1694,19 +1818,19 @@ export default function SettingsPage() {
                         </div>
 
                         {/* List Transactions */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/pix/transactions</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/pix/transactions</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Listar transações com filtros</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Listar transações com filtros</p>
 
                           <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                            <summary className="text-sm text-[var(--accent)] cursor-pointer hover:opacity-80">
                               Ver parâmetros disponíveis
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-[var(--border-default)]">
+                              <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
 {`Query Parameters:
 - status: PENDING | COMPLETED | FAILED | EXPIRED | CANCELLED
 - type: DEPOSIT | WITHDRAW | TRANSFER
@@ -1721,19 +1845,19 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Create Payment Link */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/payment-links</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Criar um link de pagamento</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Criar um link de pagamento</p>
 
                           <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                            <summary className="text-sm text-[var(--accent)] cursor-pointer hover:opacity-80">
                               Ver exemplo de requisição - Valor Fixo
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-[var(--border-default)]">
+                              <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
 {`// Link de pagamento com valor fixo
 {
   "title": "Produto Digital",
@@ -1751,11 +1875,11 @@ export default function SettingsPage() {
                           </details>
 
                           <details className="mt-2">
-                            <summary className="text-sm text-purple-400 cursor-pointer hover:text-purple-300">
+                            <summary className="text-sm text-[var(--accent)] cursor-pointer hover:opacity-80">
                               Ver exemplo de requisição - Valor Livre (Range)
                             </summary>
-                            <div className="mt-3 p-3 bg-black/30 rounded border border-gray-700">
-                              <pre className="text-xs text-gray-300 overflow-x-auto">
+                            <div className="mt-3 p-3 bg-black/30 rounded border border-[var(--border-default)]">
+                              <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
 {`// Link de pagamento com valor livre (cliente escolhe)
 {
   "title": "Doação Flexível",
@@ -1776,57 +1900,57 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Get Payment Link */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links/:id</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/payment-links/:id</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Obter detalhes de um link de pagamento</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Obter detalhes de um link de pagamento</p>
                         </div>
 
                         {/* List Payment Links */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/payment-links</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/payment-links</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Listar seus links de pagamento</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Listar seus links de pagamento</p>
                         </div>
 
                         {/* Cancel PIX Transaction */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded">DELETE</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/pix/cancel/:id</code>
+                            <span className="px-2 py-1 bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 text-xs font-bold rounded">DELETE</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/pix/cancel/:id</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Cancelar transação PIX pendente</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Cancelar transação PIX pendente</p>
                         </div>
 
                         {/* API Usage Stats */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/stats/usage</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/stats/usage</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Estatísticas de uso da API</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Estatísticas de uso da API</p>
                         </div>
 
                         {/* User Profile */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/profile</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/profile</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Obter informações do perfil do usuário</p>
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Obter informações do perfil do usuário</p>
                         </div>
 
                         {/* Health Check */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/external/health</code>
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/external/health</code>
                           </div>
-                          <p className="text-sm text-gray-400">Health check da API (sem autenticação)</p>
+                          <p className="text-sm text-[var(--text-muted)]">Health check da API (sem autenticação)</p>
                         </div>
 
                       </div>
@@ -1834,20 +1958,20 @@ export default function SettingsPage() {
 
                     {/* Webhook Management Section */}
                     <div className="mb-6">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                         <Webhook className="w-4 h-4" />
                         Gerenciamento de Webhooks
                       </h4>
                       <div className="space-y-3">
 
                         {/* Create Webhook */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks</code>
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks</code>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">Criar webhook para payment link</p>
-                          <div className="p-3 bg-black/50 rounded border border-gray-700 text-xs font-mono text-gray-300">
+                          <p className="text-sm text-[var(--text-muted)] mb-3">Criar webhook para payment link</p>
+                          <div className="p-3 bg-black/50 rounded border border-[var(--border-default)] text-xs font-mono text-[var(--text-secondary)]">
                             <div className="text-green-400">// Body da requisição</div>
                             <div>{"{"}</div>
                             <div className="ml-2">"url": "https://meusite.com/webhook",</div>
@@ -1858,57 +1982,57 @@ export default function SettingsPage() {
                         </div>
 
                         {/* List Webhooks */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks</code>
                           </div>
-                          <p className="text-sm text-gray-400">Listar webhooks de um payment link</p>
+                          <p className="text-sm text-[var(--text-muted)]">Listar webhooks de um payment link</p>
                         </div>
 
                         {/* Update Webhook */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded">PATCH</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
+                            <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-xs font-bold rounded">PATCH</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
                           </div>
-                          <p className="text-sm text-gray-400">Atualizar webhook existente</p>
+                          <p className="text-sm text-[var(--text-muted)]">Atualizar webhook existente</p>
                         </div>
 
                         {/* Delete Webhook */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded">DELETE</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
+                            <span className="px-2 py-1 bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 text-xs font-bold rounded">DELETE</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks/:webhookId</code>
                           </div>
-                          <p className="text-sm text-gray-400">Deletar webhook</p>
+                          <p className="text-sm text-[var(--text-muted)]">Deletar webhook</p>
                         </div>
 
                         {/* Test Webhook */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/:webhookId/test</code>
+                            <span className="px-2 py-1 bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks/:webhookId/test</code>
                           </div>
-                          <p className="text-sm text-gray-400">Testar webhook com dados de exemplo</p>
+                          <p className="text-sm text-[var(--text-muted)]">Testar webhook com dados de exemplo</p>
                         </div>
 
                         {/* Validate Webhook URL */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold rounded">POST</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/validate-url</code>
+                            <span className="px-2 py-1 bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold rounded">POST</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks/validate-url</code>
                           </div>
-                          <p className="text-sm text-gray-400">Validar se URL do webhook está acessível</p>
+                          <p className="text-sm text-[var(--text-muted)]">Validar se URL do webhook está acessível</p>
                         </div>
 
                         {/* Get Available Events */}
-                        <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded">GET</span>
-                            <code className="text-sm text-white font-mono">/api/v1/payment-links/:id/webhooks/events</code>
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-[var(--text-primary)] font-mono">/api/v1/payment-links/:id/webhooks/events</code>
                           </div>
-                          <p className="text-sm text-gray-400">Listar eventos disponíveis para webhooks</p>
+                          <p className="text-sm text-[var(--text-muted)]">Listar eventos disponíveis para webhooks</p>
                         </div>
 
                       </div>
@@ -1916,60 +2040,60 @@ export default function SettingsPage() {
 
                     {/* Webhook Events Section */}
                     <div className="mb-6">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         Eventos Disponíveis
                       </h4>
-                      <p className="text-sm text-gray-400 mb-3">
+                      <p className="text-sm text-[var(--text-muted)] mb-3">
                         Configure seu webhook para receber notificações dos seguintes eventos:
                       </p>
                       <div className="space-y-3">
 
                         {/* Payment Created */}
-                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-1">
-                            <code className="text-sm text-green-400 font-mono">payment.created</code>
+                            <code className="text-sm text-green-600 dark:text-green-400 font-mono">payment.created</code>
                           </div>
-                          <p className="text-xs text-gray-400">Disparado quando um novo pagamento é criado no sistema</p>
+                          <p className="text-xs text-[var(--text-muted)]">Disparado quando um novo pagamento é criado no sistema</p>
                         </div>
 
                         {/* Payment Completed */}
-                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-1">
-                            <code className="text-sm text-green-400 font-mono">payment.completed</code>
+                            <code className="text-sm text-green-600 dark:text-green-400 font-mono">payment.completed</code>
                           </div>
-                          <p className="text-xs text-gray-400">Disparado quando um pagamento é confirmado e processado com sucesso</p>
+                          <p className="text-xs text-[var(--text-muted)]">Disparado quando um pagamento é confirmado e processado com sucesso</p>
                         </div>
 
                         {/* Payment Failed */}
-                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-1">
-                            <code className="text-sm text-red-400 font-mono">payment.failed</code>
+                            <code className="text-sm text-red-600 dark:text-red-400 font-mono">payment.failed</code>
                           </div>
-                          <p className="text-xs text-gray-400">Disparado quando um pagamento falha ou é rejeitado</p>
+                          <p className="text-xs text-[var(--text-muted)]">Disparado quando um pagamento falha ou é rejeitado</p>
                         </div>
 
                         {/* Payment Expired */}
-                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-1">
-                            <code className="text-sm text-yellow-400 font-mono">payment.expired</code>
+                            <code className="text-sm text-yellow-600 dark:text-yellow-400 font-mono">payment.expired</code>
                           </div>
-                          <p className="text-xs text-gray-400">Disparado quando um pagamento expira sem ser processado</p>
+                          <p className="text-xs text-[var(--text-muted)]">Disparado quando um pagamento expira sem ser processado</p>
                         </div>
 
                         {/* Payment Refunded */}
-                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                        <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                           <div className="flex items-center gap-2 mb-1">
-                            <code className="text-sm text-purple-400 font-mono">payment.refunded</code>
+                            <code className="text-sm text-[var(--accent)] font-mono">payment.refunded</code>
                           </div>
-                          <p className="text-xs text-gray-400">Disparado quando um pagamento é estornado ou reembolsado</p>
+                          <p className="text-xs text-[var(--text-muted)]">Disparado quando um pagamento é estornado ou reembolsado</p>
                         </div>
 
                       </div>
 
                       {/* Example Events Array */}
-                      <div className="mt-4 p-3 bg-black/50 rounded border border-gray-700">
-                        <div className="text-xs font-mono text-gray-300">
+                      <div className="mt-4 p-3 bg-black/50 rounded border border-[var(--border-default)]">
+                        <div className="text-xs font-mono text-[var(--text-secondary)]">
                           <div className="text-green-400">// Exemplo: Array de eventos no webhook</div>
                           <div className="mt-1">"events": [</div>
                           <div className="ml-4">"payment.created",</div>
@@ -1982,15 +2106,15 @@ export default function SettingsPage() {
 
                     {/* Webhook Security Section */}
                     <div className="mb-6">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                         <Shield className="w-4 h-4" />
                         Segurança dos Webhooks
                       </h4>
-                      <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                        <p className="text-sm text-gray-400 mb-3">
-                          Todos os webhooks incluem assinatura HMAC-SHA256 no header <code className="text-blue-400">X-Atlas-Signature</code>:
+                      <div className="p-4 bg-blue-100 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/20 rounded-lg">
+                        <p className="text-sm text-[var(--text-muted)] mb-3">
+                          Todos os webhooks incluem assinatura HMAC-SHA256 no header <code className="text-blue-700 dark:text-blue-400">X-Atlas-Signature</code>:
                         </p>
-                        <div className="p-3 bg-black/50 rounded border border-gray-700 text-xs font-mono text-gray-300">
+                        <div className="p-3 bg-black/50 rounded border border-[var(--border-default)] text-xs font-mono text-[var(--text-secondary)]">
                           <div className="text-green-400">// Verificar assinatura do webhook</div>
                           <div>const crypto = require('crypto');</div>
                           <div className="mt-1">const hmac = crypto.createHmac('sha256', webhookSecret);</div>
@@ -2003,51 +2127,51 @@ export default function SettingsPage() {
 
                     {/* Response Status Codes */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Códigos de Status HTTP</h4>
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Códigos de Status HTTP</h4>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
-                          <code className="text-sm text-green-400 font-mono">200 OK</code>
-                          <span className="text-sm text-gray-400">Requisição bem-sucedida</span>
+                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded">
+                          <code className="text-sm text-green-600 dark:text-green-400 font-mono">200 OK</code>
+                          <span className="text-sm text-[var(--text-muted)]">Requisição bem-sucedida</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
-                          <code className="text-sm text-blue-400 font-mono">201 Created</code>
-                          <span className="text-sm text-gray-400">Recurso criado</span>
+                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded">
+                          <code className="text-sm text-blue-600 dark:text-blue-400 font-mono">201 Created</code>
+                          <span className="text-sm text-[var(--text-muted)]">Recurso criado</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
-                          <code className="text-sm text-yellow-400 font-mono">400 Bad Request</code>
-                          <span className="text-sm text-gray-400">Dados inválidos</span>
+                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded">
+                          <code className="text-sm text-yellow-600 dark:text-yellow-400 font-mono">400 Bad Request</code>
+                          <span className="text-sm text-[var(--text-muted)]">Dados inválidos</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
-                          <code className="text-sm text-red-400 font-mono">401 Unauthorized</code>
-                          <span className="text-sm text-gray-400">API Key inválida</span>
+                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded">
+                          <code className="text-sm text-red-600 dark:text-red-400 font-mono">401 Unauthorized</code>
+                          <span className="text-sm text-[var(--text-muted)]">API Key inválida</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
-                          <code className="text-sm text-red-400 font-mono">429 Too Many Requests</code>
-                          <span className="text-sm text-gray-400">Limite de requisições excedido</span>
+                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded">
+                          <code className="text-sm text-red-600 dark:text-red-400 font-mono">429 Too Many Requests</code>
+                          <span className="text-sm text-[var(--text-muted)]">Limite de requisições excedido</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Rate Limits */}
-                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <h4 className="text-sm font-semibold text-yellow-400 mb-2 flex items-center gap-2">
+                    <div className="p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+                      <h4 className="text-sm font-semibold text-yellow-700 dark:text-yellow-400 mb-2 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
                         Limites de Taxa
                       </h4>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-[var(--text-muted)]">
                         A API possui limite de 100 requisições por minuto por API Key. Headers de resposta incluem:
                       </p>
-                      <ul className="mt-2 space-y-1 text-sm text-gray-400">
-                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Limit</code>: Limite total</li>
-                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Remaining</code>: Requisições restantes</li>
-                        <li>• <code className="text-xs text-purple-400">X-RateLimit-Reset</code>: Tempo de reset (Unix timestamp)</li>
+                      <ul className="mt-2 space-y-1 text-sm text-[var(--text-muted)]">
+                        <li>• <code className="text-xs text-[var(--accent)]">X-RateLimit-Limit</code>: Limite total</li>
+                        <li>• <code className="text-xs text-[var(--accent)]">X-RateLimit-Remaining</code>: Requisições restantes</li>
+                        <li>• <code className="text-xs text-[var(--accent)]">X-RateLimit-Reset</code>: Tempo de reset (Unix timestamp)</li>
                       </ul>
                     </div>
 
                     {/* Example cURL */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-300 mb-3">Exemplo com cURL</h4>
-                      <div className="p-3 bg-black/50 rounded-lg border border-gray-700 relative">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Exemplo com cURL</h4>
+                      <div className="p-3 bg-black/50 rounded-lg border border-[var(--border-default)] relative">
                         <button
                           onClick={() => {
                             const approvedKey = apiKeyRequests.find(r => r.status === 'APPROVED');
@@ -2072,12 +2196,12 @@ export default function SettingsPage() {
                               duration: 2000,
                             });
                           }}
-                          className="absolute top-2 right-2 p-1.5 hover:bg-gray-700 rounded transition-colors"
+                          className="absolute top-2 right-2 p-1.5 hover:bg-[var(--bg-elevated)] rounded transition-colors"
                           title="Copiar comando"
                         >
-                          <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
+                          <Copy className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                         </button>
-                        <pre className="text-xs text-gray-300 overflow-x-auto pr-8">
+                        <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto pr-8">
 {`curl -X POST ${API_URL}/external/pix/create \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${apiKeyRequests.find(r => r.status === 'APPROVED')?.generatedApiKey || 'sua-api-key'}" \\
@@ -2111,36 +2235,36 @@ export default function SettingsPage() {
               {/* Request History - Show pending/rejected requests */}
               {apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'REJECTED') && (
                 <div className="space-y-4 mb-6">
-                  <h3 className="text-lg font-semibold text-white">Histórico de Solicitações</h3>
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">Histórico de Solicitações</h3>
                   {apiKeyRequests.filter(r => r.status !== 'APPROVED').map((request) => (
-                    <div key={request.id} className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                    <div key={request.id} className="p-4 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-default)]">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              request.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' :
-                              request.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
-                              'bg-gray-500/20 text-gray-400'
+                              request.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' :
+                              request.status === 'REJECTED' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400' :
+                              'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
                             }`}>
                               {request.status === 'PENDING' ? 'Pendente' :
                                request.status === 'REJECTED' ? 'Rejeitada' :
                                request.status}
                             </span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-[var(--text-muted)]">
                               {new Date(request.createdAt).toLocaleDateString('pt-BR')}
                             </span>
                           </div>
 
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">Motivo:</span> {request.usageReason}
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            <span className="text-[var(--text-muted)]">Motivo:</span> {request.usageReason}
                           </p>
-                          <p className="text-sm text-gray-300">
-                            <span className="text-gray-400">URL do Serviço:</span> {request.serviceUrl}
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            <span className="text-[var(--text-muted)]">URL do Serviço:</span> {request.serviceUrl}
                           </p>
 
                           {request.status === 'REJECTED' && request.rejectionReason && (
-                            <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                              <p className="text-sm text-red-400">
+                            <div className="mt-3 p-3 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-lg">
+                              <p className="text-sm text-red-700 dark:text-red-400">
                                 <span className="font-medium">Motivo da Rejeição:</span> {request.rejectionReason}
                               </p>
                             </div>
@@ -2155,26 +2279,26 @@ export default function SettingsPage() {
               {/* Request Form - Only show if no pending or approved requests */}
               {!apiKeyRequests.some(r => r.status === 'PENDING' || r.status === 'APPROVED') && (
                 <div className="space-y-4" data-api-request-form>
-                  <h3 className="text-lg font-semibold text-white">Nova Solicitação</h3>
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">Nova Solicitação</h3>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       Motivo do Uso *
                     </label>
                     <textarea
                       value={apiKeyForm.usageReason}
                       onChange={(e) => setApiKeyForm({ ...apiKeyForm, usageReason: e.target.value })}
                       placeholder="Descreva como você pretende usar a API..."
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all min-h-[100px]"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all min-h-[100px]"
                       maxLength={500}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
                       {apiKeyForm.usageReason.length}/500 caracteres
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       URL do Serviço *
                     </label>
                     <input
@@ -2182,13 +2306,13 @@ export default function SettingsPage() {
                       value={apiKeyForm.serviceUrl}
                       onChange={(e) => setApiKeyForm({ ...apiKeyForm, serviceUrl: e.target.value })}
                       placeholder="https://exemplo.com.br"
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                         Volume Estimado *
                       </label>
                       <input
@@ -2196,12 +2320,12 @@ export default function SettingsPage() {
                         value={apiKeyForm.estimatedVolume}
                         onChange={(e) => setApiKeyForm({ ...apiKeyForm, estimatedVolume: e.target.value })}
                         placeholder="Ex: 100-500 transações/mês"
-                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                         Tipo de Uso *
                       </label>
                       <select
@@ -2210,13 +2334,13 @@ export default function SettingsPage() {
                           const newUsageType = e.target.value as any;
                           setApiKeyForm({ ...apiKeyForm, usageType: newUsageType });
                         }}
-                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none transition-all"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                       >
                         <option value="SINGLE_CPF">CPF Único</option>
                         <option value="MULTIPLE_CPF">Múltiplos CPFs</option>
                       </select>
                       {apiKeyForm.usageType === 'MULTIPLE_CPF' && !profile.commerceMode && (
-                        <p className="text-xs text-red-400 mt-1">
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                           ❌ É necessário ter o Modo Comércio ativado para solicitar API key para múltiplos CPF/CNPJ.
                         </p>
                       )}
@@ -2224,7 +2348,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       Contato (Telegram ou SimpleX) *
                     </label>
                     <input
@@ -2232,9 +2356,9 @@ export default function SettingsPage() {
                       value={apiKeyForm.contactInfo}
                       onChange={(e) => setApiKeyForm({ ...apiKeyForm, contactInfo: e.target.value })}
                       placeholder="Ex: @seuusuario ou endereço SimpleX"
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:outline-none transition-all"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
                       Informe seu usuário do Telegram ou endereço SimpleX para contato
                     </p>
                   </div>
@@ -2249,7 +2373,7 @@ export default function SettingsPage() {
                       !apiKeyForm.contactInfo ||
                       (apiKeyForm.usageType === 'MULTIPLE_CPF' && !profile.commerceMode)
                     }
-                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                    className="w-full py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                   >
                     {loadingApiKey ? (
                       <Loader className="w-5 h-5 animate-spin mx-auto" />
@@ -2265,8 +2389,8 @@ export default function SettingsPage() {
 
               {/* Info about existing request */}
               {apiKeyRequests.some(r => r.status === 'PENDING') && (
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                  <p className="text-yellow-400 flex items-center gap-2">
+                <div className="p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+                  <p className="text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
                     <AlertCircle className="w-5 h-5" />
                     Você já possui uma solicitação pendente. Aguarde a análise do administrador.
                   </p>
@@ -2274,8 +2398,8 @@ export default function SettingsPage() {
               )}
 
               {apiKeyRequests.some(r => r.status === 'APPROVED') && !apiKeyRequests.some(r => r.status === 'PENDING') && (
-                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <p className="text-green-400 flex items-center gap-2">
+                <div className="p-4 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-lg">
+                  <p className="text-green-700 dark:text-green-400 flex items-center gap-2">
                     <CheckCircle className="w-5 h-5" />
                     Você já possui uma API Key ativa. Entre em contato com o suporte se precisar de alterações.
                   </p>
@@ -2287,18 +2411,18 @@ export default function SettingsPage() {
           {/* Notifications Tab */}
           {activeTab === 'notifications' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-white mb-6">Preferências de Notificação</h2>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Preferências de Notificação</h2>
 
               {/* Sales Notifications - Connected to API */}
-              <div className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="text-green-400">💰</span> Notificações de Vendas
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-default)]">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                  <span className="text-green-600 dark:text-green-400">💰</span> Notificações de Vendas
                 </h3>
                 <div className="space-y-2">
-                  <label className="flex items-center justify-between cursor-pointer hover:bg-gray-700/30 p-3 rounded-lg transition-colors">
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-[var(--bg-card)] p-3 rounded-lg transition-colors">
                     <div>
-                      <span className="text-white font-medium">Compras Aprovadas</span>
-                      <p className="text-sm text-gray-400 mt-1">Receba um email quando uma venda for aprovada</p>
+                      <span className="text-[var(--text-primary)] font-medium">Compras Aprovadas</span>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Receba um email quando uma venda for aprovada</p>
                     </div>
                     <input
                       type="checkbox"
@@ -2315,13 +2439,13 @@ export default function SettingsPage() {
                           setNotifications({ ...notifications, notifyApprovedSales: !newValue });
                         }
                       }}
-                      className="w-5 h-5 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
+                      className="w-5 h-5 text-green-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-green-500"
                     />
                   </label>
-                  <label className="flex items-center justify-between cursor-pointer hover:bg-gray-700/30 p-3 rounded-lg transition-colors">
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-[var(--bg-card)] p-3 rounded-lg transition-colors">
                     <div>
-                      <span className="text-white font-medium">Compras em Revisão</span>
-                      <p className="text-sm text-gray-400 mt-1">Receba um email quando uma transação entrar em revisão</p>
+                      <span className="text-[var(--text-primary)] font-medium">Compras em Revisão</span>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Receba um email quando uma transação entrar em revisão</p>
                     </div>
                     <input
                       type="checkbox"
@@ -2338,29 +2462,42 @@ export default function SettingsPage() {
                           setNotifications({ ...notifications, notifyReviewSales: !newValue });
                         }
                       }}
-                      className="w-5 h-5 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                      className="w-5 h-5 text-yellow-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-yellow-500"
                     />
                   </label>
                 </div>
               </div>
 
               {/* Other Notifications - Future implementation */}
-              <div className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="text-blue-400">🔔</span> Outras Notificações
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-default)]">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                  <span className="text-blue-600 dark:text-blue-400">🔔</span> Outras Notificações
                 </h3>
                 <div className="space-y-2">
-                  <label className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-700/30 transition-colors">
-                    <span className="text-white">Emails de Marketing</span>
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-[var(--bg-card)] p-3 rounded-lg transition-colors">
+                    <div>
+                      <span className="text-[var(--text-primary)] font-medium">Emails de Marketing</span>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Receba novidades, promoções e atualizações da Atlas</p>
+                    </div>
                     <input
                       type="checkbox"
                       checked={notifications.marketingEmails}
-                      onChange={(e) => setNotifications({ ...notifications, marketingEmails: e.target.checked })}
-                      className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                      onChange={async (e) => {
+                        const newValue = e.target.checked;
+                        setNotifications({ ...notifications, marketingEmails: newValue });
+                        try {
+                          await api.patch('/auth/notification-settings', { marketingEmails: newValue });
+                          toast.success(newValue ? 'Emails de marketing ativados!' : 'Emails de marketing desativados');
+                        } catch (error) {
+                          console.error('Error updating notification settings:', error);
+                          toast.error('Erro ao salvar preferência');
+                          setNotifications({ ...notifications, marketingEmails: !newValue });
+                        }
+                      }}
+                      className="w-5 h-5 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                     />
                   </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-3">Estas preferências serão implementadas em breve.</p>
               </div>
             </div>
           )}
@@ -2372,6 +2509,33 @@ export default function SettingsPage() {
         isOpen={show2FAModal}
         onClose={() => setShow2FAModal(false)}
         onConfirm={handleDisable2FA}
+      />
+
+      {/* Collateral Modals */}
+      <IncreaseCollateralModal
+        isOpen={showIncreaseCollateralModal}
+        onClose={() => setShowIncreaseCollateralModal(false)}
+        onSuccess={() => {
+          setShowIncreaseCollateralModal(false);
+          loadUserProfile();
+        }}
+        currentCollateral={profile.collateral || 0}
+        maxCollateral={6000}
+      />
+
+      <DecreaseCollateralModal
+        isOpen={showDecreaseCollateralModal}
+        onClose={() => setShowDecreaseCollateralModal(false)}
+        onSuccess={() => {
+          setShowDecreaseCollateralModal(false);
+          loadUserProfile();
+        }}
+        currentCollateral={profile.collateral || 0}
+      />
+
+      <CollateralHistoryModal
+        isOpen={showCollateralHistoryModal}
+        onClose={() => setShowCollateralHistoryModal(false)}
       />
     </div>
   );

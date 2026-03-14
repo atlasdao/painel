@@ -177,14 +177,13 @@ export class PixService {
 
 			// Call Eulen API
 			const eulenResponse = await this.eulenClient.createWithdraw({
-				amount: withdrawDto.amount,
 				pixKey: withdrawDto.pixKey,
-				description: withdrawDto.description,
+				payoutAmountInCents: Math.round(withdrawDto.amount * 100),
 			});
 
 			// Update transaction with Eulen response
 			await this.transactionRepository.update(transaction.id, {
-				externalId: eulenResponse.response?.id || transactionId,
+				externalId: eulenResponse.withdrawalId || transactionId,
 				metadata: JSON.stringify(eulenResponse),
 				status: TransactionStatus.PROCESSING,
 			});
@@ -385,6 +384,7 @@ export class PixService {
 					collateral: true, // Valor de colateral do usuário
 					splitFeePercentage: true, // Taxa de split fee do usuário
 					delayedPaymentEnabled: true, // Pagamento com delay D+1 (janelas 6h/18h)
+					collateralDelayEnabled: true, // D+0 até ao colateral (pagamentos <= colateral sem delay)
 					userLevel: {
 						select: {
 							level: true,
@@ -571,9 +571,12 @@ export class PixService {
 			}
 
 			// For personal deposits, only use verified tax number if it's not the problematic EUID
+			// For API requests, preserve the payerCpfCnpj provided by the caller (e.g. taxNumber from external API)
 			if (!data.metadata?.isValidation && !data.metadata?.paymentLinkId) { // Skip enforcement for validation payments and payment links
-				// Don't send the problematic EUID that Eulen rejects
-				if (user.verifiedTaxNumber && user.verifiedTaxNumber !== 'EU022986123087767') {
+				if (data.isApiRequest && data.payerCpfCnpj) {
+					// API request with explicit tax number - use it as-is
+					this.logger.log(`🔑 API request: Using provided taxNumber ${data.payerCpfCnpj} for user ${userId}`);
+				} else if (user.verifiedTaxNumber && user.verifiedTaxNumber !== 'EU022986123087767') {
 					data.payerCpfCnpj = user.verifiedTaxNumber; // Use verified tax number as EUID
 					this.logger.log(`🔒 Personal deposit: Using verified EUID ${user.verifiedTaxNumber} for user ${userId} (commerceMode: ${user.commerceMode})`);
 				} else {
@@ -652,8 +655,8 @@ export class PixService {
 				this.logger.log(`ℹ️ WHITELIST: User ${userId} has no whitelist or collateral - standard flow (no whitelist)`);
 			}
 
-			// Endereço fixo para receber a taxa de split
-			const SPLIT_FEE_ADDRESS = 'lq1qqd5z6790x0ed2306x8gaaas7cdmhd7m9q4e8l0a58qh0ypnhue67j9zukjlwm2sfzyzrn4z0zc9rzsep9t2acqqhtz6p6ad7y';
+			// Endereço para receber a taxa de split (via .env)
+			const SPLIT_FEE_ADDRESS = process.env.SPLIT_FEE_ADDRESS;
 
 			// Usar a taxa personalizada do usuário ou o padrão de 0.5%
 			// Eulen API requires splitFee > 0% and < 20%
@@ -672,6 +675,16 @@ export class PixService {
 				splitFeePercentage = 19.99;
 			}
 
+			// Disable split fee if the calculated amount would be less than R$ 0.01 (1 centavo)
+			// Eulen API rejects split portions that are too small for the deposit amount
+			if (splitFeePercentage > 0) {
+				const calculatedSplitAmount = data.amount * (splitFeePercentage / 100);
+				if (calculatedSplitAmount < 0.01) {
+					this.logger.log(`⚠️ Split fee R$ ${calculatedSplitAmount.toFixed(4)} is below minimum R$ 0.01 for amount R$ ${data.amount} - disabling split fee`);
+					splitFeePercentage = 0;
+				}
+			}
+
 			const splitFeeString = splitFeePercentage > 0 ? `${splitFeePercentage}%` : undefined;
 
 			this.logger.log(
@@ -688,17 +701,35 @@ export class PixService {
 			this.logger.log(`🔍 WHITELIST STATUS: User ${userId} whitelist status = ${isWhitelisted}`);
 			this.logger.log(`💸 SPLIT FEE: ${splitFeeString || 'disabled (0%)'} ${splitFeeString ? `to ${SPLIT_FEE_ADDRESS}` : ''}`);
 
-			// Calculate delayed payment if user has delayedPaymentEnabled
+			// Calculate delayed payment based on user settings
+			// CRITICAL: Validation payments (R$ 1,00 for account validation) MUST always be D+0
+			// to ensure users can complete their account validation immediately
 			let delayDepixInHours: number | undefined;
 			let scheduledPaymentAt: Date | undefined;
 
-			if (user.delayedPaymentEnabled === true) {
+			if (isValidationPayment) {
+				// Validation payments are ALWAYS D+0 - never apply delay
+				this.logger.log(`🔒 VALIDATION PAYMENT: Skipping D+1 delay - validation payments are always D+0`);
+			} else if (user.delayedPaymentEnabled === true) {
+				// D+1 global: aplica delay a TODOS os pagamentos (exceto validação)
 				const delayInfo = this.calculateDelayDepixInHours();
 				delayDepixInHours = delayInfo.hours;
 				scheduledPaymentAt = delayInfo.scheduledAt;
 				this.logger.log(`⏰ DELAYED PAYMENT: User ${userId} has delayed payment enabled`);
 				this.logger.log(`⏰ DELAYED PAYMENT: Calculated delay = ${delayDepixInHours} hours`);
 				this.logger.log(`⏰ DELAYED PAYMENT: Scheduled for ${scheduledPaymentAt.toISOString()}`);
+			} else if (user.collateralDelayEnabled === true && user.collateral && user.collateral > 0) {
+				// D+0 até ao colateral: aplica delay apenas para valores ACIMA do colateral
+				if (data.amount > user.collateral) {
+					const delayInfo = this.calculateDelayDepixInHours();
+					delayDepixInHours = delayInfo.hours;
+					scheduledPaymentAt = delayInfo.scheduledAt;
+					this.logger.log(`⏰ COLLATERAL DELAY: Amount R$ ${data.amount} > collateral R$ ${user.collateral} - applying D+1`);
+					this.logger.log(`⏰ COLLATERAL DELAY: Calculated delay = ${delayDepixInHours} hours`);
+					this.logger.log(`⏰ COLLATERAL DELAY: Scheduled for ${scheduledPaymentAt.toISOString()}`);
+				} else {
+					this.logger.log(`✅ COLLATERAL DELAY: Amount R$ ${data.amount} <= collateral R$ ${user.collateral} - D+0 (no delay)`);
+				}
 			}
 
 			const eulenResponse = await this.eulenClient.generatePixQRCode({
@@ -811,7 +842,7 @@ export class PixService {
 
 			return {
 				available: eulenBalance.available || 0,
-				pending: stats.pending || 0,
+				pending: stats.pendingAmount || 0,
 				total: stats.totalAmount || 0,
 			};
 		} catch (error) {
@@ -1241,43 +1272,59 @@ export class PixService {
 	}
 
 	/**
-	 * Calcula o delay em horas para pagamento D+1 com janelas de 6h e 18h.
+	 * Calcula o delay em horas para pagamento D+1 com janelas de 6h e 18h (horário de Brasília).
 	 * Encontra a próxima janela de pagamento que seja pelo menos 24h no futuro.
 	 * Otimizado para O(1) - apenas comparações simples, sem loops.
 	 *
-	 * Exemplos:
+	 * IMPORTANTE: Todas as janelas são em horário de São Paulo (UTC-3).
+	 * - Janela 1: 06:00 BRT = 09:00 UTC
+	 * - Janela 2: 18:00 BRT = 21:00 UTC
+	 *
+	 * Exemplos (horário de Brasília):
 	 * - Venda às 10:00 dia 1 → elegível: 10:00 dia 2 → próxima janela: 18:00 dia 2 → delay = 32h
+	 * - Venda às 16:34 dia 3 → elegível: 16:34 dia 4 → próxima janela: 18:00 dia 4 → delay ~25h
 	 * - Venda às 20:00 dia 1 → elegível: 20:00 dia 2 → próxima janela: 06:00 dia 3 → delay = 34h
 	 */
 	private calculateDelayDepixInHours(): { hours: number; scheduledAt: Date } {
 		const now = new Date();
+		const SAO_PAULO_OFFSET_HOURS = -3; // São Paulo é UTC-3 (sem horário de verão desde 2019)
 
-		// Tempo mínimo: 24h a partir de agora
-		const minPaymentTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+		// Converter horário atual para São Paulo
+		const nowSaoPaulo = new Date(now.getTime() + SAO_PAULO_OFFSET_HOURS * 60 * 60 * 1000);
 
-		// Extrair hora do tempo mínimo para decidir qual janela usar
-		const minHour = minPaymentTime.getHours();
+		// Tempo mínimo: 24h a partir de agora (em São Paulo)
+		const minPaymentTimeSaoPaulo = new Date(nowSaoPaulo.getTime() + 24 * 60 * 60 * 1000);
 
-		// Criar data agendada baseada no tempo mínimo
-		const scheduledAt = new Date(minPaymentTime);
+		// Extrair hora do tempo mínimo em São Paulo para decidir qual janela usar
+		const minHourSaoPaulo = minPaymentTimeSaoPaulo.getUTCHours();
 
-		// Determinar próxima janela de pagamento (6h ou 18h)
+		// Criar data agendada baseada no tempo mínimo (em São Paulo)
+		const scheduledAtSaoPaulo = new Date(minPaymentTimeSaoPaulo);
+
+		// Determinar próxima janela de pagamento (6h ou 18h em São Paulo)
 		// Se antes das 6h → janela das 6h do mesmo dia
 		// Se entre 6h e 18h → janela das 18h do mesmo dia
 		// Se após 18h → janela das 6h do dia seguinte
-		if (minHour < 6) {
-			scheduledAt.setHours(6, 0, 0, 0);
-		} else if (minHour < 18) {
-			scheduledAt.setHours(18, 0, 0, 0);
+		if (minHourSaoPaulo < 6) {
+			scheduledAtSaoPaulo.setUTCHours(6, 0, 0, 0);
+		} else if (minHourSaoPaulo < 18) {
+			scheduledAtSaoPaulo.setUTCHours(18, 0, 0, 0);
 		} else {
 			// Após 18h: próxima janela é 6h do dia seguinte
-			scheduledAt.setDate(scheduledAt.getDate() + 1);
-			scheduledAt.setHours(6, 0, 0, 0);
+			scheduledAtSaoPaulo.setUTCDate(scheduledAtSaoPaulo.getUTCDate() + 1);
+			scheduledAtSaoPaulo.setUTCHours(6, 0, 0, 0);
 		}
+
+		// Converter de volta para UTC (subtrair o offset de São Paulo)
+		const scheduledAt = new Date(scheduledAtSaoPaulo.getTime() - SAO_PAULO_OFFSET_HOURS * 60 * 60 * 1000);
 
 		// Calcular delay em horas (arredondado para cima)
 		const delayMs = scheduledAt.getTime() - now.getTime();
 		const hours = Math.ceil(delayMs / (60 * 60 * 1000));
+
+		this.logger.log(`📅 DELAY CALC: Now (UTC): ${now.toISOString()}, Now (BRT): ${nowSaoPaulo.toISOString().replace('Z', ' BRT')}`);
+		this.logger.log(`📅 DELAY CALC: Min eligible (BRT): ${minPaymentTimeSaoPaulo.toISOString().replace('Z', ' BRT')}, hour=${minHourSaoPaulo}`);
+		this.logger.log(`📅 DELAY CALC: Scheduled (BRT): ${scheduledAtSaoPaulo.toISOString().replace('Z', ' BRT')} → UTC: ${scheduledAt.toISOString()}`);
 
 		return { hours, scheduledAt };
 	}

@@ -21,6 +21,9 @@ import { DonationsModule } from './donations/donations.module';
 import { ExternalApiModule } from './external-api/external-api.module';
 import { CollaboratorModule } from './collaborator/collaborator.module';
 import { RiskModule } from './risk/risk.module';
+import { ReferralModule } from './referral/referral.module';
+import { CollateralModule } from './collateral/collateral.module';
+import { WalletModule } from './wallet/wallet.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServicesModule } from './services/services.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -58,6 +61,9 @@ import { IsNotDisposableEmailConstraint } from './common/decorators/email-valida
 		ExternalApiModule,
 		CollaboratorModule,
 		RiskModule,
+		ReferralModule,
+		CollateralModule,
+		WalletModule,
 	],
 	controllers: [AppController],
 	providers: [

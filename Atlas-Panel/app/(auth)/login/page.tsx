@@ -226,13 +226,13 @@ export default function LoginPage() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="card bg-gray-800 border-gray-700 transition-all duration-300">
+      <div className="atlas-card">
         {/* Header */}
         <div className="mb-6">
           {(authState === 'TWO_FACTOR' || authState === 'BACKUP_CODE') && (
             <button
               onClick={handleBack}
-              className="mb-4 flex items-center text-gray-400 hover:text-white transition-colors"
+              className="mb-4 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               disabled={loading}
             >
               <ArrowLeft size={20} className="mr-2" />
@@ -242,13 +242,13 @@ export default function LoginPage() {
 
           <div className="flex items-center mb-2">
             {(authState === 'TWO_FACTOR' || authState === 'BACKUP_CODE') && (
-              <Shield className="text-blue-400 mr-3" size={28} />
+              <Shield className="text-[var(--accent)] mr-3" size={28} />
             )}
             {authState === 'SUCCESS' && (
-              <CheckCircle className="text-green-400 mr-3" size={28} />
+              <CheckCircle className="text-[var(--color-success)] mr-3" size={28} />
             )}
 
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-[var(--text-primary)]">
               {authState === 'CREDENTIALS' && 'Entrar'}
               {authState === 'VERIFYING' && 'Verificando...'}
               {authState === 'TWO_FACTOR' && 'Verificação 2FA'}
@@ -257,7 +257,7 @@ export default function LoginPage() {
             </h2>
           </div>
 
-          <p className="text-gray-400">
+          <p className="text-[var(--text-secondary)]">
             {authState === 'CREDENTIALS' && 'Acesse sua conta para continuar'}
             {authState === 'VERIFYING' && 'Verificando suas credenciais...'}
             {authState === 'TWO_FACTOR' && 'Digite o código do seu aplicativo autenticador'}
@@ -270,7 +270,7 @@ export default function LoginPage() {
         {(authState === 'CREDENTIALS' || authState === 'VERIFYING') && (
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className={authState === 'VERIFYING' ? 'opacity-50' : ''}>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="email" className="block text-sm font-medium text-[var(--text-secondary)]">
                 Email ou Nome de Usuário
               </label>
               <input
@@ -280,7 +280,7 @@ export default function LoginPage() {
                 autoComplete="username email"
                 required
                 disabled={authState === 'VERIFYING'}
-                className="input-field mt-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                className="atlas-input mt-1"
                 placeholder="seu@email.com ou username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -288,7 +288,7 @@ export default function LoginPage() {
             </div>
 
             <div className={authState === 'VERIFYING' ? 'opacity-50' : ''}>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="password" className="block text-sm font-medium text-[var(--text-secondary)]">
                 Senha
               </label>
               <div className="relative mt-1">
@@ -299,7 +299,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   disabled={authState === 'VERIFYING'}
-                  className="input-field pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                  className="atlas-input pr-10"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -311,9 +311,9 @@ export default function LoginPage() {
                   disabled={authState === 'VERIFYING'}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-300" />
+                    <EyeOff className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-300" />
+                    <Eye className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]" />
                   )}
                 </button>
               </div>
@@ -321,12 +321,12 @@ export default function LoginPage() {
 
             {/* Error Display */}
             {errors.length > 0 && authState === 'CREDENTIALS' && (
-              <div className="bg-red-900/20 border border-red-500 rounded-lg p-3">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                 <div className="flex items-start">
-                  <AlertCircle className="text-red-400 mr-2 flex-shrink-0 mt-0.5" size={16} />
+                  <AlertCircle className="text-[var(--color-error)] mr-2 flex-shrink-0 mt-0.5" size={16} />
                   <div>
                     {errors.map((error, index) => (
-                      <p key={index} className="text-red-400 text-sm">
+                      <p key={index} className="text-[var(--color-error)] text-sm">
                         {error}
                       </p>
                     ))}
@@ -337,10 +337,10 @@ export default function LoginPage() {
 
             {/* Links */}
             <div className="flex items-center justify-between text-sm">
-              <Link href="/forgot-password" className="text-blue-400 hover:text-blue-300 transition-colors">
+              <Link href="/forgot-password" className="text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors">
                 Esqueceu a senha?
               </Link>
-              <Link href="/register" className="text-blue-400 hover:text-blue-300 transition-colors">
+              <Link href="/register" className="text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors">
                 Criar conta
               </Link>
             </div>
@@ -349,11 +349,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || authState === 'VERIFYING'}
-              className="btn btn-primary w-full flex items-center justify-center"
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300 mr-2"></span>
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                   {authState === 'VERIFYING' ? 'Verificando...' : 'Entrando...'}
                 </>
               ) : (
@@ -383,7 +383,7 @@ export default function LoginPage() {
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(index, e)}
                   onPaste={index === 0 ? handleOtpPaste : undefined}
-                  className="w-12 h-12 text-center text-xl font-bold bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="w-12 h-12 text-center text-xl font-bold bg-[var(--bg-elevated)] border-2 border-[var(--border-default)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] transition-all"
                   placeholder="•"
                   autoFocus={index === 0}
                   disabled={loading}
@@ -393,12 +393,12 @@ export default function LoginPage() {
 
             {/* Error Display for 2FA */}
             {errors.length > 0 && (
-              <div className="bg-red-900/20 border border-red-500 rounded-lg p-3">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                 <div className="flex items-start">
-                  <AlertCircle className="text-red-400 mr-2 flex-shrink-0 mt-0.5" size={16} />
+                  <AlertCircle className="text-[var(--color-error)] mr-2 flex-shrink-0 mt-0.5" size={16} />
                   <div>
                     {errors.map((error, index) => (
-                      <p key={index} className="text-red-400 text-sm">
+                      <p key={index} className="text-[var(--color-error)] text-sm">
                         {error}
                       </p>
                     ))}
@@ -411,11 +411,11 @@ export default function LoginPage() {
             <button
               onClick={() => handleVerify2FA()}
               disabled={loading || otpCode.some(v => !v)}
-              className="btn btn-primary w-full flex items-center justify-center"
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300 mr-2"></span>
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                   Verificando...
                 </>
               ) : (
@@ -427,7 +427,7 @@ export default function LoginPage() {
             </button>
 
             {/* Help Text */}
-            <div className="text-center text-sm text-gray-400">
+            <div className="text-center text-sm text-[var(--text-muted)]">
               <p>Digite o código de 6 dígitos do seu aplicativo autenticador</p>
               <p className="mt-2">
                 Não tem acesso ao aplicativo?{' '}
@@ -437,7 +437,7 @@ export default function LoginPage() {
                     setAuthState('BACKUP_CODE');
                     setErrors([]);
                   }}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
                 >
                   Usar código de backup
                 </button>
@@ -451,7 +451,7 @@ export default function LoginPage() {
           <div className="space-y-6">
             {/* Backup Code Input */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Código de Backup
               </label>
               <input
@@ -463,23 +463,23 @@ export default function LoginPage() {
                 }}
                 placeholder="XXXXXXXX"
                 maxLength={8}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+                className="atlas-input text-center text-xl tracking-widest uppercase"
                 disabled={loading}
                 autoFocus
               />
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
                 Cada código de backup só pode ser usado uma vez
               </p>
             </div>
 
             {/* Error Display for Backup Code */}
             {errors.length > 0 && (
-              <div className="bg-red-900/20 border border-red-500 rounded-lg p-3">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                 <div className="flex items-start">
-                  <AlertCircle className="text-red-400 mr-2 flex-shrink-0 mt-0.5" size={16} />
+                  <AlertCircle className="text-[var(--color-error)] mr-2 flex-shrink-0 mt-0.5" size={16} />
                   <div>
                     {errors.map((error, index) => (
-                      <p key={index} className="text-red-400 text-sm">
+                      <p key={index} className="text-[var(--color-error)] text-sm">
                         {error}
                       </p>
                     ))}
@@ -492,11 +492,11 @@ export default function LoginPage() {
             <button
               onClick={handleVerifyBackupCode}
               disabled={loading || backupCode.length < 6}
-              className="btn btn-primary w-full flex items-center justify-center"
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300 mr-2"></span>
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                   Verificando...
                 </>
               ) : (
@@ -508,8 +508,8 @@ export default function LoginPage() {
             </button>
 
             {/* Info */}
-            <div className="p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-              <p className="text-xs text-blue-300">
+            <div className="p-3 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg">
+              <p className="text-xs text-[var(--accent)]">
                 Os códigos de backup foram gerados quando você ativou o 2FA. Se você não salvou seus códigos de backup, entre em contato com o suporte.
               </p>
             </div>
@@ -519,11 +519,11 @@ export default function LoginPage() {
         {/* Success State */}
         {authState === 'SUCCESS' && (
           <div className="text-center py-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-900/30 border-2 border-green-500 rounded-full mb-4">
-              <CheckCircle className="text-green-400" size={32} />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 border-2 border-green-500 rounded-full mb-4">
+              <CheckCircle className="text-[var(--color-success)]" size={32} />
             </div>
-            <p className="text-gray-300">Login realizado com sucesso!</p>
-            <p className="text-sm text-gray-500 mt-2">Redirecionando...</p>
+            <p className="text-[var(--text-secondary)]">Login realizado com sucesso!</p>
+            <p className="text-sm text-[var(--text-muted)] mt-2">Redirecionando...</p>
           </div>
         )}
       </div>

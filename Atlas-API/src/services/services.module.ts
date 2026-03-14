@@ -10,6 +10,7 @@ import { LiquidValidationService } from './liquid-validation.service';
 import { MockPaymentService } from './mock-payment.service';
 import { EmailDomainSyncService } from './email-domain-sync.service';
 import { ReviewEmailService } from './review-email.service';
+import { LwkService } from './lwk.service';
 import { UserLimitRepository } from '../repositories/user-limit.repository';
 import { BlockedEmailDomainRepository } from '../repositories/blocked-email-domain.repository';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -29,6 +30,7 @@ import { IsNotDisposableEmailConstraint } from '../common/decorators/email-valid
 		MockPaymentService,
 		EmailDomainSyncService,
 		ReviewEmailService,
+		LwkService,
 		UserLimitRepository,
 		BlockedEmailDomainRepository,
 		IsNotDisposableEmailConstraint,
@@ -44,6 +46,7 @@ import { IsNotDisposableEmailConstraint } from '../common/decorators/email-valid
 		MockPaymentService,
 		EmailDomainSyncService,
 		ReviewEmailService,
+		LwkService,
 		UserLimitRepository,
 		BlockedEmailDomainRepository,
 		IsNotDisposableEmailConstraint,

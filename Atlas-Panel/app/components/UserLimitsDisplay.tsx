@@ -57,17 +57,16 @@ export default function UserLimitsDisplay() {
     };
 
     fetchLimits();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchLimits, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const getStatusColor = (type: string) => {
     switch (type) {
-      case 'safe': return 'text-green-400';
-      case 'warning': return 'text-yellow-400';
-      case 'danger': return 'text-red-400';
-      default: return 'text-gray-400';
+      case 'safe': return 'text-green-600 dark:text-green-400';
+      case 'warning': return 'text-yellow-600 dark:text-yellow-400';
+      case 'danger': return 'text-red-600 dark:text-red-400';
+      default: return 'text-[var(--text-muted)]';
     }
   };
 
@@ -81,9 +80,9 @@ export default function UserLimitsDisplay() {
   };
 
   const getProgressBarColor = (percentage: number) => {
-    if (percentage < 50) return 'bg-gradient-to-r from-green-500 to-emerald-500';
-    if (percentage < 80) return 'bg-gradient-to-r from-yellow-500 to-orange-500';
-    return 'bg-gradient-to-r from-red-500 to-pink-500';
+    if (percentage < 50) return 'bg-green-500';
+    if (percentage < 80) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
   const formatCurrency = (value: number | null | undefined) => {
@@ -106,38 +105,36 @@ export default function UserLimitsDisplay() {
   };
 
   const renderLimitCard = (key: string, data: LimitData, icon: React.ReactNode) => {
-    // Early validation - if data is null or missing required fields, show fallback
     if (!data || typeof data !== 'object') {
       return (
-        <div className="glass-card p-6 border border-red-500/20">
-          <p className="text-red-400">Dados inválidos para {key}</p>
+        <div className="atlas-card border-red-300 dark:border-red-500/20">
+          <p className="text-red-600 dark:text-red-400">Dados invalidos para {key}</p>
         </div>
       );
     }
 
-    // Special rendering for single transaction limit (static display)
     if (data.displayType === 'static') {
       return (
-        <div className="glass-card p-6 hover:scale-105 transition-all duration-300 border border-purple-500/20">
+        <div className="atlas-card">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
+              <div className="atlas-icon">
                 {icon}
               </div>
               <div>
-                <h4 className="text-sm text-gray-400">{data.title}</h4>
-                <p className="text-2xl font-bold text-white">
+                <h4 className="text-sm text-[var(--text-muted)]">{data.title}</h4>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {formatCurrency(data.limit)}
                 </p>
               </div>
             </div>
-            <Zap className="w-5 h-5 text-purple-400" />
+            <Zap className="w-5 h-5 text-[var(--accent)]" />
           </div>
 
           {data.largestToday !== undefined && (
-            <div className="pt-3 border-t border-gray-700">
-              <p className="text-sm text-gray-400">Maior transação hoje:</p>
-              <p className="text-lg font-semibold text-white">
+            <div className="pt-3 border-t border-[var(--border-default)]">
+              <p className="text-sm text-[var(--text-muted)]">Maior transacao hoje:</p>
+              <p className="text-lg font-semibold text-[var(--text-primary)]">
                 {formatCurrency(data.largestToday)}
               </p>
             </div>
@@ -146,31 +143,30 @@ export default function UserLimitsDisplay() {
       );
     }
 
-    // Regular progress bar card
     return (
-      <div className="glass-card p-6 hover:scale-105 transition-all duration-300 border border-blue-500/20">
+      <div className="atlas-card">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-500/20 rounded-lg">
+            <div className="atlas-icon">
               {icon}
             </div>
-            <h4 className="text-sm font-medium text-gray-300">{data.title}</h4>
+            <h4 className="text-sm font-medium text-[var(--text-secondary)]">{data.title}</h4>
           </div>
-          <Clock className="w-4 h-4 text-gray-500" />
+          <Clock className="w-4 h-4 text-[var(--text-muted)]" />
         </div>
 
         <div className="space-y-3">
           <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-bold text-white">
+            <span className="text-2xl font-bold text-[var(--text-primary)]">
               {formatCurrency(data.used)}
             </span>
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-[var(--text-muted)]">
               / {formatCurrency(data.limit)}
             </span>
           </div>
 
           <div className="relative">
-            <div className="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-[var(--bg-elevated)] rounded-full h-2 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(safePercentage(data.percentage))}`}
                 style={{ width: `${safePercentage(data.percentage)}%` }}
@@ -179,17 +175,17 @@ export default function UserLimitsDisplay() {
           </div>
 
           <div className="flex justify-between text-xs">
-            <span className="text-gray-500">
-              Disponível: {formatCurrency(data.remaining)}
+            <span className="text-[var(--text-muted)]">
+              Disponivel: {formatCurrency(data.remaining)}
             </span>
-            <span className="text-gray-500">
+            <span className="text-[var(--text-muted)]">
               {Math.round(safePercentage(data.percentage))}%
             </span>
           </div>
 
           {data.resetsIn && (
-            <div className="pt-2 border-t border-gray-700/50">
-              <p className="text-xs text-gray-500">
+            <div className="pt-2 border-t border-[var(--border-default)]">
+              <p className="text-xs text-[var(--text-muted)]">
                 <Clock className="w-3 h-3 inline mr-1" />
                 Reseta em {data.resetsIn}
               </p>
@@ -202,14 +198,14 @@ export default function UserLimitsDisplay() {
 
   if (loading) {
     return (
-      <div className="p-6 bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl backdrop-blur-xl">
+      <div className="atlas-card">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-700/50 rounded w-1/3 mb-6"></div>
+          <div className="h-8 bg-[var(--skeleton-bg)] rounded w-1/3 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="h-40 bg-gray-700/50 rounded-lg"></div>
-            <div className="h-40 bg-gray-700/50 rounded-lg"></div>
-            <div className="h-40 bg-gray-700/50 rounded-lg"></div>
-            <div className="h-40 bg-gray-700/50 rounded-lg"></div>
+            <div className="h-40 bg-[var(--skeleton-bg)] rounded-lg"></div>
+            <div className="h-40 bg-[var(--skeleton-bg)] rounded-lg"></div>
+            <div className="h-40 bg-[var(--skeleton-bg)] rounded-lg"></div>
+            <div className="h-40 bg-[var(--skeleton-bg)] rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -218,10 +214,10 @@ export default function UserLimitsDisplay() {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-900/20 border border-red-500/50 rounded-xl backdrop-blur-xl">
+      <div className="p-6 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl">
         <div className="flex items-center gap-3">
-          <XCircle className="w-6 h-6 text-red-400" />
-          <p className="text-red-400">{error}</p>
+          <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+          <p className="text-red-600 dark:text-red-400">{error}</p>
         </div>
       </div>
     );
@@ -229,8 +225,8 @@ export default function UserLimitsDisplay() {
 
   if (!limits) {
     return (
-      <div className="p-6 bg-gray-800/50 rounded-xl backdrop-blur-xl">
-        <p className="text-gray-400">Nenhum limite disponível</p>
+      <div className="atlas-card">
+        <p className="text-[var(--text-muted)]">Nenhum limite disponivel</p>
       </div>
     );
   }
@@ -239,44 +235,33 @@ export default function UserLimitsDisplay() {
     const status = limits.status as StatusInfo;
 
     return (
-      <div className="p-6 bg-gradient-to-br from-gray-800/30 to-gray-900/30 rounded-xl backdrop-blur-xl border border-gray-700/50">
+      <div className="atlas-card">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Shield className="w-7 h-7 text-purple-400" />
+          <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-3">
+            <Shield className="w-6 h-6 text-[var(--accent)]" />
             Meus Limites
           </h3>
-
-          {status && (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/50 ${getStatusColor(status.type)}`}>
-              {getStatusIcon(status.type)}
-              <span className="text-sm font-medium">{status.title}</span>
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Daily Personal Limit */}
           {limits.limits?.dailyPersonal && (
             renderLimitCard('dailyPersonal', limits.limits.dailyPersonal,
-              <Shield className="w-5 h-5 text-green-400" />)
+              <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />)
           )}
 
-          {/* Single Transaction Limit - Static Display */}
           {limits.limits?.singleTransaction && (
             renderLimitCard('singleTransaction', limits.limits.singleTransaction,
-              <CreditCard className="w-5 h-5 text-purple-400" />)
+              <CreditCard className="w-5 h-5 text-[var(--accent)]" />)
           )}
 
-          {/* Daily API/Commerce Limit */}
           {limits.limits?.dailyApi && (
             renderLimitCard('dailyApi', limits.limits.dailyApi,
-              <Zap className="w-5 h-5 text-yellow-400" />)
+              <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />)
           )}
 
-          {/* Monthly API/Commerce Limit */}
           {limits.limits?.monthlyApi && (
             renderLimitCard('monthlyApi', limits.limits.monthlyApi,
-              <TrendingUp className="w-5 h-5 text-orange-400" />)
+              <TrendingUp className="w-5 h-5 text-orange-600 dark:text-orange-400" />)
           )}
         </div>
 
@@ -285,18 +270,18 @@ export default function UserLimitsDisplay() {
   } catch (renderError) {
     console.error('UserLimitsDisplay render error:', renderError);
     return (
-      <div className="p-6 bg-gradient-to-br from-red-800/30 to-red-900/30 rounded-xl backdrop-blur-xl border border-red-700/50">
+      <div className="p-6 bg-red-100 dark:bg-red-500/10 rounded-xl border border-red-300 dark:border-red-500/20">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-            <AlertCircle className="w-7 h-7 text-red-400" />
+          <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-3">
+            <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
             Erro nos Limites
           </h3>
         </div>
-        <div className="p-4 rounded-lg border bg-red-900/20 border-red-500/30">
-          <p className="text-red-300">
+        <div className="p-4 rounded-lg border bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20">
+          <p className="text-red-700 dark:text-red-300">
             Erro ao renderizar os limites. Dados podem estar malformados.
           </p>
-          <p className="text-xs text-red-400 mt-2">
+          <p className="text-xs text-red-600 dark:text-red-400 mt-2">
             Erro: {renderError instanceof Error ? renderError.message : 'Erro desconhecido'}
           </p>
         </div>

@@ -47,13 +47,13 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
       case 'COMPLETED':
         return 'Recebido em sua carteira';
       case 'PROCESSING':
-        return 'Pago. Liberação na próxima remessa';
+        return 'Pago. Liberacao na proxima remessa';
       case 'PENDING':
         return 'Aguardando pagamento';
       case 'IN_REVIEW':
         return 'Contate o suporte';
       case 'FAILED':
-        return 'Pagamento cancelado ou não concluído';
+        return 'Pagamento cancelado ou nao concluido';
       case 'EXPIRED':
         return 'Tempo limite excedido';
       default:
@@ -69,49 +69,49 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
         return {
           label,
           tooltip,
-          color: 'text-blue-400 bg-blue-900/50',
+          color: 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10',
           icon: <CheckCircle className="w-4 h-4" />,
         };
       case 'PENDING':
         return {
           label,
           tooltip,
-          color: 'text-yellow-400 bg-yellow-900/50',
+          color: 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-500/10',
           icon: <Clock className="w-4 h-4" />,
         };
       case 'PROCESSING':
         return {
           label,
           tooltip,
-          color: 'text-green-400 bg-green-900/50',
+          color: 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10',
           icon: <CheckCircle className="w-4 h-4" />,
         };
       case 'IN_REVIEW':
         return {
           label,
           tooltip,
-          color: 'text-purple-400 bg-purple-900/50',
+          color: 'text-purple-700 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10',
           icon: <Activity className="w-4 h-4" />,
         };
       case 'FAILED':
         return {
           label,
           tooltip,
-          color: 'text-red-400 bg-red-900/50',
+          color: 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/10',
           icon: <XCircle className="w-4 h-4" />,
         };
       case 'EXPIRED':
         return {
           label,
           tooltip,
-          color: 'text-orange-400 bg-orange-900/50',
+          color: 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-500/10',
           icon: <Clock className="w-4 h-4" />,
         };
       default:
         return {
           label,
           tooltip,
-          color: 'text-gray-400 bg-gray-700',
+          color: 'text-[var(--text-muted)] bg-[var(--bg-elevated)]',
           icon: <AlertCircle className="w-4 h-4" />,
         };
     }
@@ -121,91 +121,83 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
     switch (type) {
       case 'DEPOSIT':
         return {
-          label: 'Depósito',
-          icon: <ArrowDownLeft className="w-5 h-5 text-green-400" />,
-          color: 'text-green-400',
+          label: 'Deposito',
+          icon: <ArrowDownLeft className="w-5 h-5 text-green-600 dark:text-green-400" />,
+          color: 'text-green-600 dark:text-green-400',
         };
       case 'WITHDRAW':
         return {
           label: 'Saque',
-          icon: <ArrowUpRight className="w-5 h-5 text-red-400" />,
-          color: 'text-red-400',
+          icon: <ArrowUpRight className="w-5 h-5 text-red-600 dark:text-red-400" />,
+          color: 'text-red-600 dark:text-red-400',
         };
       case 'TRANSFER':
         return {
-          label: 'Transferência',
-          icon: <Activity className="w-5 h-5 text-blue-400" />,
-          color: 'text-blue-400',
+          label: 'Transferencia',
+          icon: <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />,
+          color: 'text-blue-600 dark:text-blue-400',
         };
       default:
         return {
           label: type,
-          icon: <Activity className="w-5 h-5 text-gray-400" />,
-          color: 'text-gray-400',
+          icon: <Activity className="w-5 h-5 text-[var(--text-muted)]" />,
+          color: 'text-[var(--text-muted)]',
         };
     }
   };
 
   return (
     <div
-      className={`glass-card ${isAnimated ? 'animate-slide-up' : ''}`}
+      className={`atlas-card overflow-hidden ${isAnimated ? 'animate-slide-up' : ''}`}
       style={{ animationDelay: '600ms' }}
     >
-      <div className="flex items-center justify-between p-6 border-b border-gray-700">
-        <h2 className="text-xl font-bold text-white flex items-center">
-          <Activity className="mr-2" />
+      <div className="flex items-center justify-between p-6 border-b border-[var(--border-default)]">
+        <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center">
+          <Activity className="mr-2 w-5 h-5" />
           {isAdmin
-            ? 'Transações Recentes do Sistema'
-            : 'Suas Transações Recentes'}
+            ? 'Transacoes Recentes do Sistema'
+            : 'Suas Transacoes Recentes'}
         </h2>
         {onViewAll && (
           <button
             onClick={onViewAll}
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors btn-pop"
+            className="text-sm text-[var(--accent)] hover:opacity-80 transition-colors"
           >
-            Ver todas →
+            Ver todas
           </button>
         )}
       </div>
 
       {transactions.length === 0 ? (
         <div className="p-12 text-center">
-          <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400">Nenhuma transação encontrada</p>
-          {!isAdmin && (
-            <a
-              href="/deposit"
-              className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors btn-pop"
-            >
-              Fazer primeiro depósito
-            </a>
-          )}
+          <Activity className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+          <p className="text-[var(--text-muted)]">Nenhuma transacao encontrada</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-900/50">
+            <thead className="bg-[var(--bg-elevated)]">
               <tr>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left py-3 px-6 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                   Tipo
                 </th>
                 {isAdmin && (
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Usuário
+                  <th className="text-left py-3 px-6 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                    Usuario
                   </th>
                 )}
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left py-3 px-6 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                   Valor
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left py-3 px-6 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                   Status
                 </th>
-                <th className="text-left py-3 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="text-left py-3 px-6 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                   Data/Hora
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-[var(--border-default)]">
               {transactions.map((transaction, index) => {
                 const typeInfo = getTransactionTypeInfo(transaction.type);
                 const statusInfo = getStatusInfo(transaction.status);
@@ -213,7 +205,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
                 return (
                   <tr
                     key={transaction.id}
-                    className={`hover:bg-gray-700/30 transition-colors ${
+                    className={`hover:bg-[var(--bg-elevated)] transition-colors ${
                       isAnimated ? 'animate-slide-up' : ''
                     }`}
                     style={{ animationDelay: `${700 + index * 50}ms` }}
@@ -228,7 +220,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
                     </td>
                     {isAdmin && (
                       <td className="py-4 px-6">
-                        <span className="text-sm text-gray-300">
+                        <span className="text-sm text-[var(--text-secondary)]">
                           {transaction.user?.username ||
                             transaction.userId?.slice(0, 8) ||
                             '-'}
@@ -236,13 +228,13 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
                       </td>
                     )}
                     <td className="py-4 px-6">
-                      <span className="text-sm font-semibold text-white">
+                      <span className="text-sm font-semibold text-[var(--text-primary)]">
                         {formatCurrency(transaction.amount)}
                       </span>
                     </td>
                     <td className="py-4 px-6">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} btn-pop cursor-help`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} cursor-help`}
                         title={statusInfo.tooltip}
                       >
                         {statusInfo.icon}
@@ -250,7 +242,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="text-sm text-gray-400">
+                      <span className="text-sm text-[var(--text-muted)]">
                         {formatDate(transaction.createdAt)}
                       </span>
                     </td>

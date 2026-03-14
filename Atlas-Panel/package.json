@@ -9,16 +9,26 @@
     "start": "next start --port 11337",
     "lint": "next lint",
     "check-deps": "node scripts/check-dependencies.js",
-    "prebuild": "node scripts/check-dependencies.js"
+    "prebuild": "node scripts/check-dependencies.js",
+    "deploy": "./deploy.sh",
+    "deploy:restart": "PM2_HOME=/home/cmo/.pm2 pm2 restart atlas-panel --update-env"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.85.3",
     "@types/qrcode": "^1.5.5",
+    "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "axios": "^1.11.0",
+    "bip32": "^5.0.1",
+    "bip39": "^3.1.0",
+    "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.3",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.22",
+    "html2canvas": "^1.4.1",
+    "html5-qrcode": "^2.3.8",
     "js-cookie": "^3.0.5",
+    "jspdf": "^4.2.0",
+    "liquidjs-lib": "^6.0.2-liquid.37",
     "lucide-react": "^0.540.0",
     "next": "15.4.6",
     "qrcode": "^1.5.4",
@@ -26,7 +36,8 @@
     "react-circular-progressbar": "^2.2.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.7",
+    "tiny-secp256k1": "^2.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

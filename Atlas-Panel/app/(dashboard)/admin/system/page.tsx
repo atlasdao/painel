@@ -67,6 +67,10 @@ export default function AdminSystemPage() {
   });
   const [savingValidation, setSavingValidation] = useState(false);
 
+  // Support Widget Keys State
+  const [supportKeys, setSupportKeys] = useState({ loggedKey: '', unloggedKey: '' });
+  const [savingSupportKeys, setSavingSupportKeys] = useState(false);
+
   // Incident Management State
   const [incidents, setIncidents] = useState<any[]>([]);
   const [incidentLoading, setIncidentLoading] = useState(true);
@@ -150,6 +154,35 @@ export default function AdminSystemPage() {
       loadWarnings();
     }
   }, [activeTab]);
+
+  // Load support widget keys when switching to settings tab
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      loadSupportWidgetKeys();
+    }
+  }, [activeTab]);
+
+  const loadSupportWidgetKeys = async () => {
+    try {
+      const response = await api.get('/admin/system/support-widget-keys');
+      setSupportKeys(response.data);
+    } catch (error) {
+      console.error('Error loading support widget keys:', error);
+    }
+  };
+
+  const handleSaveSupportKeys = async () => {
+    setSavingSupportKeys(true);
+    try {
+      await api.put('/admin/system/support-widget-keys', supportKeys);
+      toast.success('Chaves de suporte atualizadas com sucesso!');
+    } catch (error: any) {
+      console.error('Error saving support widget keys:', error);
+      toast.error(error.response?.data?.message || 'Erro ao salvar chaves de suporte');
+    } finally {
+      setSavingSupportKeys(false);
+    }
+  };
 
   const loadWarnings = async () => {
     setWarningsLoading(true);
@@ -277,11 +310,11 @@ export default function AdminSystemPage() {
 
   const getWarningTypeColor = (type: string) => {
     switch (type) {
-      case 'INFO': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'WARNING': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'CRITICAL': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'SUCCESS': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      case 'INFO': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/30';
+      case 'WARNING': return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30';
+      case 'CRITICAL': return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30';
+      case 'SUCCESS': return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/30';
+      default: return 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border-default)]';
     }
   };
 
@@ -515,26 +548,26 @@ export default function AdminSystemPage() {
 
   const getActionIcon = (action: string) => {
     if (action.includes('LOGIN') || action.includes('LOGOUT')) {
-      return <User className="w-4 h-4 text-blue-400" />;
+      return <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
     }
     if (action.includes('CREATE') || action.includes('POST')) {
-      return <div className="w-4 h-4 bg-green-400 rounded-full" />;
+      return <div className="w-4 h-4 bg-green-600 dark:bg-green-400 rounded-full" />;
     }
     if (action.includes('UPDATE') || action.includes('PUT') || action.includes('PATCH')) {
-      return <div className="w-4 h-4 bg-yellow-400 rounded-full" />;
+      return <div className="w-4 h-4 bg-yellow-600 dark:bg-yellow-400 rounded-full" />;
     }
     if (action.includes('DELETE')) {
-      return <div className="w-4 h-4 bg-red-400 rounded-full" />;
+      return <div className="w-4 h-4 bg-red-600 dark:bg-red-400 rounded-full" />;
     }
-    return <Activity className="w-4 h-4 text-gray-400" />;
+    return <Activity className="w-4 h-4 text-[var(--text-muted)]" />;
   };
 
   const getStatusColor = (statusCode?: number) => {
-    if (!statusCode) return 'text-gray-400';
-    if (statusCode >= 200 && statusCode < 300) return 'text-green-400';
-    if (statusCode >= 400 && statusCode < 500) return 'text-yellow-400';
-    if (statusCode >= 500) return 'text-red-400';
-    return 'text-gray-400';
+    if (!statusCode) return 'text-[var(--text-muted)]';
+    if (statusCode >= 200 && statusCode < 300) return 'text-green-600 dark:text-green-400';
+    if (statusCode >= 400 && statusCode < 500) return 'text-yellow-600 dark:text-yellow-400';
+    if (statusCode >= 500) return 'text-red-600 dark:text-red-400';
+    return 'text-[var(--text-muted)]';
   };
 
   // Incident Management Functions
@@ -626,28 +659,28 @@ export default function AdminSystemPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
       case 'critical':
-        return 'text-red-400 bg-red-900/20';
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
       case 'major':
-        return 'text-orange-400 bg-orange-900/20';
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20';
       case 'minor':
-        return 'text-yellow-400 bg-yellow-900/20';
+        return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/20';
       default:
-        return 'text-gray-400 bg-gray-900/20';
+        return 'text-[var(--text-muted)] bg-[var(--bg-secondary)]';
     }
   };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'resolved':
-        return 'text-green-400 bg-green-900/20';
+        return 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20';
       case 'monitoring':
-        return 'text-blue-400 bg-blue-900/20';
+        return 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20';
       case 'identified':
-        return 'text-orange-400 bg-orange-900/20';
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20';
       case 'investigating':
-        return 'text-red-400 bg-red-900/20';
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
       default:
-        return 'text-gray-400 bg-gray-900/20';
+        return 'text-[var(--text-muted)] bg-[var(--bg-secondary)]';
     }
   };
 
@@ -673,10 +706,10 @@ export default function AdminSystemPage() {
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
       
-      <h1 className="text-3xl font-bold mb-8 text-white">Sistema</h1>
+      <h1 className="text-3xl font-bold mb-8 text-[var(--text-primary)]">Sistema</h1>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-700 mb-8">
+      <div className="border-b border-[var(--border-default)] mb-8">
         <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -687,7 +720,7 @@ export default function AdminSystemPage() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
                 }`}
               >
                 <Icon className="mr-2" size={16} />
@@ -705,79 +738,79 @@ export default function AdminSystemPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <CheckCircle className="text-green-400" size={24} />
-                <span className="text-xs bg-green-900/20 text-green-400 px-2 py-1 rounded-full">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
+                <span className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
                   Online
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1 text-white">Status do Sistema</h3>
-              <p className="text-gray-400 text-sm">Todos os serviços operando</p>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Status do Sistema</h3>
+              <p className="text-[var(--text-muted)] text-sm">Todos os serviços operando</p>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <Activity className="text-blue-400" size={24} />
-                <span className="text-2xl font-bold text-white">
+                <Activity className="text-blue-600 dark:text-blue-400" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
                   {systemInfo?.server?.uptime || '0d 0h 0m'}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1 text-white">Uptime</h3>
-              <p className="text-gray-400 text-sm">Tempo ativo do sistema</p>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Uptime</h3>
+              <p className="text-[var(--text-muted)] text-sm">Tempo ativo do sistema</p>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <Users className="text-purple-400" size={24} />
-                <span className="text-2xl font-bold text-white">
+                <Users className="text-[var(--accent)]" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
                   {systemInfo?.totalUsers || 0}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1 text-white">Usuários</h3>
-              <p className="text-gray-400 text-sm">Total de usuários cadastrados</p>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Usuários</h3>
+              <p className="text-[var(--text-muted)] text-sm">Total de usuários cadastrados</p>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <DollarSign className="text-yellow-400" size={24} />
-                <span className="text-2xl font-bold text-white">
+                <DollarSign className="text-yellow-600 dark:text-yellow-400" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
                   {systemInfo?.totalTransactions || 0}
                 </span>
               </div>
-              <h3 className="text-lg font-semibold mb-1 text-white">Transações</h3>
-              <p className="text-gray-400 text-sm">Total de transações processadas</p>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Transações</h3>
+              <p className="text-[var(--text-muted)] text-sm">Total de transações processadas</p>
             </div>
           </div>
 
           {/* System Information */}
           <div className="glass-card p-6">
-            <h2 className="text-xl font-semibold mb-4 text-white">Informações do Sistema</h2>
+            <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Informações do Sistema</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Versão da Aplicação:</span>
-                  <span className="text-white font-mono">{systemInfo?.server?.version}</span>
+                  <span className="text-[var(--text-muted)]">Versão da Aplicação:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.version}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Node.js:</span>
-                  <span className="text-white font-mono">{systemInfo?.server?.nodeVersion}</span>
+                  <span className="text-[var(--text-muted)]">Node.js:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.nodeVersion}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Ambiente:</span>
-                  <span className="text-white font-mono">{systemInfo?.server?.environment}</span>
+                  <span className="text-[var(--text-muted)]">Ambiente:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.environment}</span>
                 </div>
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Plataforma:</span>
-                  <span className="text-white font-mono">{systemInfo?.server?.platform}</span>
+                  <span className="text-[var(--text-muted)]">Plataforma:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.platform}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Uso de Memória:</span>
-                  <span className="text-white font-mono">{systemInfo?.server?.memoryUsage} MB</span>
+                  <span className="text-[var(--text-muted)]">Uso de Memória:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.memoryUsage} MB</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Status:</span>
-                  <span className="text-green-400 font-mono">{systemInfo?.server?.status}</span>
+                  <span className="text-[var(--text-muted)]">Status:</span>
+                  <span className="text-green-600 dark:text-green-400 font-mono">{systemInfo?.server?.status}</span>
                 </div>
               </div>
             </div>
@@ -785,7 +818,7 @@ export default function AdminSystemPage() {
 
           {/* Quick Actions */}
           <div className="glass-card p-6">
-            <h2 className="text-xl font-semibold mb-4 text-white">Ações Rápidas</h2>
+            <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Ações Rápidas</h2>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => loadSystemInfo()}
@@ -809,7 +842,7 @@ export default function AdminSystemPage() {
               </button>
               <button
                 onClick={() => toast.error('Função desabilitada em produção')}
-                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
+                className="px-4 py-2 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 text-red-700 dark:text-red-400 rounded-lg transition-colors"
               >
                 Reiniciar Sistema
               </button>
@@ -824,11 +857,11 @@ export default function AdminSystemPage() {
           <div className="glass-card p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <Bell className="text-yellow-400" size={24} />
+                <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Bell className="text-yellow-600 dark:text-yellow-400" size={24} />
                   Avisos do Sistema
                 </h2>
-                <p className="text-gray-400 text-sm mt-1">
+                <p className="text-[var(--text-muted)] text-sm mt-1">
                   Gerencie banners e avisos exibidos aos usuários
                 </p>
               </div>
@@ -847,11 +880,11 @@ export default function AdminSystemPage() {
               </div>
             ) : warnings.length === 0 ? (
               <div className="text-center py-12">
-                <Bell className="mx-auto text-gray-500 mb-4" size={48} />
-                <p className="text-gray-400">Nenhum aviso cadastrado</p>
+                <Bell className="mx-auto text-[var(--text-muted)] mb-4" size={48} />
+                <p className="text-[var(--text-muted)]">Nenhum aviso cadastrado</p>
                 <button
                   onClick={() => setShowCreateWarning(true)}
-                  className="mt-4 text-blue-400 hover:text-blue-300"
+                  className="mt-4 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                 >
                   Criar primeiro aviso
                 </button>
@@ -869,28 +902,28 @@ export default function AdminSystemPage() {
                           <span className={`px-2 py-1 text-xs rounded-full ${getWarningTypeColor(warning.type)}`}>
                             {getWarningTypeLabel(warning.type)}
                           </span>
-                          <span className="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-300">
+                          <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
                             {getTargetAudienceLabel(warning.targetAudience)}
                           </span>
                           {!warning.isActive && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-gray-600 text-gray-400">
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-muted)]">
                               Inativo
                             </span>
                           )}
                           {warning.isDismissible && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-gray-700/50 text-gray-400">
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-muted)]">
                               Dispensável
                             </span>
                           )}
                         </div>
-                        <h3 className="text-white font-semibold mb-1">{warning.title}</h3>
-                        <p className="text-gray-300 text-sm">{warning.message}</p>
+                        <h3 className="text-[var(--text-primary)] font-semibold mb-1">{warning.title}</h3>
+                        <p className="text-[var(--text-secondary)] text-sm">{warning.message}</p>
                         {warning.link && (
-                          <p className="text-blue-400 text-sm mt-1">
+                          <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
                             Link: {warning.linkText || warning.link}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+                        <div className="flex items-center gap-4 mt-3 text-xs text-[var(--text-muted)]">
                           <span>Prioridade: {warning.priority}</span>
                           {warning.startDate && (
                             <span>Início: {new Date(warning.startDate).toLocaleDateString('pt-BR')}</span>
@@ -906,8 +939,8 @@ export default function AdminSystemPage() {
                           onClick={() => handleToggleWarning(warning.id, warning.isActive)}
                           className={`p-2 rounded-lg transition-colors ${
                             warning.isActive
-                              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                              : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
+                              ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
+                              : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'
                           }`}
                           title={warning.isActive ? 'Desativar' : 'Ativar'}
                         >
@@ -919,14 +952,14 @@ export default function AdminSystemPage() {
                             startDate: warning.startDate ? new Date(warning.startDate).toISOString().split('T')[0] : '',
                             endDate: warning.endDate ? new Date(warning.endDate).toISOString().split('T')[0] : '',
                           })}
-                          className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                          className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-500/30 transition-colors"
                           title="Editar"
                         >
                           <Edit size={20} />
                         </button>
                         <button
                           onClick={() => handleDeleteWarning(warning.id)}
-                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                          className="p-2 rounded-lg bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-500/30 transition-colors"
                           title="Excluir"
                         >
                           <Trash2 size={20} />
@@ -942,13 +975,13 @@ export default function AdminSystemPage() {
           {/* Create Warning Modal */}
           {showCreateWarning && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold text-white">Criar Novo Aviso</h3>
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)]">Criar Novo Aviso</h3>
                     <button
                       onClick={() => setShowCreateWarning(false)}
-                      className="text-gray-400 hover:text-white"
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
                       <X size={24} />
                     </button>
@@ -956,22 +989,22 @@ export default function AdminSystemPage() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Título *</label>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Título *</label>
                       <input
                         type="text"
                         value={newWarning.title}
                         onChange={(e) => setNewWarning({ ...newWarning, title: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         placeholder="Título do aviso"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Mensagem *</label>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Mensagem *</label>
                       <textarea
                         value={newWarning.message}
                         onChange={(e) => setNewWarning({ ...newWarning, message: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         rows={3}
                         placeholder="Conteúdo da mensagem"
                       />
@@ -979,11 +1012,11 @@ export default function AdminSystemPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Tipo</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Tipo</label>
                         <select
                           value={newWarning.type}
                           onChange={(e) => setNewWarning({ ...newWarning, type: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="INFO">Informativo (Azul)</option>
                           <option value="WARNING">Alerta (Amarelo)</option>
@@ -993,11 +1026,11 @@ export default function AdminSystemPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Público-alvo</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Público-alvo</label>
                         <select
                           value={newWarning.targetAudience}
                           onChange={(e) => setNewWarning({ ...newWarning, targetAudience: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="ALL">Todos os usuários</option>
                           <option value="VALIDATED_USERS">Usuários validados</option>
@@ -1010,38 +1043,38 @@ export default function AdminSystemPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de início</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de início</label>
                         <input
                           type="date"
                           value={newWarning.startDate}
                           onChange={(e) => setNewWarning({ ...newWarning, startDate: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de fim</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de fim</label>
                         <input
                           type="date"
                           value={newWarning.endDate}
                           onChange={(e) => setNewWarning({ ...newWarning, endDate: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Prioridade</label>
                         <input
                           type="number"
                           value={newWarning.priority}
                           onChange={(e) => setNewWarning({ ...newWarning, priority: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           min="0"
                           max="100"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Maior = mais importante</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Maior = mais importante</p>
                       </div>
 
                       <div className="flex items-center pt-7">
@@ -1050,32 +1083,32 @@ export default function AdminSystemPage() {
                             type="checkbox"
                             checked={newWarning.isDismissible}
                             onChange={(e) => setNewWarning({ ...newWarning, isDismissible: e.target.checked })}
-                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                            className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                           />
-                          <span className="ml-2 text-gray-300">Permitir dispensar</span>
+                          <span className="ml-2 text-[var(--text-secondary)]">Permitir dispensar</span>
                         </label>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Link (opcional)</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Link (opcional)</label>
                         <input
                           type="url"
                           value={newWarning.link}
                           onChange={(e) => setNewWarning({ ...newWarning, link: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           placeholder="https://..."
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Texto do link</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Texto do link</label>
                         <input
                           type="text"
                           value={newWarning.linkText}
                           onChange={(e) => setNewWarning({ ...newWarning, linkText: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           placeholder="Saiba mais"
                         />
                       </div>
@@ -1085,7 +1118,7 @@ export default function AdminSystemPage() {
                   <div className="flex justify-end gap-3 mt-6">
                     <button
                       onClick={() => setShowCreateWarning(false)}
-                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                      className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1106,13 +1139,13 @@ export default function AdminSystemPage() {
           {/* Edit Warning Modal */}
           {editingWarning && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold text-white">Editar Aviso</h3>
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)]">Editar Aviso</h3>
                     <button
                       onClick={() => setEditingWarning(null)}
-                      className="text-gray-400 hover:text-white"
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
                       <X size={24} />
                     </button>
@@ -1120,32 +1153,32 @@ export default function AdminSystemPage() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Título *</label>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Título *</label>
                       <input
                         type="text"
                         value={editingWarning.title}
                         onChange={(e) => setEditingWarning({ ...editingWarning, title: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Mensagem *</label>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Mensagem *</label>
                       <textarea
                         value={editingWarning.message}
                         onChange={(e) => setEditingWarning({ ...editingWarning, message: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         rows={3}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Tipo</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Tipo</label>
                         <select
                           value={editingWarning.type}
                           onChange={(e) => setEditingWarning({ ...editingWarning, type: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="INFO">Informativo (Azul)</option>
                           <option value="WARNING">Alerta (Amarelo)</option>
@@ -1155,11 +1188,11 @@ export default function AdminSystemPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Público-alvo</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Público-alvo</label>
                         <select
                           value={editingWarning.targetAudience}
                           onChange={(e) => setEditingWarning({ ...editingWarning, targetAudience: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="ALL">Todos os usuários</option>
                           <option value="VALIDATED_USERS">Usuários validados</option>
@@ -1172,34 +1205,34 @@ export default function AdminSystemPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de início</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de início</label>
                         <input
                           type="date"
                           value={editingWarning.startDate}
                           onChange={(e) => setEditingWarning({ ...editingWarning, startDate: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Data de fim</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de fim</label>
                         <input
                           type="date"
                           value={editingWarning.endDate}
                           onChange={(e) => setEditingWarning({ ...editingWarning, endDate: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Prioridade</label>
                         <input
                           type="number"
                           value={editingWarning.priority}
                           onChange={(e) => setEditingWarning({ ...editingWarning, priority: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           min="0"
                           max="100"
                         />
@@ -1211,32 +1244,32 @@ export default function AdminSystemPage() {
                             type="checkbox"
                             checked={editingWarning.isDismissible}
                             onChange={(e) => setEditingWarning({ ...editingWarning, isDismissible: e.target.checked })}
-                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                            className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                           />
-                          <span className="ml-2 text-gray-300">Permitir dispensar</span>
+                          <span className="ml-2 text-[var(--text-secondary)]">Permitir dispensar</span>
                         </label>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Link (opcional)</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Link (opcional)</label>
                         <input
                           type="url"
                           value={editingWarning.link || ''}
                           onChange={(e) => setEditingWarning({ ...editingWarning, link: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           placeholder="https://..."
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Texto do link</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Texto do link</label>
                         <input
                           type="text"
                           value={editingWarning.linkText || ''}
                           onChange={(e) => setEditingWarning({ ...editingWarning, linkText: e.target.value })}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
                           placeholder="Saiba mais"
                         />
                       </div>
@@ -1246,7 +1279,7 @@ export default function AdminSystemPage() {
                   <div className="flex justify-end gap-3 mt-6">
                     <button
                       onClick={() => setEditingWarning(null)}
-                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                      className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1271,7 +1304,7 @@ export default function AdminSystemPage() {
         <div className="space-y-6">
           <div className="glass-card p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-white">Configuração de Limites MED</h2>
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">Configuração de Limites MED</h2>
               <button
                 onClick={handleSaveMedLimits}
                 disabled={savingLimits}
@@ -1288,74 +1321,74 @@ export default function AdminSystemPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Limite Diário de Depósito (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.dailyDepositLimit}
                   onChange={(e) => setMedLimits({ ...medLimits, dailyDepositLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Limite Diário de Saque (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.dailyWithdrawLimit}
                   onChange={(e) => setMedLimits({ ...medLimits, dailyWithdrawLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Limite Mensal de Depósito (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.monthlyDepositLimit}
                   onChange={(e) => setMedLimits({ ...medLimits, monthlyDepositLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Limite Mensal de Saque (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.monthlyWithdrawLimit}
                   onChange={(e) => setMedLimits({ ...medLimits, monthlyWithdrawLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Valor Máximo por Transação (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.maxTransactionAmount}
                   onChange={(e) => setMedLimits({ ...medLimits, maxTransactionAmount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Limite Primeiro Dia (R$)
                 </label>
                 <input
                   type="number"
                   value={medLimits.firstDayLimit}
                   onChange={(e) => setMedLimits({ ...medLimits, firstDayLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1365,19 +1398,19 @@ export default function AdminSystemPage() {
                     type="checkbox"
                     checked={medLimits.requiresKyc}
                     onChange={(e) => setMedLimits({ ...medLimits, requiresKyc: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                   />
-                  <span className="text-white">Exigir validação de conta para limites aumentados</span>
+                  <span className="text-[var(--text-primary)]">Exigir validação de conta para limites aumentados</span>
                 </label>
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+            <div className="mt-6 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="text-yellow-400 mt-0.5" size={20} />
+                <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />
                 <div>
-                  <p className="text-yellow-400 font-medium">Conformidade MED</p>
-                  <p className="text-gray-300 text-sm mt-1">
+                  <p className="text-yellow-600 dark:text-yellow-400 font-medium">Conformidade MED</p>
+                  <p className="text-[var(--text-secondary)] text-sm mt-1">
                     Estes limites são aplicados globalmente e afetam todos os usuários. 
                     Limites individuais podem ser configurados na página de gerenciamento de usuários.
                   </p>
@@ -1392,10 +1425,10 @@ export default function AdminSystemPage() {
       {activeTab === 'validation' && (
         <div className="space-y-6">
           {/* Validation Settings */}
-          <div className="glass-card shadow-lg p-6 border border-gray-700">
+          <div className="glass-card shadow-lg p-6 border border-[var(--border-default)]">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold flex items-center text-white">
-                <Shield className="mr-2 text-yellow-400" />
+              <h2 className="text-xl font-semibold flex items-center text-[var(--text-primary)]">
+                <Shield className="mr-2 text-yellow-600 dark:text-yellow-400" />
                 Configurações de Validação de Conta
               </h2>
               <button
@@ -1419,31 +1452,31 @@ export default function AdminSystemPage() {
                     type="checkbox"
                     checked={validationSettings.validationEnabled}
                     onChange={(e) => setValidationSettings({ ...validationSettings, validationEnabled: e.target.checked })}
-                    className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    className="w-5 h-5 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                   />
-                  <span className="text-white">Validação obrigatória</span>
+                  <span className="text-[var(--text-primary)]">Validação obrigatória</span>
                 </label>
                 
-                <div className="p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
-                  <p className="text-sm text-blue-300">
+                <div className="p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
                     Quando ativado, usuários precisam fazer um pagamento de validação antes de realizar depósitos.
                   </p>
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Valor da Validação (R$)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]">
                     R$
                   </span>
                   <input
                     type="number"
                     value={validationSettings.validationAmount}
                     onChange={(e) => setValidationSettings({ ...validationSettings, validationAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                     min="0.01"
                   />
@@ -1452,33 +1485,33 @@ export default function AdminSystemPage() {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Limite Diário Inicial (R$)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]">
                   R$
                 </span>
                 <input
                   type="number"
                   value={validationSettings.initialDailyLimit}
                   onChange={(e) => setValidationSettings({ ...validationSettings, initialDailyLimit: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   step="100"
                   min="100"
                 />
               </div>
-              <p className="text-sm text-gray-400 mt-2">
+              <p className="text-sm text-[var(--text-muted)] mt-2">
                 Limite diário para novos usuários após validação
               </p>
             </div>
           </div>
 
           {/* Progressive Tiers */}
-          <div className="glass-card shadow-lg p-6 border border-gray-700">
+          <div className="glass-card shadow-lg p-6 border border-[var(--border-default)]">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold flex items-center text-white">
-                <TrendingUp className="mr-2 text-blue-400" />
+              <h2 className="text-xl font-semibold flex items-center text-[var(--text-primary)]">
+                <TrendingUp className="mr-2 text-blue-600 dark:text-blue-400" />
                 Níveis Progressivos
               </h2>
               
@@ -1492,39 +1525,39 @@ export default function AdminSystemPage() {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="table-modern divide-y divide-gray-700">
-                <thead className="bg-gray-700">
+              <table className="table-modern divide-y divide-[var(--border-default)]">
+                <thead className="bg-[var(--bg-elevated)]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                       Nível
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                       Limite Diário (R$)
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                       Volume para Próximo (R$)
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
                       Ações
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                <tbody className="bg-[var(--bg-card)] divide-y divide-[var(--border-default)]">
                   {validationSettings.limitTiers.map((limit, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text-primary)]">
                         Tier {index + 1}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] text-sm">
                             R$
                           </span>
                           <input
                             type="number"
                             value={limit}
                             onChange={(e) => handleTierChange(index, e.target.value, 'limit')}
-                            className="w-40 pl-10 pr-3 py-1 bg-gray-700 border border-gray-600 text-white rounded text-sm"
+                            className="w-40 pl-10 pr-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded text-sm"
                             step="1000"
                             min="100"
                           />
@@ -1532,14 +1565,14 @@ export default function AdminSystemPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] text-sm">
                             R$
                           </span>
                           <input
                             type="number"
                             value={validationSettings.thresholdTiers[index]}
                             onChange={(e) => handleTierChange(index, e.target.value, 'threshold')}
-                            className="w-40 pl-10 pr-3 py-1 bg-gray-700 border border-gray-600 text-white rounded text-sm"
+                            className="w-40 pl-10 pr-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded text-sm"
                             step="10000"
                             min="1000"
                           />
@@ -1561,10 +1594,10 @@ export default function AdminSystemPage() {
               </table>
             </div>
             
-            <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
+            <div className="mt-4 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800 rounded-lg">
               <div className="flex items-start">
-                <AlertTriangle className="text-yellow-400 mr-2 mt-0.5" size={20} />
-                <div className="text-sm text-yellow-300">
+                <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mr-2 mt-0.5" size={20} />
+                <div className="text-sm text-yellow-700 dark:text-yellow-300">
                   <p className="font-semibold mb-1">Como funcionam os níveis:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Usuários começam no Tier 1 após validação</li>
@@ -1583,16 +1616,16 @@ export default function AdminSystemPage() {
       {activeTab === 'settings' && (
         <div className="space-y-6">
           <div className="glass-card p-6">
-            <h2 className="text-xl font-semibold mb-6 text-white">Configurações do Sistema</h2>
+            <h2 className="text-xl font-semibold mb-6 text-[var(--text-primary)]">Configurações do Sistema</h2>
 
             {/* Eulen Token Update */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   <Key className="inline mr-2" size={16} />
                   Token JWT Depix
                 </label>
-                <p className="text-sm text-gray-400 mb-3">
+                <p className="text-sm text-[var(--text-muted)] mb-3">
                   Atualize o token de autenticação da API Depix/Plebank
                 </p>
                 <div className="flex gap-3">
@@ -1601,7 +1634,7 @@ export default function AdminSystemPage() {
                     value={eulenToken}
                     onChange={(e) => setEulenToken(e.target.value)}
                     placeholder="Cole o novo token JWT aqui..."
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     onClick={handleSaveEulenToken}
@@ -1616,23 +1649,77 @@ export default function AdminSystemPage() {
                     Atualizar Token
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-[var(--text-muted)] mt-2">
                   O token será usado imediatamente após a atualização para todas as novas requisições.
                 </p>
               </div>
 
-              <div className="mt-8 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <div className="mt-8 p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="text-blue-400 mt-0.5" size={20} />
+                  <AlertTriangle className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
                   <div>
-                    <p className="text-blue-400 font-medium">Importante</p>
-                    <p className="text-gray-300 text-sm mt-1">
-                      Certifique-se de que o token é válido antes de atualizar. 
+                    <p className="text-blue-600 dark:text-blue-400 font-medium">Importante</p>
+                    <p className="text-[var(--text-secondary)] text-sm mt-1">
+                      Certifique-se de que o token é válido antes de atualizar.
                       Um token inválido pode interromper as operações PIX.
                     </p>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Support Widget Keys */}
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-6 text-[var(--text-primary)]">Widget de Suporte</h2>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              Configure as chaves do widget de suporte para as áreas logada e deslogada do painel.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <MessageSquare className="inline mr-2" size={16} />
+                  Chave suporte logado
+                </label>
+                <input
+                  type="text"
+                  value={supportKeys.loggedKey}
+                  onChange={(e) => setSupportKeys({ ...supportKeys, loggedKey: e.target.value })}
+                  placeholder="Ex: od3HleR7jHa6JOliQuLEIQ"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Usado no widget de suporte para usuários autenticados.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <MessageSquare className="inline mr-2" size={16} />
+                  Chave suporte deslogado
+                </label>
+                <input
+                  type="text"
+                  value={supportKeys.unloggedKey}
+                  onChange={(e) => setSupportKeys({ ...supportKeys, unloggedKey: e.target.value })}
+                  placeholder="Ex: lcON4WeKgbZ6fbKzIwfXBw"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Usado no widget de suporte para visitantes (landing page, login, etc).
+                </p>
+              </div>
+              <button
+                onClick={handleSaveSupportKeys}
+                disabled={savingSupportKeys}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {savingSupportKeys ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Salvar Chaves
+              </button>
             </div>
           </div>
         </div>
@@ -1643,7 +1730,7 @@ export default function AdminSystemPage() {
         <div className="space-y-6">
           {/* Create Incident Button */}
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-white">Gerenciamento de Incidentes</h2>
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">Gerenciamento de Incidentes</h2>
             <button
               onClick={() => setShowCreateIncident(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
@@ -1655,30 +1742,30 @@ export default function AdminSystemPage() {
 
           {/* Incidents List */}
           <div className="glass-card overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Incidentes Ativos</h3>
+            <div className="px-6 py-4 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Incidentes Ativos</h3>
             </div>
 
             {incidentLoading ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
-                <span className="ml-3 text-gray-400">Carregando incidentes...</span>
+                <span className="ml-3 text-[var(--text-muted)]">Carregando incidentes...</span>
               </div>
             ) : (
-              <div className="divide-y divide-gray-700">
+              <div className="divide-y divide-[var(--border-default)]">
                 {incidents.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-gray-400">
-                    <AlertCircle className="mx-auto w-12 h-12 text-gray-500 mb-4" />
+                  <div className="px-6 py-8 text-center text-[var(--text-muted)]">
+                    <AlertCircle className="mx-auto w-12 h-12 text-[var(--text-muted)] mb-4" />
                     <p>Nenhum incidente encontrado</p>
                     <p className="text-sm mt-2">Todos os serviços estão operando normalmente</p>
                   </div>
                 ) : (
                   incidents.map((incident) => (
-                    <div key={incident.id} className="px-6 py-4 hover:bg-gray-700/30">
+                    <div key={incident.id} className="px-6 py-4 hover:bg-[var(--bg-elevated)]">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h4 className="text-lg font-medium text-white">{incident.title}</h4>
+                            <h4 className="text-lg font-medium text-[var(--text-primary)]">{incident.title}</h4>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(incident.severity)}`}>
                               {incident.severity}
                             </span>
@@ -1687,9 +1774,9 @@ export default function AdminSystemPage() {
                             </span>
                           </div>
                           {incident.description && (
-                            <p className="text-gray-300 text-sm mb-3">{incident.description}</p>
+                            <p className="text-[var(--text-secondary)] text-sm mb-3">{incident.description}</p>
                           )}
-                          <div className="flex items-center gap-4 text-xs text-gray-400">
+                          <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                             <span className="flex items-center gap-1">
                               <Clock size={12} />
                               {formatDate(incident.createdAt)}
@@ -1737,7 +1824,7 @@ export default function AdminSystemPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="glass-card p-6 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Criar Novo Incidente</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Criar Novo Incidente</h2>
               <button
                 onClick={() => {
                   setShowCreateIncident(false);
@@ -1750,7 +1837,7 @@ export default function AdminSystemPage() {
                     affectedTo: ''
                   });
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
                 <X size={24} />
               </button>
@@ -1758,33 +1845,33 @@ export default function AdminSystemPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Título *</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Título *</label>
                 <input
                   type="text"
                   value={newIncident.title}
                   onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
                   placeholder="Ex: Instabilidade no sistema de pagamentos"
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Descrição</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Descrição</label>
                 <textarea
                   value={newIncident.description}
                   onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
                   placeholder="Descreva o problema em detalhes..."
                   rows={3}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Severidade</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Severidade</label>
                 <select
                   value={newIncident.severity}
                   onChange={(e) => setNewIncident({ ...newIncident, severity: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="MINOR">Menor</option>
                   <option value="MAJOR">Maior</option>
@@ -1793,7 +1880,7 @@ export default function AdminSystemPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Serviços Afetados</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Serviços Afetados</label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {['API Gateway', 'Processamento PIX', 'Dashboard', 'Banco de Dados', 'Webhooks', 'Autenticação'].map((service) => (
                     <label key={service} className="flex items-center space-x-2 cursor-pointer">
@@ -1813,9 +1900,9 @@ export default function AdminSystemPage() {
                             });
                           }
                         }}
-                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                       />
-                      <span className="text-white text-sm">{service}</span>
+                      <span className="text-[var(--text-primary)] text-sm">{service}</span>
                     </label>
                   ))}
                 </div>
@@ -1823,24 +1910,24 @@ export default function AdminSystemPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Afetado Desde</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Afetado Desde</label>
                   <input
                     type="datetime-local"
                     value={newIncident.affectedFrom}
                     onChange={(e) => setNewIncident({ ...newIncident, affectedFrom: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Afetado Até</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Afetado Até</label>
                   <input
                     type="datetime-local"
                     value={newIncident.affectedTo}
                     onChange={(e) => setNewIncident({ ...newIncident, affectedTo: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                     placeholder="Deixe vazio se ainda afetado"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Deixe vazio se o incidente ainda está ativo</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Deixe vazio se o incidente ainda está ativo</p>
                 </div>
               </div>
             </div>
@@ -1870,7 +1957,7 @@ export default function AdminSystemPage() {
                     affectedTo: ''
                   });
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
               >
                 Cancelar
               </button>
@@ -1884,13 +1971,13 @@ export default function AdminSystemPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-white">Detalhes do Incidente</h2>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Incidente</h2>
               <button
                 onClick={() => {
                   setShowIncidentModal(false);
                   setSelectedIncident(null);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
                 <X size={24} />
               </button>
@@ -1899,7 +1986,7 @@ export default function AdminSystemPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-semibold text-white">{selectedIncident.title}</h3>
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)]">{selectedIncident.title}</h3>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(selectedIncident.severity)}`}>
                     {selectedIncident.severity}
                   </span>
@@ -1908,45 +1995,45 @@ export default function AdminSystemPage() {
                   </span>
                 </div>
                 {selectedIncident.description && (
-                  <p className="text-gray-300">{selectedIncident.description}</p>
+                  <p className="text-[var(--text-secondary)]">{selectedIncident.description}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <label className="text-gray-400">Criado em:</label>
-                  <p className="text-white">{formatDate(selectedIncident.createdAt)}</p>
+                  <label className="text-[var(--text-muted)]">Criado em:</label>
+                  <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.createdAt)}</p>
                 </div>
                 <div>
-                  <label className="text-gray-400">Criado por:</label>
-                  <p className="text-white">{selectedIncident.creator?.username || 'Sistema'}</p>
+                  <label className="text-[var(--text-muted)]">Criado por:</label>
+                  <p className="text-[var(--text-primary)]">{selectedIncident.creator?.username || 'Sistema'}</p>
                 </div>
                 {selectedIncident.resolvedAt && (
                   <div>
-                    <label className="text-gray-400">Resolvido em:</label>
-                    <p className="text-white">{formatDate(selectedIncident.resolvedAt)}</p>
+                    <label className="text-[var(--text-muted)]">Resolvido em:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.resolvedAt)}</p>
                   </div>
                 )}
                 {selectedIncident.affectedFrom && (
                   <div>
-                    <label className="text-gray-400">Afetado desde:</label>
-                    <p className="text-white">{formatDate(selectedIncident.affectedFrom)}</p>
+                    <label className="text-[var(--text-muted)]">Afetado desde:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.affectedFrom)}</p>
                   </div>
                 )}
                 {selectedIncident.affectedTo && (
                   <div>
-                    <label className="text-gray-400">Afetado até:</label>
-                    <p className="text-white">{formatDate(selectedIncident.affectedTo)}</p>
+                    <label className="text-[var(--text-muted)]">Afetado até:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.affectedTo)}</p>
                   </div>
                 )}
                 {selectedIncident.affectedServices?.length > 0 && (
                   <div className="col-span-2">
-                    <label className="text-gray-400">Serviços afetados:</label>
+                    <label className="text-[var(--text-muted)]">Serviços afetados:</label>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {selectedIncident.affectedServices.map((service: string, index: number) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs"
+                          className="px-2 py-1 bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded text-xs"
                         >
                           {service}
                         </span>
@@ -1957,12 +2044,12 @@ export default function AdminSystemPage() {
               </div>
 
               {/* Updates Timeline */}
-              <div className="border-t border-gray-700 pt-4">
-                <h4 className="text-lg font-semibold text-white mb-3">Timeline de Atualizações</h4>
+              <div className="border-t border-[var(--border-default)] pt-4">
+                <h4 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Timeline de Atualizações</h4>
 
                 {selectedIncident.status !== 'RESOLVED' && (
-                  <div className="bg-gray-700/50 p-3 rounded-lg mb-4">
-                    <label className="block text-sm font-medium text-white mb-2">
+                  <div className="bg-[var(--bg-elevated)] p-3 rounded-lg mb-4">
+                    <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                       Adicionar Atualização
                     </label>
                     <div className="flex gap-3">
@@ -1971,7 +2058,7 @@ export default function AdminSystemPage() {
                         value={newUpdate}
                         onChange={(e) => setNewUpdate(e.target.value)}
                         placeholder="Ex: Investigando o problema, aguarde..."
-                        className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         onClick={addIncidentUpdate}
@@ -1991,12 +2078,12 @@ export default function AdminSystemPage() {
 
                 <div className="space-y-3">
                   {selectedIncident.updates?.length === 0 ? (
-                    <p className="text-gray-400 text-center py-4">Nenhuma atualização ainda</p>
+                    <p className="text-[var(--text-muted)] text-center py-4">Nenhuma atualização ainda</p>
                   ) : (
                     selectedIncident.updates?.map((update: any, index: number) => (
-                      <div key={index} className="bg-gray-700/30 p-3 rounded-lg">
-                        <p className="text-white">{update.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                      <div key={index} className="bg-[var(--bg-elevated)] p-3 rounded-lg">
+                        <p className="text-[var(--text-primary)]">{update.message}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
                           {formatDate(update.createdAt)} - {update.author?.username || 'Sistema'}
                         </p>
                       </div>
@@ -2022,7 +2109,7 @@ export default function AdminSystemPage() {
                   setShowIncidentModal(false);
                   setSelectedIncident(null);
                 }}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
               >
                 Fechar
               </button>
@@ -2039,80 +2126,80 @@ export default function AdminSystemPage() {
             <div className="glass-card p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Total de Logs</p>
-                  <p className="text-2xl font-bold text-white">{auditStats.total}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Total de Logs</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.total}</p>
                 </div>
-                <FileText className="text-purple-400" size={24} />
+                <FileText className="text-[var(--accent)]" size={24} />
               </div>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Hoje</p>
-                  <p className="text-2xl font-bold text-white">{auditStats.todayCount}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Hoje</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.todayCount}</p>
                 </div>
-                <Calendar className="text-blue-400" size={24} />
+                <Calendar className="text-blue-600 dark:text-blue-400" size={24} />
               </div>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Última Semana</p>
-                  <p className="text-2xl font-bold text-white">{auditStats.weekCount}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Última Semana</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.weekCount}</p>
                 </div>
-                <TrendingUp className="text-green-400" size={24} />
+                <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
               </div>
             </div>
 
             <div className="glass-card p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Último Mês</p>
-                  <p className="text-2xl font-bold text-white">{auditStats.monthCount}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Último Mês</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.monthCount}</p>
                 </div>
-                <Activity className="text-orange-400" size={24} />
+                <Activity className="text-orange-600 dark:text-orange-400" size={24} />
               </div>
             </div>
           </div>
 
           {/* Filters */}
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold mb-4 text-white">Filtros</h3>
+            <h3 className="text-lg font-semibold mb-4 text-[var(--text-primary)]">Filtros</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input
                 type="text"
                 placeholder="ID do Usuário"
                 value={auditFilters.userId}
                 onChange={(e) => setAuditFilters({ ...auditFilters, userId: e.target.value })}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
               />
               <input
                 type="text"
                 placeholder="Ação"
                 value={auditFilters.action}
                 onChange={(e) => setAuditFilters({ ...auditFilters, action: e.target.value })}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
               />
               <input
                 type="text"
                 placeholder="Recurso"
                 value={auditFilters.resource}
                 onChange={(e) => setAuditFilters({ ...auditFilters, resource: e.target.value })}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
               />
               <input
                 type="date"
                 value={auditFilters.startDate}
                 onChange={(e) => setAuditFilters({ ...auditFilters, startDate: e.target.value })}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
               />
               <input
                 type="date"
                 value={auditFilters.endDate}
                 onChange={(e) => setAuditFilters({ ...auditFilters, endDate: e.target.value })}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
               />
               <button
                 onClick={() => setAuditFilters({
@@ -2123,7 +2210,7 @@ export default function AdminSystemPage() {
                   endDate: '',
                   search: '',
                 })}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
               >
                 Limpar Filtros
               </button>
@@ -2132,64 +2219,64 @@ export default function AdminSystemPage() {
 
           {/* Audit Logs Table */}
           <div className="glass-card overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Logs de Auditoria</h3>
+            <div className="px-6 py-4 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Logs de Auditoria</h3>
             </div>
 
             {auditLoading ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
-                <span className="ml-3 text-gray-400">Carregando logs...</span>
+                <span className="ml-3 text-[var(--text-muted)]">Carregando logs...</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Data/Hora
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Usuário
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Ação
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Recurso
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         IP
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {auditLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Nenhum log encontrado
                         </td>
                       </tr>
                     ) : (
                       auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-gray-700/50">
+                        <tr key={log.id} className="hover:bg-[var(--bg-elevated)]">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-white">
+                            <span className="text-sm text-[var(--text-primary)]">
                               {formatDate(log.createdAt)}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <p className="text-sm font-medium text-white">
+                              <p className="text-sm font-medium text-[var(--text-primary)]">
                                 {log.user?.username || 'Sistema'}
                               </p>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-[var(--text-muted)]">
                                 {log.user?.email || log.userId || '-'}
                               </p>
                             </div>
@@ -2197,13 +2284,13 @@ export default function AdminSystemPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               {getActionIcon(log.action)}
-                              <span className="text-sm text-white">{log.action}</span>
+                              <span className="text-sm text-[var(--text-primary)]">{log.action}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-white">{log.resource}</span>
+                            <span className="text-sm text-[var(--text-primary)]">{log.resource}</span>
                             {log.resourceId && (
-                              <p className="text-xs text-gray-400">{log.resourceId}</p>
+                              <p className="text-xs text-[var(--text-muted)]">{log.resourceId}</p>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -2212,7 +2299,7 @@ export default function AdminSystemPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-300">
+                            <span className="text-sm text-[var(--text-secondary)]">
                               {log.ipAddress || '-'}
                             </span>
                           </td>
@@ -2222,7 +2309,7 @@ export default function AdminSystemPage() {
                                 setSelectedLog(log);
                                 setShowAuditModal(true);
                               }}
-                              className="text-blue-400 hover:text-blue-300"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                             >
                               <Eye size={18} />
                             </button>
@@ -2243,13 +2330,13 @@ export default function AdminSystemPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="glass-card p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-white">Detalhes do Log</h2>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Log</h2>
               <button
                 onClick={() => {
                   setShowAuditModal(false);
                   setSelectedLog(null);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
                 <X size={24} />
               </button>
@@ -2257,12 +2344,12 @@ export default function AdminSystemPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400">ID</label>
+                <label className="text-sm text-[var(--text-muted)]">ID</label>
                 <div className="flex items-center gap-2">
-                  <p className="text-white">{selectedLog.id}</p>
+                  <p className="text-[var(--text-primary)]">{selectedLog.id}</p>
                   <button
                     onClick={() => copyToClipboard(selectedLog.id, 'ID')}
-                    className="text-gray-400 hover:text-white"
+                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   >
                     <Copy size={16} />
                   </button>
@@ -2271,59 +2358,59 @@ export default function AdminSystemPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-400">Usuário</label>
-                  <p className="text-white">
+                  <label className="text-sm text-[var(--text-muted)]">Usuário</label>
+                  <p className="text-[var(--text-primary)]">
                     {selectedLog.user?.username || 'Sistema'}
                     {selectedLog.user?.email && (
-                      <span className="text-gray-400 ml-2">({selectedLog.user.email})</span>
+                      <span className="text-[var(--text-muted)] ml-2">({selectedLog.user.email})</span>
                     )}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">Data/Hora</label>
-                  <p className="text-white">{formatDate(selectedLog.createdAt)}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Data/Hora</label>
+                  <p className="text-[var(--text-primary)]">{formatDate(selectedLog.createdAt)}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">Ação</label>
-                  <p className="text-white">{selectedLog.action}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Ação</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.action}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">Recurso</label>
-                  <p className="text-white">{selectedLog.resource}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Recurso</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.resource}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">Status Code</label>
+                  <label className="text-sm text-[var(--text-muted)]">Status Code</label>
                   <p className={getStatusColor(selectedLog.statusCode)}>
                     {selectedLog.statusCode || '-'}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">Duração</label>
-                  <p className="text-white">
+                  <label className="text-sm text-[var(--text-muted)]">Duração</label>
+                  <p className="text-[var(--text-primary)]">
                     {selectedLog.duration ? `${selectedLog.duration}ms` : '-'}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">IP Address</label>
-                  <p className="text-white">{selectedLog.ipAddress || '-'}</p>
+                  <label className="text-sm text-[var(--text-muted)]">IP Address</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.ipAddress || '-'}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-400">User Agent</label>
-                  <p className="text-white text-xs">{selectedLog.userAgent || '-'}</p>
+                  <label className="text-sm text-[var(--text-muted)]">User Agent</label>
+                  <p className="text-[var(--text-primary)] text-xs">{selectedLog.userAgent || '-'}</p>
                 </div>
               </div>
 
               {selectedLog.requestBody && (
                 <div>
-                  <label className="text-sm text-gray-400">Request Body</label>
-                  <pre className="bg-gray-800 p-3 rounded-lg text-xs text-gray-300 overflow-x-auto">
+                  <label className="text-sm text-[var(--text-muted)]">Request Body</label>
+                  <pre className="bg-[var(--bg-card)] p-3 rounded-lg text-xs text-[var(--text-secondary)] overflow-x-auto">
                     {JSON.stringify(JSON.parse(selectedLog.requestBody), null, 2)}
                   </pre>
                 </div>
@@ -2331,8 +2418,8 @@ export default function AdminSystemPage() {
 
               {selectedLog.responseBody && (
                 <div>
-                  <label className="text-sm text-gray-400">Response Body</label>
-                  <pre className="bg-gray-800 p-3 rounded-lg text-xs text-gray-300 overflow-x-auto">
+                  <label className="text-sm text-[var(--text-muted)]">Response Body</label>
+                  <pre className="bg-[var(--bg-card)] p-3 rounded-lg text-xs text-[var(--text-secondary)] overflow-x-auto">
                     {JSON.stringify(JSON.parse(selectedLog.responseBody), null, 2)}
                   </pre>
                 </div>
@@ -2345,7 +2432,7 @@ export default function AdminSystemPage() {
                   setShowAuditModal(false);
                   setSelectedLog(null);
                 }}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors"
               >
                 Fechar
               </button>

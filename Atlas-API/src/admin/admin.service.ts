@@ -312,6 +312,7 @@ export class AdminService {
 		userId?: string;
 		startDate?: Date;
 		endDate?: Date;
+		search?: string;
 	}) {
 		// Validate date range (max 1 year)
 		if (params?.startDate && params?.endDate) {
@@ -327,7 +328,8 @@ export class AdminService {
 			}
 		}
 
-		if (params?.userId) {
+		// When search is provided, always use findAll which supports search across user relations
+		if (params?.userId && !params?.search) {
 			return this.transactionRepository.findByUserId(params.userId, params);
 		}
 
@@ -436,6 +438,9 @@ export class AdminService {
 		// Set timestamp when enabling
 		if (enable) {
 			updateData.delayedPaymentEnabledAt = new Date();
+			// Modo exclusivo: desativar D+0 até ao colateral quando ativar D+1 global
+			updateData.collateralDelayEnabled = false;
+			updateData.collateralDelayEnabledAt = null;
 		} else {
 			updateData.delayedPaymentEnabledAt = null;
 		}
@@ -450,6 +455,59 @@ export class AdminService {
 				commerceMode: true,
 				delayedPaymentEnabled: true,
 				delayedPaymentEnabledAt: true,
+				collateralDelayEnabled: true,
+				collateralDelayEnabledAt: true,
+			},
+		});
+	}
+
+	async toggleCollateralDelay(userId: string, enable: boolean) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('User not found');
+		}
+
+		// Require commerce mode for collateral delay
+		if (enable && !user.commerceMode) {
+			throw new BadRequestException(
+				'O modo comércio deve estar ativado antes de habilitar o D+0 até ao colateral',
+			);
+		}
+
+		// Require collateral > 0 to enable
+		if (enable && (!user.collateral || user.collateral <= 0)) {
+			throw new BadRequestException(
+				'Não é possível ativar D+0 até ao colateral sem colateral configurado (colateral deve ser > 0)',
+			);
+		}
+
+		const updateData: any = {
+			collateralDelayEnabled: enable,
+		};
+
+		// Set timestamp when enabling
+		if (enable) {
+			updateData.collateralDelayEnabledAt = new Date();
+			// Modo exclusivo: desativar D+1 global quando ativar D+0 até ao colateral
+			updateData.delayedPaymentEnabled = false;
+			updateData.delayedPaymentEnabledAt = null;
+		} else {
+			updateData.collateralDelayEnabledAt = null;
+		}
+
+		return this.prisma.user.update({
+			where: { id: userId },
+			data: updateData,
+			select: {
+				id: true,
+				email: true,
+				username: true,
+				commerceMode: true,
+				collateral: true,
+				delayedPaymentEnabled: true,
+				delayedPaymentEnabledAt: true,
+				collateralDelayEnabled: true,
+				collateralDelayEnabledAt: true,
 			},
 		});
 	}
@@ -744,6 +802,52 @@ export class AdminService {
 			console.error('Error updating Eulen token:', error);
 			throw new Error('Erro ao salvar token no banco de dados');
 		}
+	}
+
+	// ===== SUPPORT WIDGET KEYS =====
+
+	async getSupportWidgetKeys(): Promise<{ loggedKey: string; unloggedKey: string }> {
+		const [logged, unlogged] = await Promise.all([
+			this.prisma.systemSettings.findUnique({ where: { key: 'SUPPORT_WIDGET_KEY_LOGGED' } }),
+			this.prisma.systemSettings.findUnique({ where: { key: 'SUPPORT_WIDGET_KEY_UNLOGGED' } }),
+		]);
+		return {
+			loggedKey: logged?.value || '',
+			unloggedKey: unlogged?.value || '',
+		};
+	}
+
+	async updateSupportWidgetKeys(loggedKey: string, unloggedKey: string): Promise<{ message: string }> {
+		const keyPattern = /^[a-zA-Z0-9_-]{10,50}$/;
+		if (loggedKey && !keyPattern.test(loggedKey)) {
+			throw new BadRequestException('Chave de suporte logado inválida');
+		}
+		if (unloggedKey && !keyPattern.test(unloggedKey)) {
+			throw new BadRequestException('Chave de suporte deslogado inválida');
+		}
+
+		const operations: Promise<any>[] = [];
+		if (loggedKey !== undefined) {
+			operations.push(
+				this.prisma.systemSettings.upsert({
+					where: { key: 'SUPPORT_WIDGET_KEY_LOGGED' },
+					update: { value: loggedKey.trim(), updatedAt: new Date() },
+					create: { key: 'SUPPORT_WIDGET_KEY_LOGGED', value: loggedKey.trim(), description: 'Chave do widget de suporte para area logada' },
+				}),
+			);
+		}
+		if (unloggedKey !== undefined) {
+			operations.push(
+				this.prisma.systemSettings.upsert({
+					where: { key: 'SUPPORT_WIDGET_KEY_UNLOGGED' },
+					update: { value: unloggedKey.trim(), updatedAt: new Date() },
+					create: { key: 'SUPPORT_WIDGET_KEY_UNLOGGED', value: unloggedKey.trim(), description: 'Chave do widget de suporte para area deslogada' },
+				}),
+			);
+		}
+
+		await Promise.all(operations);
+		return { message: 'Chaves de suporte atualizadas com sucesso!' };
 	}
 
 	// ===== COMMERCE APPLICATION REQUESTS =====

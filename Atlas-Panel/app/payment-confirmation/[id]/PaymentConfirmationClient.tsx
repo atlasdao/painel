@@ -10,20 +10,15 @@ import {
   Calendar,
   Clock,
   CreditCard,
-  Building2,
   User,
   Hash,
-  DollarSign,
-  Smartphone,
   Shield,
   Lock,
-  Sparkles,
   Check,
   Copy,
   Printer,
-  Mail
+  AlertCircle
 } from 'lucide-react';
-import { triggerConfetti } from '@/app/lib/confetti';
 
 interface PaymentConfirmationClientProps {
   paymentId: string;
@@ -48,18 +43,10 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     fetchPaymentData();
   }, [paymentId]);
-
-  // Mark as shown (confetti removed)
-  useEffect(() => {
-    if (!showConfetti && paymentData) {
-      setShowConfetti(true);
-    }
-  }, [paymentData, showConfetti]);
 
   const fetchPaymentData = async () => {
     try {
@@ -79,7 +66,7 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
         createdAt: data.createdAt || new Date().toISOString(),
         paidAt: data.paidAt || data.processedAt || new Date().toISOString(),
         buyerName: data.buyerName || data.metadata?.payerName,
-        buyerEmail: undefined, // Don't show email
+        buyerEmail: undefined,
         buyerDocument: data.buyerDocument || data.metadata?.payerTaxNumber,
         transactionId: data.transactionId || data.externalId || paymentId,
         method: 'PIX'
@@ -130,7 +117,6 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
   };
 
   const handleDownload = () => {
-    // Use native print dialog - user can save as PDF
     window.print();
   };
 
@@ -152,22 +138,17 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full opacity-20 animate-ping" />
-            <div className="relative flex items-center justify-center w-full h-full bg-gradient-to-br from-green-600 to-emerald-600 rounded-full">
-              <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-            </div>
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-green-600 animate-pulse" />
           </div>
-          <h2 className="text-lg sm:text-xl text-white font-semibold mb-4">Carregando comprovante</h2>
+          <h2 className="text-lg sm:text-xl text-[var(--text-primary)] font-semibold mb-4">Carregando comprovante</h2>
           <div className="w-48 mx-auto">
-            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
-                style={{
-                  animation: 'fastProgress 0.8s ease-out forwards'
-                }}
+                className="h-full bg-green-500 rounded-full"
+                style={{ animation: 'fastProgress 0.8s ease-out forwards' }}
               />
             </div>
           </div>
@@ -187,29 +168,26 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
 
   if (error || !paymentData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <div className="relative max-w-md w-full">
-          <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse" />
-          <div className="relative bg-slate-900/80 backdrop-blur-2xl border border-red-500/20 rounded-3xl p-6 sm:p-10 text-center shadow-2xl">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-400" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-3">Erro ao carregar</h1>
-            <p className="text-slate-300 mb-8 text-sm sm:text-base">{error || 'Comprovante não encontrado'}</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-semibold rounded-2xl transition-all transform hover:scale-105 text-sm sm:text-base"
-            >
-              Voltar ao início
-            </button>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+        <div className="max-w-md w-full atlas-card p-6 sm:p-10 text-center">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-600 dark:text-red-400" />
           </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">Erro ao carregar</h1>
+          <p className="text-[var(--text-secondary)] mb-8 text-sm sm:text-base">{error || 'Comprovante nao encontrado'}</p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-6 sm:px-8 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-xl transition-colors text-sm sm:text-base"
+          >
+            Voltar ao inicio
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
@@ -234,57 +212,53 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
           <div className="flex items-center justify-between mb-6 no-print">
             <button
               onClick={() => window.history.back()}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               <span className="text-sm font-medium">Voltar</span>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handlePrint}
-                className="p-2.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-xl transition-all group"
+                className="p-2.5 bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-hover)] rounded-xl transition-colors"
                 title="Imprimir"
               >
-                <Printer className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                <Printer className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
               <button
                 onClick={handleDownload}
-                className="p-2.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-xl transition-all group"
+                className="p-2.5 bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-hover)] rounded-xl transition-colors"
                 title="Baixar PDF"
               >
-                <Download className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                <Download className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
               <button
                 onClick={handleShare}
-                className="p-2.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-xl transition-all group"
+                className="p-2.5 bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-hover)] rounded-xl transition-colors"
                 title="Compartilhar"
               >
-                <Share2 className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                <Share2 className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
             </div>
           </div>
 
           {/* Receipt Card - Desktop */}
-          <div className="relative print-full-width">
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 blur-3xl no-print" />
-            <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div className="print-full-width">
+            <div className="bg-white rounded-2xl shadow-lg border border-zinc-200 overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-br from-green-600 to-emerald-600 px-6 sm:px-8 py-8 sm:py-10 text-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                <div className="relative">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                    <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Pagamento Confirmado!</h1>
-                  <p className="text-green-100 text-sm sm:text-base">Transação realizada com sucesso</p>
+              <div className="bg-green-600 px-6 sm:px-8 py-8 sm:py-10 text-center">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
                 </div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Pagamento Confirmado!</h1>
+                <p className="text-green-100 text-sm sm:text-base">Transacao realizada com sucesso</p>
               </div>
 
               {/* Amount Display */}
-              <div className="px-6 sm:px-8 py-8 bg-gradient-to-br from-slate-50 to-white border-b-2 border-dashed border-slate-200">
+              <div className="px-6 sm:px-8 py-8 border-b-2 border-dashed border-zinc-200 bg-zinc-50">
                 <div className="text-center">
-                  <p className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider mb-2">Valor Pago</p>
-                  <p className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  <p className="text-xs sm:text-sm text-zinc-500 uppercase tracking-wider mb-2">Valor Pago</p>
+                  <p className="text-4xl sm:text-5xl font-bold text-green-600">
                     {formatCurrency(paymentData.amount)}
                   </p>
                 </div>
@@ -293,25 +267,25 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
               {/* Transaction Details */}
               <div className="px-6 sm:px-8 py-6 sm:py-8 space-y-5 sm:space-y-6">
                 {/* Transaction ID */}
-                <div className="flex items-start justify-between p-4 bg-slate-50 rounded-xl">
+                <div className="flex items-start justify-between p-4 bg-zinc-50 rounded-xl">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
                       <Hash className="w-5 h-5 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500 mb-1">ID da Transação</p>
-                      <p className="text-sm font-mono font-semibold text-slate-900 break-all">{paymentData.transactionId}</p>
+                      <p className="text-xs text-zinc-500 mb-1">ID da Transacao</p>
+                      <p className="text-sm font-mono font-semibold text-zinc-900 break-all">{paymentData.transactionId}</p>
                     </div>
                   </div>
                   <button
                     onClick={handleCopyTransactionId}
-                    className="ml-3 p-2 hover:bg-slate-200 rounded-lg transition-colors flex-shrink-0"
+                    className="ml-3 p-2 hover:bg-zinc-200 rounded-lg transition-colors flex-shrink-0"
                     title="Copiar ID"
                   >
                     {copied ? (
                       <Check className="w-4 h-4 text-green-600" />
                     ) : (
-                      <Copy className="w-4 h-4 text-slate-600" />
+                      <Copy className="w-4 h-4 text-zinc-500" />
                     )}
                   </button>
                 </div>
@@ -324,8 +298,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <Calendar className="w-5 h-5 text-purple-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500 mb-1">Data</p>
-                      <p className="text-sm font-semibold text-slate-900">{formatDate(paymentData.paidAt)}</p>
+                      <p className="text-xs text-zinc-500 mb-1">Data</p>
+                      <p className="text-sm font-semibold text-zinc-900">{formatDate(paymentData.paidAt)}</p>
                     </div>
                   </div>
 
@@ -335,8 +309,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <Clock className="w-5 h-5 text-orange-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500 mb-1">Horário</p>
-                      <p className="text-sm font-semibold text-slate-900">{formatTime(paymentData.paidAt)}</p>
+                      <p className="text-xs text-zinc-500 mb-1">Horario</p>
+                      <p className="text-sm font-semibold text-zinc-900">{formatTime(paymentData.paidAt)}</p>
                     </div>
                   </div>
 
@@ -346,8 +320,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <CreditCard className="w-5 h-5 text-cyan-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500 mb-1">Método</p>
-                      <p className="text-sm font-semibold text-slate-900">{paymentData.method}</p>
+                      <p className="text-xs text-zinc-500 mb-1">Metodo</p>
+                      <p className="text-sm font-semibold text-zinc-900">{paymentData.method}</p>
                     </div>
                   </div>
 
@@ -357,7 +331,7 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500 mb-1">Status</p>
+                      <p className="text-xs text-zinc-500 mb-1">Status</p>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                         <p className="text-sm font-semibold text-green-600">Pago</p>
@@ -368,16 +342,16 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
 
                 {/* Description */}
                 {paymentData.description && (
-                  <div className="p-4 bg-slate-50 rounded-xl">
-                    <p className="text-xs text-slate-500 mb-2">Descrição</p>
-                    <p className="text-sm text-slate-900">{paymentData.description}</p>
+                  <div className="p-4 bg-zinc-50 rounded-xl">
+                    <p className="text-xs text-zinc-500 mb-2">Descricao</p>
+                    <p className="text-sm text-zinc-900">{paymentData.description}</p>
                   </div>
                 )}
 
                 {/* Buyer Info */}
                 {(paymentData.buyerName || paymentData.buyerDocument) && (
-                  <div className="space-y-3 pt-4 border-t border-slate-200">
-                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Dados do Pagador</p>
+                  <div className="space-y-3 pt-4 border-t border-zinc-200">
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Dados do Pagador</p>
 
                     {paymentData.buyerName && (
                       <div className="flex items-center gap-3">
@@ -385,8 +359,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                           <User className="w-4 h-4 text-indigo-600" />
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">Nome</p>
-                          <p className="text-sm font-medium text-slate-900">{paymentData.buyerName}</p>
+                          <p className="text-xs text-zinc-500">Nome</p>
+                          <p className="text-sm font-medium text-zinc-900">{paymentData.buyerName}</p>
                         </div>
                       </div>
                     )}
@@ -397,8 +371,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                           <CreditCard className="w-4 h-4 text-amber-600" />
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">CPF/CNPJ</p>
-                          <p className="text-sm font-medium text-slate-900">{paymentData.buyerDocument}</p>
+                          <p className="text-xs text-zinc-500">CPF/CNPJ</p>
+                          <p className="text-sm font-medium text-zinc-900">{paymentData.buyerDocument}</p>
                         </div>
                       </div>
                     )}
@@ -407,27 +381,22 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
               </div>
 
               {/* Footer */}
-              <div className="px-6 sm:px-8 py-6 bg-gradient-to-br from-slate-50 to-white border-t border-slate-200">
+              <div className="px-6 sm:px-8 py-6 bg-zinc-50 border-t border-zinc-200">
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg blur-sm opacity-50" />
-                    <div className="relative p-0.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                      <Image
-                        src="/atlas-logo.jpg"
-                        alt="Atlas"
-                        width={32}
-                        height={32}
-                        className="rounded-md"
-                      />
-                    </div>
-                  </div>
+                  <Image
+                    src="/atlas-logo.jpg"
+                    alt="Atlas"
+                    width={32}
+                    height={32}
+                    className="rounded-lg"
+                  />
                   <div>
-                    <h2 className="text-base font-bold text-slate-900">Atlas Pay</h2>
-                    <p className="text-xs text-slate-500">Pagamentos seguros e rápidos</p>
+                    <h2 className="text-base font-bold text-zinc-900">Atlas Pay</h2>
+                    <p className="text-xs text-zinc-500">Pagamentos seguros e rapidos</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center gap-6 text-xs text-slate-500">
+                <div className="flex items-center justify-center gap-6 text-xs text-zinc-500">
                   <span className="flex items-center gap-1.5">
                     <Shield className="w-3.5 h-3.5 text-green-600" />
                     Seguro
@@ -446,24 +415,21 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
       {/* Mobile Layout */}
       <div className="sm:hidden min-h-screen flex flex-col">
         {/* Mobile Header */}
-        <div className="bg-gradient-to-br from-green-600 to-emerald-600 px-4 py-6 text-center relative overflow-hidden no-print">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-          <div className="relative">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce">
-              <CheckCircle className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-white mb-1">Pagamento Confirmado!</h1>
-            <p className="text-green-100 text-sm">Transação realizada com sucesso</p>
+        <div className="bg-green-600 px-4 py-6 text-center no-print">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CheckCircle className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-xl font-bold text-white mb-1">Pagamento Confirmado!</h1>
+          <p className="text-green-100 text-sm">Transacao realizada com sucesso</p>
         </div>
 
         {/* Mobile Content */}
         <div className="flex-1 bg-white">
           {/* Amount Display */}
-          <div className="px-4 py-6 bg-gradient-to-br from-slate-50 to-white border-b-2 border-dashed border-slate-200">
+          <div className="px-4 py-6 bg-zinc-50 border-b-2 border-dashed border-zinc-200">
             <div className="text-center">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Valor Pago</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Valor Pago</p>
+              <p className="text-3xl font-bold text-green-600">
                 {formatCurrency(paymentData.amount)}
               </p>
             </div>
@@ -472,24 +438,24 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
           {/* Transaction Details */}
           <div className="px-4 py-5 space-y-4">
             {/* Transaction ID */}
-            <div className="flex items-start justify-between p-3 bg-slate-50 rounded-xl">
+            <div className="flex items-start justify-between p-3 bg-zinc-50 rounded-xl">
               <div className="flex items-start gap-2.5 flex-1 min-w-0">
                 <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
                   <Hash className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 mb-0.5">ID da Transação</p>
-                  <p className="text-xs font-mono font-semibold text-slate-900 break-all">{paymentData.transactionId}</p>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">ID da Transacao</p>
+                  <p className="text-xs font-mono font-semibold text-zinc-900 break-all">{paymentData.transactionId}</p>
                 </div>
               </div>
               <button
                 onClick={handleCopyTransactionId}
-                className="ml-2 p-1.5 active:bg-slate-200 rounded-lg transition-colors flex-shrink-0"
+                className="ml-2 p-1.5 active:bg-zinc-200 rounded-lg transition-colors flex-shrink-0"
               >
                 {copied ? (
                   <Check className="w-3.5 h-3.5 text-green-600" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-slate-600" />
+                  <Copy className="w-3.5 h-3.5 text-zinc-500" />
                 )}
               </button>
             </div>
@@ -502,8 +468,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                   <Calendar className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 mb-0.5">Data</p>
-                  <p className="text-xs font-semibold text-slate-900">{formatDate(paymentData.paidAt)}</p>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">Data</p>
+                  <p className="text-xs font-semibold text-zinc-900">{formatDate(paymentData.paidAt)}</p>
                 </div>
               </div>
 
@@ -513,8 +479,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                   <Clock className="w-4 h-4 text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 mb-0.5">Horário</p>
-                  <p className="text-xs font-semibold text-slate-900">{formatTime(paymentData.paidAt)}</p>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">Horario</p>
+                  <p className="text-xs font-semibold text-zinc-900">{formatTime(paymentData.paidAt)}</p>
                 </div>
               </div>
 
@@ -524,8 +490,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                   <CreditCard className="w-4 h-4 text-cyan-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 mb-0.5">Método</p>
-                  <p className="text-xs font-semibold text-slate-900">{paymentData.method}</p>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">Metodo</p>
+                  <p className="text-xs font-semibold text-zinc-900">{paymentData.method}</p>
                 </div>
               </div>
 
@@ -535,7 +501,7 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                   <CheckCircle className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 mb-0.5">Status</p>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">Status</p>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                     <p className="text-xs font-semibold text-green-600">Pago</p>
@@ -546,16 +512,16 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
 
             {/* Description */}
             {paymentData.description && (
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <p className="text-[10px] text-slate-500 mb-1.5">Descrição</p>
-                <p className="text-xs text-slate-900">{paymentData.description}</p>
+              <div className="p-3 bg-zinc-50 rounded-xl">
+                <p className="text-[10px] text-zinc-500 mb-1.5">Descricao</p>
+                <p className="text-xs text-zinc-900">{paymentData.description}</p>
               </div>
             )}
 
             {/* Buyer Info */}
             {(paymentData.buyerName || paymentData.buyerDocument) && (
-              <div className="space-y-2.5 pt-3 border-t border-slate-200">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Dados do Pagador</p>
+              <div className="space-y-2.5 pt-3 border-t border-zinc-200">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Dados do Pagador</p>
 
                 {paymentData.buyerName && (
                   <div className="flex items-center gap-2.5">
@@ -563,8 +529,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <User className="w-3.5 h-3.5 text-indigo-600" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500">Nome</p>
-                      <p className="text-xs font-medium text-slate-900">{paymentData.buyerName}</p>
+                      <p className="text-[10px] text-zinc-500">Nome</p>
+                      <p className="text-xs font-medium text-zinc-900">{paymentData.buyerName}</p>
                     </div>
                   </div>
                 )}
@@ -575,8 +541,8 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
                       <CreditCard className="w-3.5 h-3.5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500">CPF/CNPJ</p>
-                      <p className="text-xs font-medium text-slate-900">{paymentData.buyerDocument}</p>
+                      <p className="text-[10px] text-zinc-500">CPF/CNPJ</p>
+                      <p className="text-xs font-medium text-zinc-900">{paymentData.buyerDocument}</p>
                     </div>
                   </div>
                 )}
@@ -585,27 +551,22 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-5 bg-gradient-to-br from-slate-50 to-white border-t border-slate-200 mt-auto">
+          <div className="px-4 py-5 bg-zinc-50 border-t border-zinc-200 mt-auto">
             <div className="flex items-center justify-center gap-2.5 mb-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg blur-sm opacity-50" />
-                <div className="relative p-0.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                  <Image
-                    src="/atlas-logo.jpg"
-                    alt="Atlas"
-                    width={28}
-                    height={28}
-                    className="rounded-md"
-                  />
-                </div>
-              </div>
+              <Image
+                src="/atlas-logo.jpg"
+                alt="Atlas"
+                width={28}
+                height={28}
+                className="rounded-lg"
+              />
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Atlas Pay</h2>
-                <p className="text-[10px] text-slate-500">Pagamentos seguros</p>
+                <h2 className="text-sm font-bold text-zinc-900">Atlas Pay</h2>
+                <p className="text-[10px] text-zinc-500">Pagamentos seguros</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 mb-4">
+            <div className="flex items-center justify-center gap-4 text-[10px] text-zinc-500 mb-4">
               <span className="flex items-center gap-1">
                 <Shield className="w-3 h-3 text-green-600" />
                 Seguro
@@ -620,24 +581,24 @@ export default function PaymentConfirmationClient({ paymentId }: PaymentConfirma
             <div className="grid grid-cols-3 gap-2 no-print">
               <button
                 onClick={handleShare}
-                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-zinc-100 active:bg-zinc-200 rounded-xl transition-colors"
               >
-                <Share2 className="w-4 h-4 text-slate-600" />
-                <span className="text-[10px] text-slate-600 font-medium">Compartilhar</span>
+                <Share2 className="w-4 h-4 text-zinc-600" />
+                <span className="text-[10px] text-zinc-600 font-medium">Compartilhar</span>
               </button>
               <button
                 onClick={handleDownload}
-                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-zinc-100 active:bg-zinc-200 rounded-xl transition-colors"
               >
-                <Download className="w-4 h-4 text-slate-600" />
-                <span className="text-[10px] text-slate-600 font-medium">Baixar</span>
+                <Download className="w-4 h-4 text-zinc-600" />
+                <span className="text-[10px] text-zinc-600 font-medium">Baixar</span>
               </button>
               <button
                 onClick={handlePrint}
-                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 py-3 bg-zinc-100 active:bg-zinc-200 rounded-xl transition-colors"
               >
-                <Printer className="w-4 h-4 text-slate-600" />
-                <span className="text-[10px] text-slate-600 font-medium">Imprimir</span>
+                <Printer className="w-4 h-4 text-zinc-600" />
+                <span className="text-[10px] text-zinc-600 font-medium">Imprimir</span>
               </button>
             </div>
           </div>

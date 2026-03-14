@@ -7,7 +7,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-900 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[var(--bg-primary)]">
       {/* Subtle texture overlay */}
       <div
         className="absolute inset-0 opacity-[0.03]"
@@ -17,11 +17,14 @@ export default function AuthLayout({
       />
 
       {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 opacity-90" />
+      <div
+        className="absolute inset-0 opacity-90"
+        style={{ background: 'linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary))' }}
+      />
 
       {/* Subtle mesh gradient for depth */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-900/5 rounded-full filter blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-900/5 rounded-full filter blur-3xl" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full filter blur-3xl" style={{ background: 'var(--accent-soft)' }} />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full filter blur-3xl opacity-50" style={{ background: 'var(--accent-soft)' }} />
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center py-12 px-4">
@@ -32,15 +35,12 @@ export default function AuthLayout({
               alt="Atlas Logo"
               width={80}
               height={80}
-              className="mx-auto rounded-lg shadow-xl border-2 border-gray-700"
+              className="mx-auto rounded-lg shadow-xl border-2 border-[var(--border-default)]"
               priority
             />
-            <h2 className="mt-4 text-2xl font-bold text-white">
+            <h2 className="mt-4 text-2xl font-bold text-[var(--text-primary)]">
               Atlas Panel
             </h2>
-            <p className="mt-1 text-sm text-gray-400">
-              Sistema de Pagamentos PIX/DePix
-            </p>
           </div>
           {children}
         </div>

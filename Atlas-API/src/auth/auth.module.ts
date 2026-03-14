@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -10,6 +10,7 @@ import { RsaJwtStrategy } from './rsa-jwt.strategy';
 import { CustomJwtStrategy } from './custom-jwt.strategy';
 import { UserRepository } from '../repositories/user.repository';
 import { EncryptionUtil } from '../common/utils/encryption.util';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
 	imports: [
@@ -25,6 +26,7 @@ import { EncryptionUtil } from '../common/utils/encryption.util';
 			inject: [ConfigService],
 		}),
 		ConfigModule,
+		forwardRef(() => ReferralModule),
 	],
 	controllers: [AuthController],
 	providers: [

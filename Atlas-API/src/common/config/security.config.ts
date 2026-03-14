@@ -7,7 +7,7 @@ export const SecurityConfig = {
 		},
 		auth: {
 			windowMs: 15 * 60 * 1000,
-			max: 5, // limit login attempts
+			max: 20, // limit login attempts
 		},
 		api: {
 			windowMs: 1 * 60 * 1000, // 1 minute
@@ -16,6 +16,14 @@ export const SecurityConfig = {
 		withdrawal: {
 			windowMs: 60 * 60 * 1000, // 1 hour
 			max: 10, // 10 withdrawal requests per hour
+		},
+		wallet: {
+			windowMs: 1 * 60 * 1000, // 1 minute
+			max: 30, // 30 requests per minute for wallet proxy
+		},
+		walletBroadcast: {
+			windowMs: 1 * 60 * 1000, // 1 minute
+			max: 5, // 5 broadcast requests per minute
 		},
 	},
 

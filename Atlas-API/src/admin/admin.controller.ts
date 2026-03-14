@@ -212,6 +212,12 @@ export class AdminController {
 		required: false,
 		description: 'End date filter (ISO 8601 format)'
 	})
+	@ApiQuery({
+		name: 'search',
+		type: String,
+		required: false,
+		description: 'Search across transaction ID, user name, email, buyer name, description, PIX key'
+	})
 	@ApiResponse({ status: 200, description: 'Transactions retrieved' })
 	@ApiResponse({ status: 400, description: 'Invalid date range' })
 	@ApiResponse({ status: 403, description: 'Admin access required' })
@@ -226,6 +232,7 @@ export class AdminController {
 		@Query('userId') userId?: string,
 		@Query('startDate') startDateStr?: string,
 		@Query('endDate') endDateStr?: string,
+		@Query('search') search?: string,
 	) {
 		this.checkAdminRole(req.user);
 		// Use limit/offset as aliases for take/skip
@@ -260,6 +267,7 @@ export class AdminController {
 			userId,
 			startDate,
 			endDate,
+			search: search?.trim() || undefined,
 		});
 	}
 
@@ -526,6 +534,29 @@ export class AdminController {
 	): Promise<{ message: string }> {
 		this.checkAdminRole(req.user);
 		return this.adminService.updateEulenToken(data.token);
+	}
+
+	// ===== SUPPORT WIDGET KEYS =====
+
+	@Get('system/support-widget-keys')
+	@ApiTags('Admin - System Configuration')
+	@ApiOperation({ summary: 'Get support widget keys (Admin only)' })
+	@ApiResponse({ status: 200, description: 'Support widget keys' })
+	async getSupportWidgetKeys(@Req() req: any) {
+		this.checkAdminRole(req.user);
+		return this.adminService.getSupportWidgetKeys();
+	}
+
+	@Put('system/support-widget-keys')
+	@ApiTags('Admin - System Configuration')
+	@ApiOperation({ summary: 'Update support widget keys (Admin only)' })
+	@ApiResponse({ status: 200, description: 'Support widget keys updated' })
+	async updateSupportWidgetKeys(
+		@Req() req: any,
+		@Body() data: { loggedKey: string; unloggedKey: string },
+	) {
+		this.checkAdminRole(req.user);
+		return this.adminService.updateSupportWidgetKeys(data.loggedKey, data.unloggedKey);
 	}
 
 	// ===== TRANSACTION CLEANUP =====

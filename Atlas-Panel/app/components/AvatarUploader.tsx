@@ -67,7 +67,7 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
         <div className="relative group">
           {shouldShowImage ? (
             <>
-              <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200">
+              <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
                 <img
                   src={currentAvatar}
                   alt="Profile"
@@ -85,7 +85,7 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
               )}
             </>
           ) : (
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-[var(--accent)] rounded-full flex items-center justify-center">
               <span className="text-white text-3xl font-semibold">
                 {username[0]?.toUpperCase() || 'U'}
               </span>
@@ -95,9 +95,9 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
           {!isUploading && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 p-2 bg-gray-800 rounded-full border-2 border-gray-700 hover:bg-gray-700 transition-colors"
+              className="absolute bottom-0 right-0 p-2 bg-[var(--bg-card)] rounded-full border-2 border-[var(--border-default)] hover:bg-[var(--bg-elevated)] transition-colors"
             >
-              <Camera className="w-4 h-4 text-white" />
+              <Camera className="w-4 h-4 text-[var(--text-primary)]" />
             </button>
           )}
 
@@ -109,15 +109,15 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
         </div>
 
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white mb-1">Foto de Perfil</h3>
-          <p className="text-sm text-gray-400 mb-3">
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Foto de Perfil</h3>
+          <p className="text-sm text-[var(--text-muted)] mb-3">
             Clique no ícone da câmera para adicionar uma foto
           </p>
 
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg transition-colors text-sm"
+            className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white rounded-lg transition-colors text-sm"
           >
             {isUploading ? (
               <>
@@ -132,7 +132,7 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
             )}
           </button>
 
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-[var(--text-muted)] mt-2">
             JPG, PNG ou GIF (máx. 5MB)
           </p>
         </div>
@@ -140,7 +140,7 @@ export default function AvatarUploader({ currentAvatar, username, onAvatarUpdate
 
       {error && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <p className="text-sm text-red-400">{error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
 

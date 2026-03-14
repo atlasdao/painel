@@ -1,0 +1,16 @@
+{
+  "name": "atlas-backup-system",
+  "version": "1.0.0",
+  "description": "Sistema de Backup Inteligente para Atlas DAO",
+  "main": "backup.js",
+  "scripts": {
+    "backup": "node backup.js",
+    "status": "node backup-manager.js status",
+    "list": "node backup-manager.js list",
+    "restore": "node backup-manager.js restore",
+    "cleanup": "node backup-manager.js cleanup"
+  },
+  "author": "Atlas DAO",
+  "license": "UNLICENSED",
+  "private": true
+}

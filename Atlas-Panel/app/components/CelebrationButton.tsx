@@ -42,8 +42,8 @@ export default function CelebrationButton({
 
   const baseClasses = 'btn-commerce-premium focus-commerce relative overflow-hidden';
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-purple-600 to-blue-600',
-    secondary: 'bg-gradient-to-r from-gray-600 to-gray-700',
+    primary: 'bg-gradient-to-r from-[var(--accent)] to-blue-600',
+    secondary: 'bg-gradient-to-r from-[var(--bg-elevated)] to-[var(--bg-card)]',
     success: 'bg-gradient-to-r from-green-600 to-emerald-600'
   };
 

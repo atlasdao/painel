@@ -288,6 +288,10 @@ export class EmailService {
 			transactionId: string;
 			paymentMethod: string;
 			createdAt: Date;
+			settlementInfo?: {
+				isInstant: boolean;
+				scheduledAt?: Date;
+			};
 		},
 	): Promise<void> {
 		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER_COMUNICACAO') || this.configService.get<string>('SMTP_EMAIL_SENDER');
@@ -305,13 +309,28 @@ export class EmailService {
 			minute: '2-digit',
 		}).format(saleData.createdAt);
 
+		// Format settlement info
+		let settlementText = '';
+		if (saleData.settlementInfo?.isInstant) {
+			settlementText = 'O valor já foi creditado na sua carteira.';
+		} else if (saleData.settlementInfo?.scheduledAt) {
+			const formattedSettlement = new Intl.DateTimeFormat('pt-BR', {
+				day: '2-digit',
+				month: '2-digit',
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit',
+			}).format(saleData.settlementInfo.scheduledAt);
+			settlementText = `O valor será creditado na sua carteira em ${formattedSettlement}.`;
+		}
+
 		const mailOptions = {
 			from: `"Painel Atlas" <${senderEmail}>`,
 			replyTo: 'contato@atlasdao.info',
 			to: email,
-			subject: `💰 Venda Aprovada: ${formattedAmount}`,
-			html: this.getApprovedSaleEmailTemplate(username, saleData, formattedAmount, formattedDate),
-			text: `Olá ${username}! Você recebeu uma nova venda aprovada.\n\nProduto: ${saleData.productName}\nValor: ${formattedAmount}\nComprador: ${saleData.buyerName || 'Não informado'}\nData: ${formattedDate}\nID: ${saleData.transactionId}\n\nPara desabilitar estas notificações, acesse: https://painel.atlasdao.info/settings`,
+			subject: `💰 Pagamento Confirmado: ${formattedAmount}`,
+			html: this.getApprovedSaleEmailTemplate(username, saleData, formattedAmount, formattedDate, settlementText),
+			text: `Olá ${username}! Você recebeu um novo pagamento confirmado.\n\nProduto: ${saleData.productName}\nValor: ${formattedAmount}\nComprador: ${saleData.buyerName || 'Não informado'}\nData: ${formattedDate}\nID: ${saleData.transactionId}\n\n${settlementText}\n\nPara desabilitar estas notificações, acesse: https://painel.atlasdao.info/settings`,
 		};
 
 		try {
@@ -330,10 +349,23 @@ export class EmailService {
 			buyerName?: string;
 			transactionId: string;
 			paymentMethod: string;
+			settlementInfo?: {
+				isInstant: boolean;
+				scheduledAt?: Date;
+			};
 		},
 		formattedAmount: string,
 		formattedDate: string,
+		settlementText: string,
 	): string {
+		// Determine settlement section styling based on instant or scheduled
+		const isInstant = saleData.settlementInfo?.isInstant ?? true;
+		const settlementBgColor = isInstant ? '#f0fdf4' : '#fef3c7';
+		const settlementBorderColor = isInstant ? '#10b981' : '#f59e0b';
+		const settlementTextColor = isInstant ? '#10b981' : '#92400e';
+		const settlementIcon = isInstant ? '&#10003;' : '&#128337;';
+		const settlementTitle = isInstant ? 'Crédito Instantâneo' : 'Próxima Remessa';
+
 		return `<!DOCTYPE html>
 <html>
 <head>
@@ -349,14 +381,24 @@ export class EmailService {
     </tr>
     <tr>
       <td style="padding: 30px 25px;">
-        <h2 style="margin: 0 0 10px; font-size: 22px; color: #10b981;">&#127881; Venda Aprovada!</h2>
+        <h2 style="margin: 0 0 10px; font-size: 22px; color: #10b981;">&#127881; Pagamento Confirmado!</h2>
         <p style="margin: 0 0 25px; font-size: 15px; color: #555;">Olá <strong>${username}</strong>, você acaba de receber um pagamento.</p>
 
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; margin-bottom: 25px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; margin-bottom: 20px;">
           <tr>
             <td style="padding: 20px; text-align: center;">
               <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Valor recebido</p>
               <p style="margin: 0; font-size: 32px; font-weight: bold; color: #10b981;">${formattedAmount}</p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Settlement Info Section -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${settlementBgColor}; border: 1px solid ${settlementBorderColor}; border-radius: 8px; margin-bottom: 25px;">
+          <tr>
+            <td style="padding: 15px; text-align: center;">
+              <p style="margin: 0 0 5px; font-size: 14px; color: ${settlementTextColor}; font-weight: bold;">${settlementIcon} ${settlementTitle}</p>
+              <p style="margin: 0; font-size: 14px; color: ${settlementTextColor};">${settlementText}</p>
             </td>
           </tr>
         </table>
@@ -644,6 +686,265 @@ export class EmailService {
 		} catch (error) {
 			console.error('Error sending collaborator invite email:', error);
 			throw new Error('Failed to send collaborator invite email');
+		}
+	}
+
+	// ==================== COLLATERAL EMAILS ====================
+
+	async sendCollateralDepositConfirmed(
+		email: string,
+		username: string,
+		amount: number,
+		newBalance: number,
+	): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER_COMUNICACAO') || this.configService.get<string>('SMTP_EMAIL_SENDER');
+
+		const formattedAmount = new Intl.NumberFormat('pt-BR', {
+			style: 'currency',
+			currency: 'BRL',
+		}).format(amount);
+
+		const formattedBalance = new Intl.NumberFormat('pt-BR', {
+			style: 'currency',
+			currency: 'BRL',
+		}).format(newBalance);
+
+		// Texto condicional baseado no valor do colateral
+		const beneficio2Html = newBalance >= 500
+			? `<p style="margin: 0; font-size: 14px; color: #555;">
+            <strong>2. Aceite clientes novos sem limite:</strong> Normalmente, a primeira compra de um cliente novo tem limite de R$ 500. Com colateral, você pode aceitar vendas de clientes novos até ${formattedBalance}, sem essa restrição.
+          </p>`
+			: `<p style="margin: 0; font-size: 14px; color: #555;">
+            <strong>2. Venda mais para clientes novos:</strong> Por padrão, a primeira compra de um cliente novo é limitada a R$ 500. Quer aceitar valores maiores logo de cara? Basta aumentar seu colateral! Com R$ 1.000 de colateral, você aceita até R$ 1.000 na primeira venda. Com R$ 2.000, até R$ 2.000 — e assim por diante.
+          </p>`;
+
+		const beneficio2Text = newBalance >= 500
+			? `2. Aceite clientes novos sem limite: Normalmente, a primeira compra de um cliente novo tem limite de R$ 500. Com colateral, você pode aceitar vendas de clientes novos até ${formattedBalance}, sem essa restrição.`
+			: `2. Venda mais para clientes novos: Por padrão, a primeira compra de um cliente novo é limitada a R$ 500. Quer aceitar valores maiores logo de cara? Basta aumentar seu colateral! Com R$ 1.000 de colateral, você aceita até R$ 1.000 na primeira venda. Com R$ 2.000, até R$ 2.000 — e assim por diante.`;
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 550px; margin: 0 auto; background: #ffffff;">
+    <tr>
+      <td style="padding: 25px; text-align: center; background-color: #06b6d4;">
+        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">PAINEL ATLAS</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 30px 25px;">
+        <h2 style="margin: 0 0 10px; font-size: 22px; color: #06b6d4;">&#10003; Colateral Atualizado</h2>
+        <p style="margin: 0 0 25px; font-size: 15px; color: #555;">Olá <strong>${username}</strong>, seu depósito de colateral foi confirmado!</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ecfeff; border: 1px solid #06b6d4; border-radius: 8px; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 20px; text-align: center;">
+              <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Valor depositado</p>
+              <p style="margin: 0 0 15px; font-size: 28px; font-weight: bold; color: #06b6d4;">${formattedAmount}</p>
+              <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Novo saldo de colateral</p>
+              <p style="margin: 0; font-size: 24px; font-weight: bold; color: #333;">${formattedBalance}</p>
+            </td>
+          </tr>
+        </table>
+
+        <div style="margin: 0 0 20px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border-left: 4px solid #06b6d4;">
+          <p style="margin: 0 0 12px; font-size: 14px; color: #333; font-weight: bold;">O que você ganha com colateral?</p>
+          <p style="margin: 0 0 10px; font-size: 14px; color: #555;">
+            <strong>1. Receba na hora (opcional):</strong> Se você quiser, pode ativar o pagamento instantâneo (D+0) nas configurações. Assim, vendas até ${formattedBalance} caem na sua conta imediatamente, sem esperar.
+          </p>
+          ${beneficio2Html}
+        </div>
+
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding: 10px 0 20px;">
+              <a href="https://painel.atlasdao.info/settings" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 30px; font-weight: bold; font-size: 14px; border-radius: 6px;">VER CONFIGURAÇÕES</a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0; font-size: 13px; color: #888; text-align: center;">Este é um email automático, não responda.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px 25px; text-align: center; border-top: 1px solid #eee;">
+        <p style="margin: 0; font-size: 12px; color: #999;">&copy; 2025 Painel Atlas. Todos os direitos reservados.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+		const mailOptions = {
+			from: `"Painel Atlas" <${senderEmail}>`,
+			replyTo: 'contato@atlasdao.info',
+			to: email,
+			subject: `✅ Colateral atualizado: ${formattedAmount} depositado`,
+			html,
+			text: `Olá ${username}!\n\nSeu depósito de colateral de ${formattedAmount} foi confirmado.\n\nNovo saldo de colateral: ${formattedBalance}\n\nO que você ganha com colateral?\n\n1. Receba na hora (opcional): Se você quiser, pode ativar o pagamento instantâneo (D+0) nas configurações. Assim, vendas até ${formattedBalance} caem na sua conta imediatamente, sem esperar.\n\n${beneficio2Text}\n\nAcesse: https://painel.atlasdao.info/settings`,
+		};
+
+		try {
+			await this.comunicacaoTransporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending collateral deposit email:', error);
+		}
+	}
+
+	async sendCollateralWithdrawalApproved(
+		email: string,
+		username: string,
+		amount: number,
+		txId?: string,
+	): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER_COMUNICACAO') || this.configService.get<string>('SMTP_EMAIL_SENDER');
+
+		const formattedAmount = new Intl.NumberFormat('pt-BR', {
+			style: 'currency',
+			currency: 'BRL',
+		}).format(amount);
+
+		const txInfo = txId ? `<p style="margin: 0; font-size: 12px; color: #888;">TX ID: ${txId}</p>` : '';
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 550px; margin: 0 auto; background: #ffffff;">
+    <tr>
+      <td style="padding: 25px; text-align: center; background-color: #10b981;">
+        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">PAINEL ATLAS</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 30px 25px;">
+        <h2 style="margin: 0 0 10px; font-size: 22px; color: #10b981;">&#10003; Saque de Colateral Aprovado</h2>
+        <p style="margin: 0 0 25px; font-size: 15px; color: #555;">Olá <strong>${username}</strong>, seu saque de colateral foi aprovado!</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 20px; text-align: center;">
+              <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Valor sacado</p>
+              <p style="margin: 0; font-size: 28px; font-weight: bold; color: #10b981;">${formattedAmount}</p>
+              ${txInfo}
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0 0 15px; font-size: 14px; color: #555;">O valor foi enviado para a carteira Liquid que você informou. A transação pode levar alguns minutos para ser confirmada na blockchain.</p>
+
+        <p style="margin: 0; font-size: 13px; color: #888; text-align: center;">Este é um email automático, não responda.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px 25px; text-align: center; border-top: 1px solid #eee;">
+        <p style="margin: 0; font-size: 12px; color: #999;">&copy; 2025 Painel Atlas. Todos os direitos reservados.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+		const mailOptions = {
+			from: `"Painel Atlas" <${senderEmail}>`,
+			replyTo: 'contato@atlasdao.info',
+			to: email,
+			subject: `✅ Saque de colateral aprovado: ${formattedAmount}`,
+			html,
+			text: `Olá ${username}!\n\nSeu saque de colateral de ${formattedAmount} foi aprovado e enviado para sua carteira.\n\n${txId ? `TX ID: ${txId}` : ''}`,
+		};
+
+		try {
+			await this.comunicacaoTransporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending collateral withdrawal approved email:', error);
+		}
+	}
+
+	async sendCollateralWithdrawalRejected(
+		email: string,
+		username: string,
+		amount: number,
+		reason: string,
+	): Promise<void> {
+		const senderEmail = this.configService.get<string>('SMTP_EMAIL_SENDER_COMUNICACAO') || this.configService.get<string>('SMTP_EMAIL_SENDER');
+
+		const formattedAmount = new Intl.NumberFormat('pt-BR', {
+			style: 'currency',
+			currency: 'BRL',
+		}).format(amount);
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 550px; margin: 0 auto; background: #ffffff;">
+    <tr>
+      <td style="padding: 25px; text-align: center; background-color: #ef4444;">
+        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">PAINEL ATLAS</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 30px 25px;">
+        <h2 style="margin: 0 0 10px; font-size: 22px; color: #ef4444;">&#10060; Saque de Colateral Rejeitado</h2>
+        <p style="margin: 0 0 25px; font-size: 15px; color: #555;">Olá <strong>${username}</strong>, infelizmente seu saque de colateral foi rejeitado.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef2f2; border: 1px solid #ef4444; border-radius: 8px; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 20px; text-align: center;">
+              <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Valor solicitado</p>
+              <p style="margin: 0 0 15px; font-size: 28px; font-weight: bold; color: #ef4444;">${formattedAmount}</p>
+              <p style="margin: 0 0 5px; font-size: 14px; color: #666;">Motivo</p>
+              <p style="margin: 0; font-size: 14px; color: #333;">${reason}</p>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0 0 15px; font-size: 14px; color: #555;">O valor foi devolvido ao seu saldo de colateral. Se tiver dúvidas, entre em contato com nosso suporte.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding: 10px 0 20px;">
+              <a href="https://t.me/atlasDAO_support" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 30px; font-weight: bold; font-size: 14px; border-radius: 6px;">FALAR COM SUPORTE</a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 0; font-size: 13px; color: #888; text-align: center;">Este é um email automático, não responda.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px 25px; text-align: center; border-top: 1px solid #eee;">
+        <p style="margin: 0; font-size: 12px; color: #999;">&copy; 2025 Painel Atlas. Todos os direitos reservados.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+		const mailOptions = {
+			from: `"Painel Atlas" <${senderEmail}>`,
+			replyTo: 'contato@atlasdao.info',
+			to: email,
+			subject: `❌ Saque de colateral rejeitado`,
+			html,
+			text: `Olá ${username}!\n\nSeu saque de colateral de ${formattedAmount} foi rejeitado.\n\nMotivo: ${reason}\n\nO valor foi devolvido ao seu saldo de colateral.`,
+		};
+
+		try {
+			await this.comunicacaoTransporter.sendMail(mailOptions);
+		} catch (error) {
+			console.error('Error sending collateral withdrawal rejected email:', error);
 		}
 	}
 }

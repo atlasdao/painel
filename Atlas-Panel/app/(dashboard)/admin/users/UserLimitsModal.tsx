@@ -53,58 +53,58 @@ export default function UserLimitsModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--bg-card)] rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-xl font-bold text-white">Ajustar Limites do Usuário</h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Ajustar Limites do Usuário</h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
               {user?.username} ({user?.email})
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors"
           >
-            <X size={20} className="text-gray-400" />
+            <X size={20} className="text-[var(--text-muted)]" />
           </button>
         </div>
 
         <div className="space-y-6">
           {/* Daily Limits */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Limites Diários</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Limites Diários</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Depósito (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.dailyDepositLimit}
                   onChange={(e) => setLimits({ ...limits, dailyDepositLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Saque (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.dailyWithdrawLimit}
                   onChange={(e) => setLimits({ ...limits, dailyWithdrawLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Transferência (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.dailyTransferLimit}
                   onChange={(e) => setLimits({ ...limits, dailyTransferLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -112,39 +112,39 @@ export default function UserLimitsModal({
 
           {/* Monthly Limits */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Limites Mensais</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Limites Mensais</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Depósito (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.monthlyDepositLimit}
                   onChange={(e) => setLimits({ ...limits, monthlyDepositLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Saque (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.monthlyWithdrawLimit}
                   onChange={(e) => setLimits({ ...limits, monthlyWithdrawLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Transferência (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.monthlyTransferLimit}
                   onChange={(e) => setLimits({ ...limits, monthlyTransferLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -152,39 +152,39 @@ export default function UserLimitsModal({
 
           {/* Per Transaction Limits */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Limites por Transação</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Limites por Transação</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Máx. Depósito (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.maxDepositPerTx}
                   onChange={(e) => setLimits({ ...limits, maxDepositPerTx: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Máx. Saque (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.maxWithdrawPerTx}
                   onChange={(e) => setLimits({ ...limits, maxWithdrawPerTx: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Máx. Transferência (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.maxTransferPerTx}
                   onChange={(e) => setLimits({ ...limits, maxTransferPerTx: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -192,28 +192,28 @@ export default function UserLimitsModal({
 
           {/* API Limits */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Limites de API</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Limites de API</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Limite Diário API (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.apiDailyLimit}
                   onChange={(e) => setLimits({ ...limits, apiDailyLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Limite Mensal API (R$)
                 </label>
                 <input
                   type="number"
                   value={limits.apiMonthlyLimit}
                   onChange={(e) => setLimits({ ...limits, apiMonthlyLimit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -221,25 +221,25 @@ export default function UserLimitsModal({
 
           {/* Flags */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Configurações Especiais</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Configurações Especiais</h3>
             <div className="space-y-3">
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={limits.isKycVerified}
                   onChange={(e) => setLimits({ ...limits, isKycVerified: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                 />
-                <span className="text-white">Conta Validada</span>
+                <span className="text-[var(--text-primary)]">Conta Validada</span>
               </label>
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={limits.isHighRiskUser}
                   onChange={(e) => setLimits({ ...limits, isHighRiskUser: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
                 />
-                <span className="text-white">Usuário de Alto Risco</span>
+                <span className="text-[var(--text-primary)]">Usuário de Alto Risco</span>
               </label>
             </div>
           </div>
@@ -247,10 +247,10 @@ export default function UserLimitsModal({
           {/* Warning */}
           <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="text-yellow-400 mt-0.5" size={20} />
+              <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />
               <div>
-                <p className="text-yellow-400 font-medium">Atenção</p>
-                <p className="text-gray-300 text-sm mt-1">
+                <p className="text-yellow-600 dark:text-yellow-400 font-medium">Atenção</p>
+                <p className="text-[var(--text-secondary)] text-sm mt-1">
                   Estes limites substituirão os limites globais MED para este usuário específico.
                   Use com cuidado para manter a conformidade regulatória.
                 </p>
@@ -260,10 +260,10 @@ export default function UserLimitsModal({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-700">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-[var(--border-default)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
           >
             Cancelar
           </button>

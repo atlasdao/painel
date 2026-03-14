@@ -79,6 +79,7 @@ export class ExternalApiService {
           depixAddress: depixAddress,
           description: data.description || 'Pagamento via API',
           isApiRequest: true, // Bypass tier limits for External API requests
+          payerCpfCnpj: data.taxNumber, // Forward tax number to Eulen API (required for amounts >= R$ 3000)
           metadata: {
             source: 'EXTERNAL_API',
             apiKeyRequestId: apiKeyRequest.id,

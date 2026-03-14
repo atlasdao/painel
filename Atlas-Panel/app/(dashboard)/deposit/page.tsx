@@ -8,12 +8,12 @@ export default function DepositPage() {
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-semibold text-white break-words">Adquirir DePix</h1>
-          <p className="text-sm sm:text-base text-gray-400 break-words">Compre DePix de forma rápida e segura</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--text-primary)] break-words">Adquirir DePix</h1>
+          <p className="text-sm sm:text-base text-[var(--text-muted)] break-words">Compre DePix de forma rápida e segura</p>
         </div>
 
         {/* Main Card */}
-        <div className="glass-card p-5 sm:p-6 lg:p-8 border border-gray-700 overflow-hidden">
+        <div className="glass-card p-5 sm:p-6 lg:p-8 border border-[var(--border-default)] overflow-hidden">
           <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
             {/* Icon */}
             <div className="flex-shrink-0 mx-auto sm:mx-0">
@@ -25,10 +25,10 @@ export default function DepositPage() {
             {/* Content */}
             <div className="flex-1 space-y-3 sm:space-y-4 text-center sm:text-left w-full min-w-0">
               <div className="space-y-2">
-                <h2 className="text-base sm:text-lg lg:text-xl font-medium text-white break-words">
+                <h2 className="text-base sm:text-lg lg:text-xl font-medium text-[var(--text-primary)] break-words">
                   Agora via Telegram
                 </h2>
-                <p className="text-sm sm:text-base text-gray-300 leading-relaxed break-words">
+                <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed break-words">
                   A compra de DePix foi migrada para nosso bot do Telegram para oferecer uma experiência mais rápida e prática.
                 </p>
               </div>
@@ -44,7 +44,7 @@ export default function DepositPage() {
                   <Send size={18} className="flex-shrink-0" />
                   <span className="truncate">Abrir @atlas_bridge_bot</span>
                 </a>
-                <span className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
+                <span className="text-xs sm:text-sm text-[var(--text-muted)] text-center sm:text-left">
                   Responde em segundos
                 </span>
               </div>
@@ -54,17 +54,17 @@ export default function DepositPage() {
 
         {/* Benefits Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          <div className="glass-card p-3.5 sm:p-4 border border-gray-700">
-            <div className="text-gray-400 text-xs sm:text-sm mb-1">Vantagem</div>
-            <div className="text-white text-sm sm:text-base font-medium break-words">Resposta instantânea</div>
+          <div className="glass-card p-3.5 sm:p-4 border border-[var(--border-default)]">
+            <div className="text-[var(--text-muted)] text-xs sm:text-sm mb-1">Vantagem</div>
+            <div className="text-[var(--text-primary)] text-sm sm:text-base font-medium break-words">Resposta instantânea</div>
           </div>
-          <div className="glass-card p-3.5 sm:p-4 border border-gray-700">
-            <div className="text-gray-400 text-xs sm:text-sm mb-1">Vantagem</div>
-            <div className="text-white text-sm sm:text-base font-medium break-words">Disponível 24/7</div>
+          <div className="glass-card p-3.5 sm:p-4 border border-[var(--border-default)]">
+            <div className="text-[var(--text-muted)] text-xs sm:text-sm mb-1">Vantagem</div>
+            <div className="text-[var(--text-primary)] text-sm sm:text-base font-medium break-words">Disponível 24/7</div>
           </div>
-          <div className="glass-card p-3.5 sm:p-4 border border-gray-700">
-            <div className="text-gray-400 text-xs sm:text-sm mb-1">Vantagem</div>
-            <div className="text-white text-sm sm:text-base font-medium break-words">Interface simplificada</div>
+          <div className="glass-card p-3.5 sm:p-4 border border-[var(--border-default)]">
+            <div className="text-[var(--text-muted)] text-xs sm:text-sm mb-1">Vantagem</div>
+            <div className="text-[var(--text-primary)] text-sm sm:text-base font-medium break-words">Interface simplificada</div>
           </div>
         </div>
       </div>

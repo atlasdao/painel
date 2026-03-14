@@ -60,6 +60,8 @@ interface User {
   splitFeePercentage?: number;
   delayedPaymentEnabled?: boolean;
   delayedPaymentEnabledAt?: string;
+  collateralDelayEnabled?: boolean;
+  collateralDelayEnabledAt?: string;
 }
 
 interface UserStats {
@@ -101,6 +103,7 @@ export default function AdminUsersPage() {
     collateral: null as number | null,
     splitFeePercentage: 0.5,
     delayedPaymentEnabled: false,
+    collateralDelayEnabled: false,
   });
 
   useEffect(() => {
@@ -239,6 +242,7 @@ export default function AdminUsersPage() {
       collateral: user.collateral ?? null,
       splitFeePercentage: user.splitFeePercentage ?? 0.5,
       delayedPaymentEnabled: user.delayedPaymentEnabled || false,
+      collateralDelayEnabled: user.collateralDelayEnabled || false,
     });
     setShowEditModal(true);
   };
@@ -306,7 +310,7 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Carregando usuários...</p>
+          <p className="text-[var(--text-muted)]">Carregando usuários...</p>
         </div>
       </div>
     );
@@ -323,7 +327,7 @@ export default function AdminUsersPage() {
             <Users className="mr-3" />
             Gestão de Usuários
           </h1>
-          <p className="text-gray-400 mt-2">
+          <p className="text-[var(--text-muted)] mt-2">
             {filteredUsers.length} de {users.length} usuários
           </p>
         </div>
@@ -351,7 +355,7 @@ export default function AdminUsersPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] w-5 h-5" />
             <input
               type="text"
               placeholder="Buscar por nome, email ou ID..."
@@ -385,7 +389,7 @@ export default function AdminUsersPage() {
 
           {/* Sort By */}
           <div className="relative">
-            <ArrowUpDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <ArrowUpDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] w-5 h-5" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -441,17 +445,17 @@ export default function AdminUsersPage() {
                 <tr key={user.id}>
                   <td>
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mr-3">
-                        <User className="w-5 h-5 text-gray-400" />
+                      <div className="w-10 h-10 bg-gradient-to-br from-[var(--bg-elevated)] to-[var(--bg-card)] rounded-full flex items-center justify-center mr-3">
+                        <User className="w-5 h-5 text-[var(--text-muted)]" />
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-white">{user.username}</div>
-                        <div className="text-xs text-gray-400 font-mono">{user.id.slice(0, 8)}...</div>
+                        <div className="text-sm font-medium text-[var(--text-primary)]">{user.username}</div>
+                        <div className="text-xs text-[var(--text-muted)] font-mono">{user.id.slice(0, 8)}...</div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span className="text-sm text-gray-300">{user.email}</span>
+                    <span className="text-sm text-[var(--text-secondary)]">{user.email}</span>
                   </td>
                   <td>
                     <span className={`badge ${
@@ -509,12 +513,12 @@ export default function AdminUsersPage() {
                     )}
                   </td>
                   <td>
-                    <span className="text-sm text-gray-400">
+                    <span className="text-sm text-[var(--text-muted)]">
                       {formatDate(user.createdAt)}
                     </span>
                   </td>
                   <td>
-                    <span className="text-sm text-gray-400">
+                    <span className="text-sm text-[var(--text-muted)]">
                       {user.lastLoginAt ? formatDate(user.lastLoginAt) : '-'}
                     </span>
                   </td>
@@ -522,7 +526,7 @@ export default function AdminUsersPage() {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => openUserDetails(user)}
-                        className="p-2 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-lg transition duration-200 hover-lift"
+                        className="p-2 bg-[var(--bg-elevated)]/50 hover:bg-[var(--border-hover)]/50 text-[var(--text-primary)] rounded-lg transition duration-200 hover-lift"
                         title="Ver detalhes"
                       >
                         <Eye className="w-4 h-4" />
@@ -561,8 +565,8 @@ export default function AdminUsersPage() {
           
           {filteredUsers.length === 0 && (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Nenhum usuário encontrado</p>
+              <Users className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+              <p className="text-[var(--text-muted)]">Nenhum usuário encontrado</p>
             </div>
           )}
         </div>
@@ -573,14 +577,14 @@ export default function AdminUsersPage() {
         <div className="modal-backdrop">
           <div className="modal-content max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
-              <h2 className="text-2xl font-bold text-white">Detalhes do Usuário</h2>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Usuário</h2>
               <button
                 onClick={() => {
                   setShowUserModal(false);
                   setSelectedUser(null);
                   setUserStats(null);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -590,54 +594,54 @@ export default function AdminUsersPage() {
               {/* User Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm text-gray-400">ID</label>
+                  <label className="text-sm text-[var(--text-muted)]">ID</label>
                   <div className="flex items-center space-x-2">
-                    <span className="text-white font-mono text-sm">{selectedUser.id}</span>
+                    <span className="text-[var(--text-primary)] font-mono text-sm">{selectedUser.id}</span>
                     <button
                       onClick={() => copyToClipboard(selectedUser.id)}
-                      className="text-gray-400 hover:text-white"
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Username</label>
-                  <p className="text-white">{selectedUser.username}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Username</label>
+                  <p className="text-[var(--text-primary)]">{selectedUser.username}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Email</label>
-                  <p className="text-white">{selectedUser.email}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Email</label>
+                  <p className="text-[var(--text-primary)]">{selectedUser.email}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Papel</label>
-                  <p className="text-white">{getRoleLabel(selectedUser.role)}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Papel</label>
+                  <p className="text-[var(--text-primary)]">{getRoleLabel(selectedUser.role)}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Status</label>
-                  <p className={selectedUser.isActive ? 'text-green-400' : 'text-red-400'}>
+                  <label className="text-sm text-[var(--text-muted)]">Status</label>
+                  <p className={selectedUser.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                     {selectedUser.isActive ? 'Ativo' : 'Inativo'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Email Verificado</label>
-                  <p className={selectedUser.isAccountValidated ? 'text-green-400' : 'text-yellow-400'}>
+                  <label className="text-sm text-[var(--text-muted)]">Email Verificado</label>
+                  <p className={selectedUser.isAccountValidated ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}>
                     {selectedUser.isAccountValidated ? 'Verificado' : 'Pendente'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Validação</label>
-                  <p className={selectedUser.validatedAt ? 'text-green-400' : 'text-gray-400'}>
+                  <label className="text-sm text-[var(--text-muted)]">Validação</label>
+                  <p className={selectedUser.validatedAt ? 'text-green-600 dark:text-green-400' : 'text-[var(--text-muted)]'}>
                     {selectedUser.validatedAt ? 'Validado' : 'Não Validado'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Criado em</label>
-                  <p className="text-white">{formatDate(selectedUser.createdAt)}</p>
+                  <label className="text-sm text-[var(--text-muted)]">Criado em</label>
+                  <p className="text-[var(--text-primary)]">{formatDate(selectedUser.createdAt)}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">Último Login</label>
-                  <p className="text-white">
+                  <label className="text-sm text-[var(--text-muted)]">Último Login</label>
+                  <p className="text-[var(--text-primary)]">
                     {selectedUser.lastLoginAt ? formatDate(selectedUser.lastLoginAt) : 'Nunca'}
                   </p>
                 </div>
@@ -646,9 +650,9 @@ export default function AdminUsersPage() {
               {/* API Key - Note: This shows legacy single API key, users now manage multiple keys through API Key Requests */}
               {selectedUser.apiKey && (
                 <div>
-                  <label className="text-sm text-gray-400">Legacy API Key</label>
+                  <label className="text-sm text-[var(--text-muted)]">Legacy API Key</label>
                   <div className="flex items-center space-x-2 mt-1">
-                    <code className="flex-1 bg-gray-900/50 p-2 rounded text-xs text-green-400 font-mono">
+                    <code className="flex-1 bg-[var(--bg-primary)]/50 p-2 rounded text-xs text-green-600 dark:text-green-400 font-mono">
                       {selectedUser.apiKey}
                     </code>
                     <button
@@ -658,7 +662,7 @@ export default function AdminUsersPage() {
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
                     Usuários agora podem ter múltiplas API keys através do sistema de solicitações
                   </p>
                 </div>
@@ -668,34 +672,34 @@ export default function AdminUsersPage() {
               {loadingStats ? (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="text-gray-400 mt-2">Carregando estatísticas...</p>
+                  <p className="text-[var(--text-muted)] mt-2">Carregando estatísticas...</p>
                 </div>
               ) : userStats && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Estatísticas</h3>
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Estatísticas</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="stat-card p-3">
-                      <p className="text-xs text-gray-400">Total de Transações</p>
-                      <p className="text-xl font-bold text-white">{userStats.totalTransactions}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Total de Transações</p>
+                      <p className="text-xl font-bold text-[var(--text-primary)]">{userStats.totalTransactions}</p>
                     </div>
                     <div className="stat-card p-3">
-                      <p className="text-xs text-gray-400">Volume Total</p>
-                      <p className="text-xl font-bold text-white">{formatCurrency(userStats.totalVolume)}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Volume Total</p>
+                      <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(userStats.totalVolume)}</p>
                     </div>
                     <div className="stat-card p-3">
-                      <p className="text-xs text-gray-400">Pendentes</p>
-                      <p className="text-xl font-bold text-yellow-400">{userStats.pendingTransactions}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Pendentes</p>
+                      <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{userStats.pendingTransactions}</p>
                     </div>
                     <div className="stat-card p-3">
-                      <p className="text-xs text-gray-400">Concluídas</p>
-                      <p className="text-xl font-bold text-green-400">{userStats.completedTransactions}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Concluídas</p>
+                      <p className="text-xl font-bold text-green-600 dark:text-green-400">{userStats.completedTransactions}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-gray-700">
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-[var(--border-default)]">
                 <button
                   onClick={() => handleGenerateApiKey(selectedUser.id)}
                   className="btn-gradient flex items-center justify-center space-x-2 w-full sm:w-auto"
@@ -729,11 +733,11 @@ export default function AdminUsersPage() {
       {showNewUserModal && (
         <div className="modal-backdrop">
           <div className="modal-content max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Criar Novo Usuário</h2>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Criar Novo Usuário</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Nome de Usuário
                 </label>
                 <input
@@ -746,7 +750,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Email
                 </label>
                 <input
@@ -759,7 +763,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Senha
                 </label>
                 <input
@@ -772,7 +776,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Papel
                 </label>
                 <select
@@ -789,7 +793,7 @@ export default function AdminUsersPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowNewUserModal(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition duration-200"
               >
                 Cancelar
               </button>
@@ -808,11 +812,11 @@ export default function AdminUsersPage() {
       {showEditModal && selectedUser && (
         <div className="modal-backdrop">
           <div className="modal-content max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-6">Editar Usuário</h2>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Editar Usuário</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Nome de Usuário
                 </label>
                 <input
@@ -824,7 +828,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Email
                 </label>
                 <input
@@ -836,7 +840,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Papel
                 </label>
                 <select
@@ -850,7 +854,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Limite Diário API
                 </label>
                 <input
@@ -862,7 +866,7 @@ export default function AdminUsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Limite Mensal API
                 </label>
                 <input
@@ -874,12 +878,12 @@ export default function AdminUsersPage() {
               </div>
 
               <div className="mt-4">
-                <label className="flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors">
+                <label className="flex items-center justify-between cursor-pointer p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)] hover:border-[var(--accent)] transition-colors">
                   <div className="flex items-center">
-                    <Store className="w-5 h-5 text-purple-400 mr-3" />
+                    <Store className="w-5 h-5 text-[var(--accent)] mr-3" />
                     <div>
-                      <span className="text-sm font-medium text-gray-200">Modo Comércio</span>
-                      <p className="text-xs text-gray-400 mt-1">Permite transações comerciais para este usuário</p>
+                      <span className="text-sm font-medium text-[var(--text-secondary)]">Modo Comércio</span>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">Permite transações comerciais para este usuário</p>
                     </div>
                   </div>
                   <div className="relative">
@@ -890,7 +894,7 @@ export default function AdminUsersPage() {
                       onChange={(e) => setEditUserData({ ...editUserData, commerceMode: e.target.checked })}
                     />
                     <div className={`w-12 h-6 rounded-full transition-colors ${
-                      editUserData.commerceMode ? 'bg-purple-500' : 'bg-gray-600'
+                      editUserData.commerceMode ? 'bg-[var(--accent)]' : 'bg-[var(--border-hover)]'
                     }`}>
                       <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
                         editUserData.commerceMode ? 'translate-x-6' : 'translate-x-0'
@@ -902,14 +906,14 @@ export default function AdminUsersPage() {
 
               {/* Colateral */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   <div className="flex items-center">
                     <CreditCard className="w-4 h-4 text-cyan-400 mr-2" />
                     Colateral (R$)
                   </div>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">R$</span>
                   <input
                     type="number"
                     step="0.01"
@@ -928,12 +932,12 @@ export default function AdminUsersPage() {
                     placeholder="Desligado"
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   QR codes com valor igual ou menor ao colateral usam whitelist. Deixe vazio ou 0 para desligar.
                 </p>
                 {editUserData.collateral !== null && editUserData.collateral > 0 && (
-                  <div className="mt-2 p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                    <p className="text-xs text-cyan-400">
+                  <div className="mt-2 p-2 bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/30 rounded-lg">
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400">
                       Colateral ativo: QR codes até R$ {editUserData.collateral.toFixed(2)} usarão whitelist automaticamente.
                     </p>
                   </div>
@@ -941,7 +945,7 @@ export default function AdminUsersPage() {
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   <div className="flex items-center">
                     <Percent className="w-4 h-4 text-orange-400 mr-2" />
                     Taxa de Split Fee (%)
@@ -963,24 +967,24 @@ export default function AdminUsersPage() {
                     className="w-full input-modern pr-8"
                     placeholder="0.5"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">%</span>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   Porcentagem cobrada em cada transação (padrão: 0.5%). Use 0 para isentar o usuário.
                 </p>
               </div>
 
               {/* Pagamento com Delay D+1 */}
               <div className="mt-4">
-                <label className={`flex items-center justify-between cursor-pointer p-3 bg-gray-800/50 rounded-lg border ${
-                  !editUserData.commerceMode ? 'border-gray-600 opacity-50' : 'border-gray-700 hover:border-amber-500'
+                <label className={`flex items-center justify-between cursor-pointer p-3 bg-[var(--bg-card)] rounded-lg border ${
+                  !editUserData.commerceMode || editUserData.collateralDelayEnabled ? 'border-[var(--border-hover)] opacity-50' : 'border-[var(--border-default)] hover:border-amber-500'
                 } transition-colors`}>
                   <div className="flex items-center">
                     <Clock className="w-5 h-5 text-amber-400 mr-3" />
                     <div>
-                      <span className="text-sm font-medium text-gray-200">Pagamento com Delay (D+1)</span>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Pagamentos são agendados para janelas de 6h ou 18h (mínimo 24h após venda)
+                      <span className="text-sm font-medium text-[var(--text-secondary)]">Pagamento com Delay (D+1 Global)</span>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        TODOS os pagamentos são agendados para janelas de 6h ou 18h (mínimo 24h após venda)
                       </p>
                     </div>
                   </div>
@@ -989,11 +993,16 @@ export default function AdminUsersPage() {
                       type="checkbox"
                       className="sr-only"
                       checked={editUserData.delayedPaymentEnabled}
-                      disabled={!editUserData.commerceMode}
-                      onChange={(e) => setEditUserData({ ...editUserData, delayedPaymentEnabled: e.target.checked })}
+                      disabled={!editUserData.commerceMode || editUserData.collateralDelayEnabled}
+                      onChange={(e) => setEditUserData({
+                        ...editUserData,
+                        delayedPaymentEnabled: e.target.checked,
+                        // Modo exclusivo: desativar D+0 até ao colateral
+                        collateralDelayEnabled: e.target.checked ? false : editUserData.collateralDelayEnabled
+                      })}
                     />
                     <div className={`w-12 h-6 rounded-full transition-colors ${
-                      editUserData.delayedPaymentEnabled ? 'bg-amber-500' : 'bg-gray-600'
+                      editUserData.delayedPaymentEnabled ? 'bg-amber-500' : 'bg-[var(--border-hover)]'
                     }`}>
                       <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
                         editUserData.delayedPaymentEnabled ? 'translate-x-6' : 'translate-x-0'
@@ -1006,10 +1015,87 @@ export default function AdminUsersPage() {
                     Modo Comércio deve estar ativo para habilitar pagamento com delay.
                   </p>
                 )}
+                {editUserData.collateralDelayEnabled && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Desative "D+0 até ao colateral" primeiro para usar D+1 Global.
+                  </p>
+                )}
                 {editUserData.delayedPaymentEnabled && selectedUser?.delayedPaymentEnabledAt && (
-                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                    <p className="text-xs text-amber-400">
+                  <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-lg">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
                       Ativado em: {formatDate(selectedUser.delayedPaymentEnabledAt)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* D+0 até ao Colateral */}
+              <div className="mt-4">
+                <label className={`flex items-center justify-between cursor-pointer p-3 bg-[var(--bg-card)] rounded-lg border ${
+                  !editUserData.commerceMode || !editUserData.collateral || editUserData.collateral <= 0 || editUserData.delayedPaymentEnabled
+                    ? 'border-[var(--border-hover)] opacity-50'
+                    : 'border-[var(--border-default)] hover:border-cyan-500'
+                } transition-colors`}>
+                  <div className="flex items-center">
+                    <CreditCard className="w-5 h-5 text-cyan-400 mr-3" />
+                    <div>
+                      <span className="text-sm font-medium text-[var(--text-secondary)]">D+0 até ao Colateral</span>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        Pagamentos ≤ R$ {editUserData.collateral?.toFixed(2) || '0,00'} sem delay, acima com D+1
+                      </p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={editUserData.collateralDelayEnabled}
+                      disabled={!editUserData.commerceMode || !editUserData.collateral || editUserData.collateral <= 0 || editUserData.delayedPaymentEnabled}
+                      onChange={(e) => setEditUserData({
+                        ...editUserData,
+                        collateralDelayEnabled: e.target.checked,
+                        // Modo exclusivo: desativar D+1 global
+                        delayedPaymentEnabled: e.target.checked ? false : editUserData.delayedPaymentEnabled
+                      })}
+                    />
+                    <div className={`w-12 h-6 rounded-full transition-colors ${
+                      editUserData.collateralDelayEnabled ? 'bg-cyan-500' : 'bg-[var(--border-hover)]'
+                    }`}>
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                        editUserData.collateralDelayEnabled ? 'translate-x-6' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
+                </label>
+                {!editUserData.commerceMode && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Modo Comércio deve estar ativo para habilitar.
+                  </p>
+                )}
+                {editUserData.commerceMode && (!editUserData.collateral || editUserData.collateral <= 0) && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Configure o colateral primeiro para habilitar esta opção.
+                  </p>
+                )}
+                {editUserData.delayedPaymentEnabled && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Desative "D+1 Global" primeiro para usar D+0 até ao colateral.
+                  </p>
+                )}
+                {editUserData.collateralDelayEnabled && selectedUser?.collateralDelayEnabledAt && (
+                  <div className="mt-2 p-2 bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/30 rounded-lg">
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400">
+                      Ativado em: {formatDate(selectedUser.collateralDelayEnabledAt)}
+                    </p>
+                  </div>
+                )}
+                {editUserData.collateralDelayEnabled && editUserData.collateral && editUserData.collateral > 0 && (
+                  <div className="mt-2 p-2 bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/30 rounded-lg">
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400">
+                      Pagamentos até R$ {editUserData.collateral.toFixed(2)} → D+0 (sem delay)
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      Pagamentos acima de R$ {editUserData.collateral.toFixed(2)} → D+1 (com delay)
                     </p>
                   </div>
                 )}
@@ -1019,7 +1105,7 @@ export default function AdminUsersPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition duration-200"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition duration-200"
               >
                 Cancelar
               </button>

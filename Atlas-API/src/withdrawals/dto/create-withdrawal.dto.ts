@@ -5,59 +5,41 @@ import {
 	IsString,
 	IsBoolean,
 	Min,
-	ValidateIf,
+	Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { WithdrawalMethod, PixKeyType } from '@prisma/client';
+import { PixKeyType } from '@prisma/client';
 
 export class CreateWithdrawalDto {
-	@ApiProperty({ description: 'Amount to withdraw', example: 100.0 })
+	@ApiProperty({ description: 'Valor que deseja receber em BRL via PIX', example: 100.0 })
 	@IsNumber()
-	@Min(10)
+	@Min(2)
 	amount: number;
 
-	@ApiProperty({ description: 'Withdrawal method', enum: WithdrawalMethod })
-	@IsEnum(WithdrawalMethod)
-	method: WithdrawalMethod;
-
-	@ApiProperty({ description: 'PIX key for PIX withdrawals', required: false })
-	@ValidateIf((o) => o.method === WithdrawalMethod.PIX)
+	@ApiProperty({ description: 'Chave PIX do recebedor' })
 	@IsString()
-	pixKey?: string;
+	pixKey: string;
 
-	@ApiProperty({
-		description: 'PIX key type',
-		enum: PixKeyType,
-		required: false,
-	})
-	@ValidateIf((o) => o.method === WithdrawalMethod.PIX)
+	@ApiProperty({ description: 'Tipo da chave PIX', enum: PixKeyType })
 	@IsEnum(PixKeyType)
-	pixKeyType?: PixKeyType;
+	pixKeyType: PixKeyType;
 
-	@ApiProperty({
-		description: 'Liquid address for DePix withdrawals',
-		required: false,
-	})
-	@ValidateIf((o) => o.method === WithdrawalMethod.DEPIX)
-	@IsString()
-	liquidAddress?: string;
-
-	@ApiProperty({ description: 'CPF/CNPJ for verification', required: false })
+	@ApiProperty({ description: 'CPF ou CNPJ do recebedor', required: false })
 	@IsOptional()
 	@IsString()
 	cpfCnpj?: string;
 
-	@ApiProperty({ description: 'Full name for verification', required: false })
+	@ApiProperty({ description: 'Nome completo do recebedor', required: false })
 	@IsOptional()
 	@IsString()
 	fullName?: string;
 
-	@ApiProperty({ description: 'Discount coupon code', required: false })
+	@ApiProperty({ description: 'Código de cupom de desconto', required: false })
 	@IsOptional()
 	@IsString()
 	couponCode?: string;
 
-	@ApiProperty({ description: 'Save PIX key for future withdrawals', required: false })
+	@ApiProperty({ description: 'Salvar chave PIX para futuros saques', required: false })
 	@IsOptional()
 	@IsBoolean()
 	savePixKey?: boolean;

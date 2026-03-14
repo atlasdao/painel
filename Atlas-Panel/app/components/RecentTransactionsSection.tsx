@@ -151,36 +151,36 @@ export default function RecentTransactionsSection({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <CheckCircle className="w-4 h-4 text-green-400" />;
+        return <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
       case 'PENDING':
-        return <Clock className="w-4 h-4 text-yellow-400" />;
+        return <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />;
       case 'PROCESSING':
-        return <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />;
+        return <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />;
       case 'FAILED':
-        return <XCircle className="w-4 h-4 text-red-400" />;
+        return <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
       case 'EXPIRED':
-        return <Clock className="w-4 h-4 text-orange-400" />;
+        return <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />;
       case 'CANCELLED':
-        return <XCircle className="w-4 h-4 text-gray-400" />;
+        return <XCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-400" />;
+        return <AlertCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'Concluída';
+        return 'Recebido';
       case 'PENDING':
         return 'Pendente';
       case 'PROCESSING':
-        return 'Processando';
+        return 'Pago';
       case 'FAILED':
         return 'Falhou';
       case 'EXPIRED':
-        return 'Expirou';
+        return 'Expirado';
       case 'CANCELLED':
-        return 'Cancelada';
+        return 'Cancelado';
       default:
         return 'Desconhecido';
     }
@@ -189,34 +189,34 @@ export default function RecentTransactionsSection({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'text-green-400 bg-green-400/10 border-green-400/20';
+        return 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 border-blue-200 dark:border-blue-400/20';
       case 'PENDING':
-        return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+        return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/50 border-yellow-200 dark:border-yellow-400/20';
       case 'PROCESSING':
-        return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+        return 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50 border-green-200 dark:border-green-400/20';
       case 'FAILED':
-        return 'text-red-400 bg-red-400/10 border-red-400/20';
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/50 border-red-200 dark:border-red-400/20';
       case 'EXPIRED':
-        return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/50 border-orange-200 dark:border-orange-400/20';
       case 'CANCELLED':
-        return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+        return 'text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-400/20';
       default:
-        return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+        return 'text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-400/20';
     }
   };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'DEPOSIT':
-        return <ArrowDownLeft className="w-5 h-5 text-green-400" />;
+        return <ArrowDownLeft className="w-5 h-5 text-green-600 dark:text-green-400" />;
       case 'WITHDRAW':
-        return <ArrowUpRight className="w-5 h-5 text-red-400" />;
+        return <ArrowUpRight className="w-5 h-5 text-red-600 dark:text-red-400" />;
       case 'TRANSFER':
-        return <RefreshCw className="w-5 h-5 text-blue-400" />;
+        return <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
       case 'PAYMENT':
-        return <CreditCard className="w-5 h-5 text-purple-400" />;
+        return <CreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />;
       default:
-        return <DollarSign className="w-5 h-5 text-gray-400" />;
+        return <DollarSign className="w-5 h-5 text-gray-600 dark:text-gray-400" />;
     }
   };
 
@@ -280,7 +280,7 @@ export default function RecentTransactionsSection({
       <div className={`transaction-table-premium p-6 md:p-8 ${className}`}>
         <div className="flex items-center gap-4 mb-8">
           <div className="transaction-icon-container transaction-icon-transfer animate-pulse">
-            <TrendingUp className="w-6 h-6 text-blue-400" />
+            <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="flex-1">
             <div className="transaction-skeleton-premium h-6 w-48 mb-3"></div>
@@ -304,7 +304,7 @@ export default function RecentTransactionsSection({
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <div className="transaction-icon-container transaction-icon-transfer p-3">
-            <TrendingUp className="w-6 h-6 text-blue-400" />
+            <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <h3 className="transaction-heading-primary text-xl">
@@ -316,8 +316,8 @@ export default function RecentTransactionsSection({
               </p>
               {transactions.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                  <span className="transaction-text-caption text-green-400">Em tempo real</span>
+                  <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 animate-pulse"></div>
+                  <span className="transaction-text-caption text-green-600 dark:text-green-400">Em tempo real</span>
                 </div>
               )}
             </div>
@@ -329,7 +329,7 @@ export default function RecentTransactionsSection({
           <div className="transaction-filter-premium p-3 mb-0">
             <div className="flex items-center gap-3">
               <div className="transaction-icon-container transaction-icon-transfer p-2 w-8 h-8">
-                <Filter className="w-4 h-4 text-blue-400" />
+                <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
               <select
                 value={statusFilter}
@@ -347,7 +347,7 @@ export default function RecentTransactionsSection({
               </select>
               <button
                 onClick={loadRecentTransactions}
-                className="transaction-action-btn bg-blue-600/10 border-blue-500/20 text-blue-400 hover:border-blue-500/40 hover:text-blue-300 p-2"
+                className="transaction-action-btn bg-blue-100 dark:bg-blue-600/10 border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 hover:border-blue-300 dark:hover:border-blue-500/40 hover:text-blue-700 dark:hover:text-blue-300 p-2"
                 aria-label="Atualizar transações"
                 title="Atualizar transações"
               >
@@ -373,7 +373,7 @@ export default function RecentTransactionsSection({
       {error && (
         <div className="text-center py-12">
           <div className="transaction-icon-container transaction-icon-withdraw mx-auto mb-6 w-16 h-16">
-            <AlertCircle className="w-8 h-8 text-red-400" />
+            <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <h4 className="transaction-heading-secondary mb-3">
             Erro ao Carregar Transações
@@ -544,7 +544,7 @@ export default function RecentTransactionsSection({
                             e.stopPropagation();
                             loadRecentTransactions();
                           }}
-                          className="transaction-action-btn bg-gradient-to-r from-yellow-600/10 to-amber-600/05 border-yellow-500/20 text-yellow-400 hover:border-yellow-500/40 hover:text-yellow-300 p-2 transaction-focus-visible"
+                          className="transaction-action-btn bg-gradient-to-r from-yellow-100 dark:from-yellow-600/10 to-amber-50 dark:to-amber-600/05 border-yellow-200 dark:border-yellow-500/20 text-yellow-600 dark:text-yellow-400 hover:border-yellow-300 dark:hover:border-yellow-500/40 hover:text-yellow-700 dark:hover:text-yellow-300 p-2 transaction-focus-visible"
                           aria-label="Verificar status da transação"
                         >
                           <RefreshCw className="w-4 h-4" />
@@ -591,23 +591,23 @@ export default function RecentTransactionsSection({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="transaction-icon-container transaction-icon-transfer p-2 w-8 h-8">
-                  <Clock className="w-4 h-4 text-green-400" />
+                  <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <div className="transaction-text-body font-medium text-green-400">Atualizado em tempo real</div>
+                  <div className="transaction-text-body font-medium text-green-600 dark:text-green-400">Atualizado em tempo real</div>
                   <div className="transaction-text-caption">Última atualização: {new Date().toLocaleTimeString('pt-BR')}</div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="text-center">
-                  <div className="transaction-heading-secondary text-base font-bold text-green-400">
+                  <div className="transaction-heading-secondary text-base font-bold text-green-600 dark:text-green-400">
                     {transactions.filter(t => t.status === 'COMPLETED').length}
                   </div>
                   <div className="transaction-text-caption">Concluídas</div>
                 </div>
                 {transactions.filter(t => t.status === 'PENDING').length > 0 && (
                   <div className="text-center">
-                    <div className="transaction-heading-secondary text-base font-bold text-yellow-400">
+                    <div className="transaction-heading-secondary text-base font-bold text-yellow-600 dark:text-yellow-400">
                       {transactions.filter(t => t.status === 'PENDING').length}
                     </div>
                     <div className="transaction-text-caption">Pendentes</div>
@@ -615,7 +615,7 @@ export default function RecentTransactionsSection({
                 )}
                 {transactions.filter(t => t.status === 'FAILED').length > 0 && (
                   <div className="text-center">
-                    <div className="transaction-heading-secondary text-base font-bold text-red-400">
+                    <div className="transaction-heading-secondary text-base font-bold text-red-600 dark:text-red-400">
                       {transactions.filter(t => t.status === 'FAILED').length}
                     </div>
                     <div className="transaction-text-caption">Falharam</div>

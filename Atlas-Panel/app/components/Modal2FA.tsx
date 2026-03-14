@@ -20,7 +20,7 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
 
   const handleConfirm = async () => {
     if (code.length !== 6) {
-      setError('O código deve ter 6 dígitos');
+      setError('O codigo deve ter 6 digitos');
       return;
     }
 
@@ -32,7 +32,7 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
       setCode('');
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Código inválido');
+      setError(err.message || 'Codigo invalido');
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden animate-slideUp">
+      <div className="relative w-full max-w-md bg-gradient-to-b from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-default)] overflow-hidden animate-slideUp">
         {/* Gradient accent border */}
         <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 via-orange-600/20 to-yellow-600/20 pointer-events-none" />
 
@@ -56,29 +56,29 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-br from-red-600/20 to-orange-600/20 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-orange-400" />
+                <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
               </div>
-              <h2 className="text-xl font-bold text-white">{title}</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">{title}</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+              className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5 text-[var(--text-muted)]" />
             </button>
           </div>
 
           {/* Warning Message */}
-          <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-            <p className="text-sm text-orange-400">
-              {message || '⚠️ Atenção: Desativar a autenticação de dois fatores tornará sua conta menos segura. Você precisará do código do seu aplicativo autenticador para confirmar.'}
+          <div className="mb-6 p-4 bg-orange-100 dark:bg-orange-500/10 border border-orange-300 dark:border-orange-500/20 rounded-lg">
+            <p className="text-sm text-orange-700 dark:text-orange-400">
+              {message || 'Atencao: Desativar a autenticacao de dois fatores tornara sua conta menos segura. Voce precisara do codigo do seu aplicativo autenticador para confirmar.'}
             </p>
           </div>
 
           {/* Code Input */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Código de Autenticação
+            <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+              Codigo de Autenticacao
             </label>
             <input
               type="text"
@@ -89,11 +89,11 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
               }}
               placeholder="000000"
               maxLength={6}
-              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white text-center text-2xl tracking-widest placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
+              className="w-full px-4 py-3 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] text-center text-2xl tracking-widest placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               disabled={loading}
             />
             {error && (
-              <p className="mt-2 text-sm text-red-400">{error}</p>
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
             )}
           </div>
 
@@ -102,14 +102,14 @@ export default function Modal2FA({ isOpen, onClose, onConfirm, title = 'Desativa
             <button
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-gray-700/50 text-white rounded-lg font-medium hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg font-medium hover:bg-[var(--bg-elevated)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
             <button
               onClick={handleConfirm}
               disabled={loading || code.length !== 6}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg font-medium hover:from-red-700 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-[var(--text-primary)] rounded-lg font-medium hover:from-red-700 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
             >
               {loading ? (
                 <Loader className="w-5 h-5 animate-spin mx-auto" />

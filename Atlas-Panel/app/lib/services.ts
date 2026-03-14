@@ -69,6 +69,28 @@ export const accountValidationService = {
   },
 };
 
+export const commerceTermsService = {
+  async getStatus(): Promise<{
+    hasAcceptedTerms: boolean;
+    acceptedAt: string | null;
+    needsToAcceptTerms: boolean;
+    hasPaymentLinks: boolean;
+    commerceMode: boolean;
+  }> {
+    const response = await api.get('/profile/commerce-terms/status');
+    return response.data;
+  },
+
+  async acceptTerms(): Promise<{
+    success: boolean;
+    message: string;
+    acceptedAt: string;
+  }> {
+    const response = await api.post('/profile/commerce-terms/accept');
+    return response.data;
+  },
+};
+
 export const pixService = {
   async createDeposit(amount: number, pixKey?: string): Promise<PixQRCode> {
     const response = await api.post<PixQRCode>('/pix/deposit', { amount, pixKey });
@@ -136,12 +158,15 @@ export const adminService = {
     return response.data;
   },
 
-  async getAllTransactions(params?: { 
-    limit?: number; 
+  async getAllTransactions(params?: {
+    limit?: number;
     offset?: number;
     status?: string;
     userId?: number | string;
     type?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
   }): Promise<Transaction[]> {
     // Convert limit/offset to take/skip for API compatibility
     const apiParams = params ? {
@@ -149,7 +174,10 @@ export const adminService = {
       skip: params.offset,
       status: params.status,
       userId: params.userId ? (typeof params.userId === 'string' ? params.userId : params.userId.toString()) : undefined,
-      type: params.type
+      type: params.type,
+      startDate: params.startDate || undefined,
+      endDate: params.endDate || undefined,
+      search: params.search || undefined,
     } : undefined;
     const response = await api.get<Transaction[]>('/admin/transactions', { params: apiParams });
     return response.data;
@@ -694,6 +722,372 @@ export const collaboratorService = {
     context: CollaboratorContext;
   }> {
     const response = await api.post('/collaborator/switch/own');
+    return response.data;
+  },
+};
+
+// ========== REFERRAL SERVICE ==========
+
+export interface ReferralStatus {
+  isCampaignActive: boolean;
+  campaignEndDate: string;
+  isEligible: boolean;
+  commerceSalesTotal: number;
+  requiredSales: number;
+  hasAcceptedTerms: boolean;
+  referralLink: {
+    id: string;
+    shortCode: string;
+    isCustomShortCode: boolean;
+    isActive: boolean;
+    isBlocked: boolean;
+    totalSignups: number;
+    validReferrals: number;
+    totalCommissions: number;
+    fullUrl: string;
+  } | null;
+  referrals: ReferredUser[];
+  availableBalance: number;
+  pendingCommissions: number;
+  canWithdraw: boolean;
+  minWithdrawal: number;
+}
+
+export interface ReferredUser {
+  id: string;
+  email: string;
+  status: 'PENDING' | 'VALID' | 'EXPIRED';
+  signupDate: string;
+  deadlineDate: string;
+  validatedAt: string | null;
+  commerceSalesTotal: number;
+  commissionAmount: number | null;
+  commissionStatus: string | null;
+}
+
+export interface CommissionSummary {
+  summary: {
+    available: number;
+    requested: number;
+    processing: number;
+    completed: number;
+    rejected: number;
+  };
+  items: Commission[];
+}
+
+export interface Commission {
+  id: string;
+  amount: number;
+  status: string;
+  statusReason: string | null;
+  liquidAddress: string | null;
+  requestedAt: string | null;
+  approvedAt: string | null;
+  coldwalletTxId: string | null;
+  createdAt: string;
+  referredEmail: string;
+}
+
+export const referralService = {
+  async getStatus(): Promise<ReferralStatus> {
+    const response = await api.get('/referral/status');
+    return response.data;
+  },
+
+  async acceptTerms(): Promise<{ success: boolean; message: string }> {
+    const response = await api.post('/referral/terms/accept');
+    return response.data;
+  },
+
+  async createLink(): Promise<{ id: string; shortCode: string; fullUrl: string }> {
+    const response = await api.post('/referral/link');
+    return response.data;
+  },
+
+  async customizeShortCode(shortCode: string): Promise<{ shortCode: string; fullUrl: string }> {
+    const response = await api.post('/referral/link/customize', { shortCode });
+    return response.data;
+  },
+
+  async checkShortCodeAvailability(shortCode: string): Promise<{ available: boolean; reason: string | null }> {
+    const response = await api.get(`/referral/link/check/${shortCode}`);
+    return response.data;
+  },
+
+  async getReferrals(): Promise<ReferredUser[]> {
+    const response = await api.get('/referral/referrals');
+    return response.data;
+  },
+
+  async getCommissions(): Promise<CommissionSummary> {
+    const response = await api.get('/referral/commissions');
+    return response.data;
+  },
+
+  async requestWithdraw(liquidAddress: string): Promise<{
+    success: boolean;
+    message: string;
+    totalRequested: number;
+    liquidAddress: string;
+  }> {
+    const response = await api.post('/referral/commissions/withdraw', { liquidAddress });
+    return response.data;
+  },
+
+  async validateLink(shortCode: string): Promise<{ valid: boolean; reason?: string }> {
+    const response = await api.get(`/referral/link/${shortCode}`);
+    return response.data;
+  },
+
+  // Admin endpoints
+  async getPendingPayouts(): Promise<any[]> {
+    const response = await api.get('/referral/admin/payouts/pending');
+    return response.data;
+  },
+
+  async getPayoutHistory(status?: string): Promise<any[]> {
+    const response = await api.get('/referral/admin/payouts/history', { params: { status } });
+    return response.data;
+  },
+
+  async approvePayout(id: string, data: { adminNotes?: string; coldwalletTxId?: string }): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/referral/admin/payouts/${id}/approve`, data);
+    return response.data;
+  },
+
+  async completePayout(id: string, coldwalletTxId: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/referral/admin/payouts/${id}/complete`, { coldwalletTxId });
+    return response.data;
+  },
+
+  async rejectPayout(id: string, data: { statusReason: string; adminNotes?: string }): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/referral/admin/payouts/${id}/reject`, data);
+    return response.data;
+  },
+};
+
+// ==================== COLLATERAL SERVICE ====================
+export const collateralService = {
+  async getSummary(): Promise<{
+    current: number;
+    maximum: number;
+    available: number;
+    pendingDeposits: number;
+    pendingWithdrawals: number;
+  }> {
+    const response = await api.get('/collateral/summary');
+    return response.data;
+  },
+
+  async increaseViaPix(amount: number): Promise<{
+    transactionId: string;
+    qrCode: string;
+    qrCodeImage: string;
+    amount: number;
+    fee: number;
+    total: number;
+    expiresAt: string;
+  }> {
+    const response = await api.post('/collateral/increase/pix', { amount });
+    return response.data;
+  },
+
+  async checkPixStatus(transactionId: string): Promise<{
+    status: string;
+    message?: string;
+    newBalance?: number;
+  }> {
+    const response = await api.get(`/collateral/increase/pix/${transactionId}/status`);
+    return response.data;
+  },
+
+  async increaseViaDepix(amount: number): Promise<{
+    transactionId: string;
+    liquidAddress: string;
+    amount: number;
+    pollingExpiresAt: string;
+  }> {
+    const response = await api.post('/collateral/increase/depix', { amount });
+    return response.data;
+  },
+
+  async pollDepixStatus(transactionId: string): Promise<{
+    status: 'waiting' | 'received' | 'completed' | 'expired' | 'different_amount';
+    receivedAmount?: number;
+    expectedAmount?: number;
+    message?: string;
+    newBalance?: number;
+    excessAmount?: number;
+    requiresExcessWallet?: boolean;
+  }> {
+    const response = await api.get(`/collateral/increase/depix/${transactionId}/poll`);
+    return response.data;
+  },
+
+  async decreaseCollateral(amount: number, liquidAddress: string): Promise<{
+    requestId: string;
+    amount: number;
+    liquidAddress: string;
+    estimatedProcessingTime: string;
+    newBalance: number;
+  }> {
+    const response = await api.post('/collateral/decrease', { amount, liquidAddress });
+    return response.data;
+  },
+
+  async cancelWithdrawal(transactionId: string): Promise<void> {
+    await api.delete(`/collateral/decrease/${transactionId}`);
+  },
+
+  async getHistory(params?: { limit?: number; offset?: number; type?: string }): Promise<{
+    transactions: any[];
+    total: number;
+  }> {
+    const response = await api.get('/collateral/history', { params });
+    return response.data;
+  },
+
+  async setExcessWallet(transactionId: string, walletAddress: string): Promise<void> {
+    await api.post(`/collateral/excess-wallet/${transactionId}`, { walletAddress });
+  },
+
+  // Admin endpoints
+  async getPendingWithdrawals(): Promise<any[]> {
+    const response = await api.get('/collateral/admin/withdrawals');
+    return response.data;
+  },
+
+  async getWithdrawalHistory(status?: string): Promise<any[]> {
+    const response = await api.get('/collateral/admin/withdrawals/history', { params: { status } });
+    return response.data;
+  },
+
+  async approveWithdrawal(transactionId: string, data: { coldwalletTxId?: string; adminNotes?: string }): Promise<any> {
+    const response = await api.put(`/collateral/admin/withdrawals/${transactionId}/approve`, data);
+    return response.data;
+  },
+
+  async rejectWithdrawal(transactionId: string, data: { adminNotes: string }): Promise<any> {
+    const response = await api.put(`/collateral/admin/withdrawals/${transactionId}/reject`, data);
+    return response.data;
+  },
+};
+
+// ==================== WALLET PROXY SERVICE ====================
+export const walletProxyService = {
+  getUtxos: (address: string) => api.get(`/wallet/utxos/${address}`),
+  getTransactions: (address: string) => api.get(`/wallet/transactions/${address}`),
+  getTxHex: (txid: string) => api.get(`/wallet/tx/${txid}`),
+  broadcast: (txHex: string) => api.post('/wallet/broadcast', { txHex }),
+  getFeeEstimate: () => api.get('/wallet/fee-estimate'),
+  getPrices: () => api.get('/wallet/prices'),
+  getAssetInfo: (assetId: string) => api.get(`/wallet/asset/${assetId}`),
+};
+
+// ==================== WITHDRAWAL SERVICE ====================
+export const withdrawalService = {
+  // User endpoints
+  async create(data: {
+    amount: number;
+    pixKey: string;
+    pixKeyType: string;
+    cpfCnpj: string;
+    fullName: string;
+    couponCode?: string;
+    savePixKey?: boolean;
+  }): Promise<{
+    id: string;
+    amount: number;
+    fee: number;
+    netAmount: number;
+    depixReceiveAddress: string;
+    pollingExpiresAt: string;
+    status: string;
+    message: string;
+  }> {
+    const response = await api.post('/withdrawals', data);
+    return response.data;
+  },
+
+  async checkDepositStatus(id: string): Promise<{
+    status: string;
+    message?: string;
+    depixReceiveAddress?: string;
+    amount?: number;
+    pollingExpiresAt?: string;
+    receivedAmount?: number;
+    expectedAmount?: number;
+    excessAmount?: number;
+    eulenStatus?: string;
+  }> {
+    const response = await api.get(`/withdrawals/${id}/deposit-status`);
+    return response.data;
+  },
+
+  async getUserWithdrawals(status?: string): Promise<any[]> {
+    const response = await api.get('/withdrawals', { params: { status } });
+    return response.data;
+  },
+
+  async getWithdrawalById(id: string): Promise<any> {
+    const response = await api.get(`/withdrawals/${id}`);
+    return response.data;
+  },
+
+  async cancelWithdrawal(id: string): Promise<any> {
+    const response = await api.delete(`/withdrawals/${id}`);
+    return response.data;
+  },
+
+  async getReceipt(id: string): Promise<any> {
+    const response = await api.get(`/withdrawals/${id}/receipt`);
+    return response.data;
+  },
+
+  async getStats(): Promise<any> {
+    const response = await api.get('/withdrawals/stats');
+    return response.data;
+  },
+
+  // Admin endpoints
+  async adminGetPending(): Promise<any[]> {
+    const response = await api.get('/withdrawals/admin/pending');
+    return response.data;
+  },
+
+  async adminGetProcessing(): Promise<any[]> {
+    const response = await api.get('/withdrawals/admin/processing');
+    return response.data;
+  },
+
+  async adminGetAll(status?: string): Promise<any[]> {
+    const response = await api.get('/withdrawals/admin/all', { params: { status } });
+    return response.data;
+  },
+
+  async adminGetStats(): Promise<any> {
+    const response = await api.get('/withdrawals/admin/stats');
+    return response.data;
+  },
+
+  async adminApprove(id: string): Promise<any> {
+    const response = await api.put(`/withdrawals/admin/${id}/approve`);
+    return response.data;
+  },
+
+  async adminConfirmSend(id: string): Promise<any> {
+    const response = await api.put(`/withdrawals/admin/${id}/confirm-send`);
+    return response.data;
+  },
+
+  async adminReject(id: string, reason?: string): Promise<any> {
+    const response = await api.put(`/withdrawals/admin/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  async adminGetReceipt(id: string): Promise<any> {
+    const response = await api.get(`/withdrawals/admin/${id}/receipt`);
     return response.data;
   },
 };

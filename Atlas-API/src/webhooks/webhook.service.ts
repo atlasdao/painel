@@ -204,6 +204,184 @@ export class WebhookService {
 				},
 			});
 
+			// Send email notification when payment is confirmed
+			// D+1 users: Send email on PROCESSING (payment received, waiting for settlement)
+			// D+0 users: Send email on COMPLETED (instant settlement)
+			if (newStatus === TransactionStatus.PROCESSING || newStatus === TransactionStatus.COMPLETED) {
+				// Send email notification to merchant if enabled
+				try {
+					const user = await this.prisma.user.findUnique({
+						where: { id: transaction.userId },
+						select: {
+							email: true,
+							username: true,
+							notifyApprovedSales: true,
+							delayedPaymentEnabled: true,
+						},
+					});
+
+					if (user && user.notifyApprovedSales) {
+						// Determine if we should send the email based on user's payment mode
+						// D+1 (delayedPaymentEnabled = true): Send on PROCESSING
+						// D+0 (delayedPaymentEnabled = false): Send on COMPLETED
+						const shouldSendEmail =
+							(user.delayedPaymentEnabled && newStatus === TransactionStatus.PROCESSING) ||
+							(!user.delayedPaymentEnabled && newStatus === TransactionStatus.COMPLETED);
+
+						if (shouldSendEmail) {
+							this.logger.log(`💳 PAYMENT CONFIRMED: Transaction ${transaction.id}`);
+							this.logger.log(
+								`  💳 Amount: R$ ${(transaction.amount / 100).toFixed(2)}`,
+							);
+							this.logger.log(
+								`  👤 Payer: ${eventData.payerName} (${eventData.payerTaxNumber})`,
+							);
+							this.logger.log(
+								`  📧 Sending email (D+${user.delayedPaymentEnabled ? '1' : '0'} mode, status: ${newStatus})`,
+							);
+
+							const metadata = JSON.parse(transaction.metadata || '{}');
+
+							// Calculate settlement info based on user's delay settings
+							let settlementInfo: { isInstant: boolean; scheduledAt?: Date } = { isInstant: true };
+
+							if (user.delayedPaymentEnabled) {
+								// D+1: Calculate next settlement window (6h or 18h)
+								const now = new Date();
+								const minPaymentTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+								const minHour = minPaymentTime.getHours();
+								const scheduledAt = new Date(minPaymentTime);
+
+								if (minHour < 6) {
+									scheduledAt.setHours(6, 0, 0, 0);
+								} else if (minHour < 18) {
+									scheduledAt.setHours(18, 0, 0, 0);
+								} else {
+									scheduledAt.setDate(scheduledAt.getDate() + 1);
+									scheduledAt.setHours(6, 0, 0, 0);
+								}
+
+								settlementInfo = { isInstant: false, scheduledAt };
+							}
+
+							await this.emailService.sendApprovedSaleEmail(
+								user.email,
+								user.username,
+								{
+									productName: transaction.description || 'Pagamento PIX',
+									amount: transaction.amount, // Already in reais
+									buyerName: eventData.payerName || metadata.webhookEvent?.payerName,
+									transactionId: transaction.id,
+									paymentMethod: 'PIX',
+									createdAt: new Date(),
+									settlementInfo,
+								}
+							);
+							this.logger.log(`📧 SALE EMAIL: Notification sent to ${user.email}`);
+						}
+					}
+				} catch (error) {
+					this.logger.error(`Failed to send sale notification email:`, error);
+					// Don't fail the webhook processing if email fails
+				}
+			}
+
+			// ============================================================
+			// EXTERNAL API WEBHOOK - Trigger on PROCESSING for D+1 compatibility
+			// This ensures clients receive immediate notification when payment is confirmed,
+			// even if settlement is delayed (D+1). Maintains backward compatibility by
+			// always sending status: "COMPLETED" with optional settlement info.
+			// ============================================================
+			if ((newStatus === TransactionStatus.PROCESSING || newStatus === TransactionStatus.COMPLETED)) {
+				try {
+					const metadata = JSON.parse(transaction.metadata || '{}');
+
+					// Check if this is External API and webhook hasn't been sent yet
+					if (metadata.source === 'EXTERNAL_API' && transaction.id && !metadata.externalWebhookSent) {
+						this.logger.log(`  🔗 External API transaction detected: ${transaction.id} (status: ${newStatus})`);
+
+						// Get user to check D+1 settings
+						const apiUser = await this.prisma.user.findUnique({
+							where: { id: transaction.userId },
+							select: { delayedPaymentEnabled: true },
+						});
+
+						// Calculate settlement info
+						let settlement: { type: string; scheduledAt: string | null } = {
+							type: 'instant',
+							scheduledAt: null,
+						};
+
+						if (apiUser?.delayedPaymentEnabled && newStatus === TransactionStatus.PROCESSING) {
+							// D+1: Calculate next settlement window (6h or 18h)
+							const now = new Date();
+							const minPaymentTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+							const minHour = minPaymentTime.getHours();
+							const scheduledAt = new Date(minPaymentTime);
+
+							if (minHour < 6) {
+								scheduledAt.setHours(6, 0, 0, 0);
+							} else if (minHour < 18) {
+								scheduledAt.setHours(18, 0, 0, 0);
+							} else {
+								scheduledAt.setDate(scheduledAt.getDate() + 1);
+								scheduledAt.setHours(6, 0, 0, 0);
+							}
+
+							settlement = {
+								type: 'delayed',
+								scheduledAt: scheduledAt.toISOString(),
+							};
+							this.logger.log(`  ⏰ D+1 Settlement scheduled for: ${scheduledAt.toISOString()}`);
+						}
+
+						try {
+							// Prepare payment data for webhook
+							const paymentData = {
+								amount: transaction.amount / 100, // Convert from centavos to reais
+								merchantOrderId: metadata.merchantOrderId,
+								processedAt: new Date().toISOString(),
+								payerName: metadata.webhookEvent?.payerName || eventData.payerName,
+								payerTaxNumber: metadata.webhookEvent?.payerTaxNumber || eventData.payerTaxNumber,
+								settlement, // New field for D+1 compatibility
+								metadata: {
+									blockchainTxID: metadata.webhookEvent?.blockchainTxID || eventData.blockchainTxID,
+									depixAddress: metadata.depixAddress,
+									...metadata.webhookEvent,
+								},
+							};
+
+							// Trigger transaction.paid webhook
+							await this.externalWebhookService.triggerTransactionPaid(
+								transaction.id,
+								paymentData
+							);
+
+							this.logger.log(`  ✅ External API webhook triggered successfully for transaction ${transaction.id} (settlement: ${settlement.type})`);
+
+							// Mark webhook as sent to avoid duplicates
+							await this.prisma.transaction.update({
+								where: { id: transaction.id },
+								data: {
+									metadata: JSON.stringify({
+										...metadata,
+										externalWebhookSent: true,
+										externalWebhookSentAt: new Date().toISOString(),
+										settlementType: settlement.type,
+									}),
+								},
+							});
+						} catch (webhookError) {
+							this.logger.error(`  ❌ Failed to trigger External API webhook:`, webhookError);
+							// Don't fail the main webhook processing if external webhook fails
+						}
+					}
+				} catch (error) {
+					this.logger.error(`Failed to process External API webhook:`, error);
+					// Don't fail the main webhook processing
+				}
+			}
+
 			// Log additional details for completed transactions
 			if (newStatus === TransactionStatus.COMPLETED) {
 				this.logger.log(`💰 DEPOSIT COMPLETED: Transaction ${transaction.id}`);
@@ -231,38 +409,6 @@ export class WebhookService {
 				} catch (error) {
 					this.logger.error(`Failed to sync transaction to bot:`, error);
 					// Don't fail the webhook processing if bot sync fails
-				}
-
-				// Send email notification to merchant if enabled
-				try {
-					const user = await this.prisma.user.findUnique({
-						where: { id: transaction.userId },
-						select: {
-							email: true,
-							username: true,
-							notifyApprovedSales: true,
-						},
-					});
-
-					if (user && user.notifyApprovedSales) {
-						const metadata = JSON.parse(transaction.metadata || '{}');
-						await this.emailService.sendApprovedSaleEmail(
-							user.email,
-							user.username,
-							{
-								productName: transaction.description || 'Pagamento PIX',
-								amount: transaction.amount, // Already in reais
-								buyerName: eventData.payerName || metadata.webhookEvent?.payerName,
-								transactionId: transaction.id,
-								paymentMethod: 'PIX',
-								createdAt: new Date(),
-							}
-						);
-						this.logger.log(`📧 SALE EMAIL: Notification sent to ${user.email}`);
-					}
-				} catch (error) {
-					this.logger.error(`Failed to send sale notification email:`, error);
-					// Don't fail the webhook processing if email fails
 				}
 
 				// Check if this transaction is associated with a payment link
@@ -311,38 +457,6 @@ export class WebhookService {
 						}
 					} else {
 						this.logger.log(`  ℹ️ No paymentLinkId found in metadata`);
-					}
-
-					// Check if this transaction is from External API
-					if (metadata.source === 'EXTERNAL_API' && transaction.id) {
-						this.logger.log(`  🔗 External API transaction detected: ${transaction.id}`);
-
-						try {
-							// Prepare payment data for webhook
-							const paymentData = {
-								amount: transaction.amount / 100, // Convert from centavos to reais
-								merchantOrderId: metadata.merchantOrderId,
-								processedAt: new Date().toISOString(),
-								payerName: metadata.webhookEvent?.payerName || eventData.payerName,
-								payerTaxNumber: metadata.webhookEvent?.payerTaxNumber || eventData.payerTaxNumber,
-								metadata: {
-									blockchainTxID: metadata.webhookEvent?.blockchainTxID || eventData.blockchainTxID,
-									depixAddress: metadata.depixAddress,
-									...metadata.webhookEvent,
-								},
-							};
-
-							// Trigger transaction.paid webhook
-							await this.externalWebhookService.triggerTransactionPaid(
-								transaction.id,
-								paymentData
-							);
-
-							this.logger.log(`  ✅ External API webhook triggered successfully for transaction ${transaction.id}`);
-						} catch (webhookError) {
-							this.logger.error(`  ❌ Failed to trigger External API webhook:`, webhookError);
-							// Don't fail the main webhook processing if external webhook fails
-						}
 					}
 				} catch (error) {
 					this.logger.error(

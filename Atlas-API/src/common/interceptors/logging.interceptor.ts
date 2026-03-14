@@ -4,15 +4,22 @@ import {
 	ExecutionContext,
 	CallHandler,
 	Logger,
+	Inject,
+	Optional,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { HealthService } from '../../health/health.service';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
 	private readonly logger = new Logger('HTTP');
+
+	constructor(
+		@Optional() @Inject(HealthService) private readonly healthService?: HealthService,
+	) {}
 
 	intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
 		const ctx = context.switchToHttp();
@@ -26,6 +33,9 @@ export class LoggingInterceptor implements NestInterceptor {
 		const { method, url, body, ip } = request;
 		const userAgent = request.get('user-agent') || '';
 		const startTime = Date.now();
+
+		// Skip counting health endpoints to avoid self-inflating metrics
+		const isHealthRoute = url.startsWith('/health');
 
 		// Log incoming request
 		this.logger.log(`Incoming Request`, {
@@ -43,6 +53,10 @@ export class LoggingInterceptor implements NestInterceptor {
 					const { statusCode } = response;
 					const duration = Date.now() - startTime;
 
+					if (!isHealthRoute && this.healthService) {
+						this.healthService.incrementRequestCount();
+					}
+
 					// Log successful response
 					this.logger.log(`Outgoing Response`, {
 						requestId,
@@ -55,6 +69,11 @@ export class LoggingInterceptor implements NestInterceptor {
 				},
 				error: (error) => {
 					const duration = Date.now() - startTime;
+
+					if (!isHealthRoute && this.healthService) {
+						this.healthService.incrementRequestCount();
+						this.healthService.incrementErrorCount();
+					}
 
 					// Log error response
 					this.logger.error(`Error Response`, {

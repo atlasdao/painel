@@ -237,14 +237,14 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-        <QrCode className="text-purple-400" size={24} />
+      <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
+        <QrCode className="text-[var(--accent)]" size={24} />
         Gerar QR Code Manual
       </h2>
 
       {/* Info Box */}
-      <div className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg">
-        <p className="text-blue-400">
+      <div className="p-4 bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-300 dark:border-blue-500/20 rounded-lg">
+        <p className="text-blue-600 dark:text-blue-400">
           Gere QR Codes PIX que podem receber pagamento de qualquer CPF ou CNPJ.
           Ideal para pagamentos presenciais ou vendas diretas.
         </p>
@@ -252,10 +252,10 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
 
       {/* First Time Purchase Warning */}
       {showFirstTimeWarning && (
-        <div className="relative p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg">
+        <div className="relative p-4 bg-gradient-to-r from-yellow-100 dark:from-yellow-500/10 to-orange-100 dark:to-orange-500/10 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
           <button
             onClick={() => setShowFirstTimeWarning(false)}
-            className="absolute top-2 right-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+            className="absolute top-2 right-2 text-yellow-600 dark:text-yellow-400 hover:text-yellow-500 dark:hover:text-yellow-300 transition-colors"
             aria-label="Fechar aviso"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,12 +263,12 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
             </svg>
           </button>
           <div className="flex items-start gap-3 pr-6">
-            <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-yellow-400 font-medium mb-1">
+              <p className="text-yellow-700 dark:text-yellow-400 font-medium mb-1">
                 Aviso para Clientes Novos
               </p>
-              <p className="text-yellow-300/90 text-sm">
+              <p className="text-yellow-700 dark:text-yellow-300/90 text-sm">
                 Clientes que nunca compraram DePix possuem um limite de <strong>R$ 500,00</strong> na primeira compra.
                 Após 24 horas da primeira transação, poderão realizar compras com os limites normais (até R$ 3.000 ou R$ 5.000 com CPF/CNPJ).
               </p>
@@ -282,11 +282,11 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
         <div className="space-y-6">
           {/* Amount Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
               Valor do Pagamento *
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
               <input
                 type="text"
                 value={formData.amount}
@@ -296,10 +296,10 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                   setFormData({ ...formData, amount: value });
                 }}
                 placeholder="0,00"
-                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none"
+                className="w-full pl-10 pr-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               Limites: R$ 1,00 (mínimo) a R$ {formData.payerCpf ? '5.000,00' : '3.000,00'} {formData.payerCpf ? '(com CPF/CNPJ)' : '(sem CPF/CNPJ)'} por transação
             </p>
           </div>
@@ -307,11 +307,11 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
 
           {/* Payer CPF/CNPJ Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
               CPF/CNPJ do Pagador (opcional)
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
               <input
                 type="text"
                 value={formData.payerCpf}
@@ -320,25 +320,25 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                   setFormData({ ...formData, payerCpf: value });
                 }}
                 placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none"
+                className="w-full pl-10 pr-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               Deixe em branco para aceitar pagamento de qualquer CPF/CNPJ (limite de R$ 3.000 por transação). Com CPF/CNPJ específico o limite é R$ 5.000
             </p>
           </div>
 
           {/* Custom Wallet Toggle - Only show if user has default wallet AND is not AUXILIAR */}
           {defaultWallet && !isAuxiliarCollaborator() ? (
-            <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
-              <label className="text-sm font-medium text-white">
+            <div className="flex items-center justify-between p-3 bg-[var(--bg-elevated)] rounded-lg">
+              <label className="text-sm font-medium text-[var(--text-primary)]">
                 Usar carteira personalizada
               </label>
               <button
                 type="button"
                 onClick={() => setUseCustomWallet(!useCustomWallet)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  useCustomWallet ? 'bg-purple-600' : 'bg-gray-500'
+                  useCustomWallet ? 'bg-[var(--accent)]' : 'bg-gray-500'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -350,8 +350,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
 
           {/* Info for AUXILIAR collaborators */}
           {isAuxiliarCollaborator() && defaultWallet && (
-            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-sm text-blue-400">
+            <div className="p-3 bg-blue-100 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
                 Como colaborador auxiliar, você utiliza a carteira padrão da conta.
               </p>
             </div>
@@ -360,7 +360,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
           {/* Show wallet input when: no default wallet OR (custom wallet enabled AND not AUXILIAR) */}
           {(!defaultWallet || (useCustomWallet && !isAuxiliarCollaborator())) && (
             <div className="transition-all duration-300 ease-in-out">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                 Endereço DePix {!defaultWallet ? '(Obrigatório)' : ''}
               </label>
               <input
@@ -373,12 +373,12 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                     setUseCustomWallet(true);
                   }
                 }}
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none"
+                className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
                 placeholder={defaultWallet ? "Endereço DePix personalizado" : "Insira o endereço DePix"}
                 required={!defaultWallet || useCustomWallet}
               />
               {!defaultWallet && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   Configure uma carteira padrão nas configurações para tornar este campo opcional
                 </p>
               )}
@@ -389,7 +389,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
           <button
             onClick={handleGenerateQR}
             disabled={isGenerating || !formData.amount}
-            className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+            className="w-full py-3 bg-[var(--accent)] text-[var(--text-primary)] rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
           >
             {isGenerating ? (
               <span className="flex items-center justify-center gap-2">
@@ -409,8 +409,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
         <div className="space-y-6">
           {/* Status Banner */}
           {generatedQR.status === 'completed' && (
-            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-              <p className="text-green-400 flex items-center gap-2">
+            <div className="p-4 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-lg">
+              <p className="text-green-700 dark:text-green-400 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5" />
                 Pagamento recebido com sucesso!
               </p>
@@ -418,8 +418,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
           )}
 
           {generatedQR.status === 'expired' && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-400 flex items-center gap-2">
+            <div className="p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-lg">
+              <p className="text-red-700 dark:text-red-400 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
                 QR Code expirado. Gere um novo código.
               </p>
@@ -427,8 +427,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
           )}
 
           {generatedQR.status === 'pending' && (
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-              <p className="text-yellow-400 flex items-center gap-2">
+            <div className="p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/20 rounded-lg">
+              <p className="text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
                 <Clock className="w-5 h-5 animate-pulse" />
                 Aguardando pagamento...
               </p>
@@ -449,7 +449,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={downloadQRCode}
-                  className="flex-1 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-elevated)] transition-all flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Baixar
@@ -460,13 +460,13 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
             {/* QR Code Details */}
             <div className="flex-1 space-y-4">
               {/* Transaction Info */}
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <h3 className="text-lg font-semibold text-white mb-3">Detalhes do Pagamento</h3>
+              <div className="p-4 bg-[var(--bg-card)] rounded-lg">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Detalhes do Pagamento</h3>
 
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Valor:</span>
-                    <span className="text-white font-medium">
+                    <span className="text-[var(--text-muted)]">Valor:</span>
+                    <span className="text-[var(--text-primary)] font-medium">
                       {formatCurrency(formData.amount)}
                     </span>
                   </div>
@@ -474,19 +474,19 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
 
                   {formData.payerCpf && (
                     <div className="flex justify-between">
-                      <span className="text-gray-400">CPF/CNPJ:</span>
-                      <span className="text-white">{formatCPFCNPJ(formData.payerCpf)}</span>
+                      <span className="text-[var(--text-muted)]">CPF/CNPJ:</span>
+                      <span className="text-[var(--text-primary)]">{formatCPFCNPJ(formData.payerCpf)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between">
-                    <span className="text-gray-400">ID da Transação:</span>
-                    <span className="text-white font-mono text-sm">{generatedQR.transactionId}</span>
+                    <span className="text-[var(--text-muted)]">ID da Transação:</span>
+                    <span className="text-[var(--text-primary)] font-mono text-sm">{generatedQR.transactionId}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Expira em:</span>
-                    <span className="text-white">
+                    <span className="text-[var(--text-muted)]">Expira em:</span>
+                    <span className="text-[var(--text-primary)]">
                       {new Date(generatedQR.expiresAt).toLocaleString('pt-BR')}
                     </span>
                   </div>
@@ -494,18 +494,18 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               </div>
 
               {/* PIX Copy Code */}
-              <div className="p-4 bg-gray-800/50 rounded-lg">
+              <div className="p-4 bg-[var(--bg-card)] rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-400">Código PIX Copia e Cola</h3>
+                  <h3 className="text-sm font-medium text-[var(--text-muted)]">Código PIX Copia e Cola</h3>
                   <button
                     onClick={copyPixCode}
-                    className="text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+                    className="text-[var(--accent)] hover:text-[var(--accent)] transition-colors flex items-center gap-1"
                   >
                     <Copy className="w-4 h-4" />
                     Copiar
                   </button>
                 </div>
-                <code className="block p-3 bg-gray-900 rounded text-xs text-gray-300 break-all">
+                <code className="block p-3 bg-[var(--bg-primary)] rounded text-xs text-[var(--text-secondary)] break-all">
                   {generatedQR.pixCode}
                 </code>
               </div>
@@ -513,7 +513,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               {/* Actions */}
               <button
                 onClick={handleReset}
-                className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[var(--accent)] text-[var(--text-primary)] rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all flex items-center justify-center gap-2"
               >
                 <RefreshCw className="w-5 h-5" />
                 Gerar Novo QR Code
@@ -524,30 +524,30 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
       )}
 
       {/* Instructions */}
-      <div className="mt-8 p-6 bg-gray-800/30 rounded-lg">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-blue-400" />
+      <div className="mt-8 p-6 bg-[var(--bg-secondary)]/30 rounded-lg">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           Como funciona?
         </h3>
-        <ol className="space-y-2 text-sm text-gray-300">
+        <ol className="space-y-2 text-sm text-[var(--text-secondary)]">
           <li className="flex items-start gap-2">
-            <span className="text-purple-400 font-medium">1.</span>
+            <span className="text-[var(--accent)] font-medium">1.</span>
             Defina o valor e informações do pagamento
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-purple-400 font-medium">2.</span>
+            <span className="text-[var(--accent)] font-medium">2.</span>
             Gere o QR Code PIX instantaneamente
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-purple-400 font-medium">3.</span>
+            <span className="text-[var(--accent)] font-medium">3.</span>
             O pagador escaneia o código com qualquer app de banco
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-purple-400 font-medium">4.</span>
+            <span className="text-[var(--accent)] font-medium">4.</span>
             O pagamento é processado e creditado na sua conta
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-purple-400 font-medium">5.</span>
+            <span className="text-[var(--accent)] font-medium">5.</span>
             Você recebe confirmação em tempo real
           </li>
         </ol>

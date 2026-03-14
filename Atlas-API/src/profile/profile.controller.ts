@@ -193,4 +193,19 @@ export class ProfileController {
 		this.logger.log(`Toggling commerce mode for user ${req.user.id}`);
 		return this.profileService.toggleCommerceMode(req.user.id);
 	}
+
+	@Get('commerce-terms/status')
+	async getCommerceTermsStatus(@Request() req) {
+		const effectiveUserId = getEffectiveUserId(req);
+		this.logger.log(`Fetching commerce terms status for user ${req.user.id}, EffectiveUser: ${effectiveUserId}`);
+		return this.profileService.getCommerceTermsStatus(effectiveUserId);
+	}
+
+	@Post('commerce-terms/accept')
+	@HttpCode(HttpStatus.OK)
+	async acceptCommerceTerms(@Request() req) {
+		const effectiveUserId = getEffectiveUserId(req);
+		this.logger.log(`Accepting commerce terms for user ${req.user.id}, EffectiveUser: ${effectiveUserId}`);
+		return this.profileService.acceptCommerceTerms(effectiveUserId);
+	}
 }

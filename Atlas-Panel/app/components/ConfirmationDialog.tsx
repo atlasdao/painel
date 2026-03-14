@@ -63,11 +63,11 @@ export default function ConfirmationDialog({
   const getIcon = () => {
     switch (variant) {
       case 'danger':
-        return <Trash2 className="w-6 h-6 text-red-400" />;
+        return <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />;
       case 'warning':
-        return <AlertTriangle className="w-6 h-6 text-yellow-400" />;
+        return <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />;
       case 'info':
-        return <Info className="w-6 h-6 text-blue-400" />;
+        return <Info className="w-6 h-6 text-blue-600 dark:text-blue-400" />;
     }
   };
 
@@ -109,7 +109,7 @@ export default function ConfirmationDialog({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden animate-slideUp">
+      <div className="relative w-full max-w-md bg-gradient-to-b from-[var(--bg-primary)] via-[var(--bg-card)] to-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-default)] overflow-hidden animate-slideUp">
         {/* Gradient accent border */}
         <div className={`absolute inset-0 bg-gradient-to-r ${colors.accent} pointer-events-none`} />
 
@@ -120,31 +120,31 @@ export default function ConfirmationDialog({
               <div className={`p-3 bg-gradient-to-br ${colors.iconBg} rounded-lg`}>
                 {getIcon()}
               </div>
-              <h2 className="text-xl font-bold text-white">{title}</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">{title}</h2>
             </div>
             <button
               onClick={onClose}
               disabled={loading}
-              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 hover:bg-[var(--bg-elevated)]/50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Fechar"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5 text-[var(--text-muted)]" />
             </button>
           </div>
 
           {/* Message */}
           <div className="mb-6">
-            <p className="text-gray-300 leading-relaxed">{message}</p>
+            <p className="text-[var(--text-secondary)] leading-relaxed">{message}</p>
           </div>
 
           {/* Details */}
           {details && details.length > 0 && (
-            <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+            <div className="mb-6 p-4 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]">
               <div className="space-y-2">
                 {details.map((detail, index) => (
                   <div key={index} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">{detail.label}:</span>
-                    <span className="text-sm text-white font-medium">{detail.value}</span>
+                    <span className="text-sm text-[var(--text-muted)]">{detail.label}:</span>
+                    <span className="text-sm text-[var(--text-primary)] font-medium">{detail.value}</span>
                   </div>
                 ))}
               </div>
@@ -156,7 +156,7 @@ export default function ConfirmationDialog({
             <button
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-gray-700/50 text-white rounded-lg font-medium hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+              className="flex-1 px-4 py-3 bg-[var(--bg-elevated)]/50 text-[var(--text-primary)] rounded-lg font-medium hover:bg-[var(--bg-elevated)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {cancelText}
             </button>

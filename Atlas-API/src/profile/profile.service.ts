@@ -995,4 +995,88 @@ export class ProfileService {
 			}
 		};
 	}
+
+	/**
+	 * Verifica se o usuário aceitou os termos do modo comércio
+	 */
+	async getCommerceTermsStatus(userId: string) {
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: {
+				id: true,
+				commerceMode: true,
+				commerceTermsAcceptedAt: true,
+				paymentLinks: {
+					select: { id: true },
+					take: 1,
+				},
+			},
+		});
+
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		const hasPaymentLinks = user.paymentLinks.length > 0;
+		const hasAcceptedTerms = !!user.commerceTermsAcceptedAt;
+
+		// Usuário precisa aceitar os termos se:
+		// 1. Tem modo comércio ativo E não aceitou os termos ainda
+		// 2. Já criou payment links antes (retroativo) E não aceitou os termos
+		const needsToAcceptTerms = !hasAcceptedTerms && (user.commerceMode || hasPaymentLinks);
+
+		return {
+			hasAcceptedTerms,
+			acceptedAt: user.commerceTermsAcceptedAt,
+			needsToAcceptTerms,
+			hasPaymentLinks,
+			commerceMode: user.commerceMode,
+		};
+	}
+
+	/**
+	 * Registra a aceitação dos termos do modo comércio
+	 */
+	async acceptCommerceTerms(userId: string) {
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: {
+				id: true,
+				email: true,
+				commerceTermsAcceptedAt: true,
+			},
+		});
+
+		if (!user) {
+			throw new NotFoundException('Usuário não encontrado');
+		}
+
+		if (user.commerceTermsAcceptedAt) {
+			return {
+				success: true,
+				message: 'Termos já foram aceitos anteriormente',
+				acceptedAt: user.commerceTermsAcceptedAt,
+			};
+		}
+
+		const updatedUser = await this.prisma.user.update({
+			where: { id: userId },
+			data: {
+				commerceTermsAcceptedAt: new Date(),
+			},
+			select: {
+				id: true,
+				email: true,
+				commerceTermsAcceptedAt: true,
+			},
+		});
+
+		this.logger.log(`Commerce terms accepted by user ${user.email}`);
+
+		return {
+			success: true,
+			message: 'Termos aceitos com sucesso',
+			acceptedAt: updatedUser.commerceTermsAcceptedAt,
+		};
+	}
 }
