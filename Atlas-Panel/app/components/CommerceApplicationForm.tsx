@@ -202,12 +202,12 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-bounce-in">
+      <div className="bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-bounce-in">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+        <div className="bg-[var(--accent)] p-6">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
                 {isReviewStep ? 'Revisar Aplicação' : 'Aplicação para Modo Comércio'}
               </h2>
               <p className="text-white/80 text-sm">
@@ -222,7 +222,7 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               disabled={isSubmitting}
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="w-5 h-5 text-[var(--text-primary)]" />
             </button>
           </div>
 
@@ -245,14 +245,14 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
             // Question Step
             <div className="space-y-6">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-purple-500/20 rounded-lg">
-                  <currentQuestion.icon className="w-6 h-6 text-purple-400" />
+                <div className="p-3 bg-[var(--accent-soft)] rounded-lg">
+                  <currentQuestion.icon className="w-6 h-6 text-[var(--accent)]" />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-lg font-medium text-white mb-2">
+                  <label className="block text-lg font-medium text-[var(--text-primary)] mb-2">
                     {currentQuestion.label}
                   </label>
-                  <p className="text-gray-400 text-sm mb-4">
+                  <p className="text-[var(--text-muted)] text-sm mb-4">
                     {currentQuestion.helper}
                   </p>
 
@@ -262,7 +262,7 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
                       onChange={(e) => handleInputChange(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={currentQuestion.placeholder}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent resize-none"
                       rows={4}
                     />
                   ) : (
@@ -272,7 +272,7 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
                       onChange={(e) => handleInputChange(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={currentQuestion.placeholder}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
                     />
                   )}
                 </div>
@@ -281,24 +281,24 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
           ) : (
             // Review Step
             <div className="space-y-6">
-              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg mb-6">
-                <p className="text-blue-400 flex items-center gap-2">
+              <div className="p-4 bg-blue-100 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/30 rounded-lg mb-6">
+                <p className="text-blue-700 dark:text-blue-400 flex items-center gap-2">
                   <AlertCircle className="w-5 h-5" />
                   Revise suas informações antes de enviar
                 </p>
               </div>
 
               {questions.map((question, index) => (
-                <div key={question.id} className="pb-4 border-b border-gray-700 last:border-0">
+                <div key={question.id} className="pb-4 border-b border-[var(--border-default)] last:border-0">
                   <div className="flex items-start gap-3">
-                    <question.icon className="w-5 h-5 text-gray-400 mt-1" />
+                    <question.icon className="w-5 h-5 text-[var(--text-muted)] mt-1" />
                     <div className="flex-1">
-                      <p className="text-gray-400 text-sm mb-1">{question.label}</p>
-                      <p className="text-white">{formData[question.id as keyof FormData] || 'Não respondido'}</p>
+                      <p className="text-[var(--text-muted)] text-sm mb-1">{question.label}</p>
+                      <p className="text-[var(--text-primary)]">{formData[question.id as keyof FormData] || 'Não respondido'}</p>
                     </div>
                     <button
                       onClick={() => setCurrentStep(index)}
-                      className="text-purple-400 hover:text-purple-300 text-sm"
+                      className="text-[var(--accent)] hover:text-[var(--accent)] text-sm"
                     >
                       Editar
                     </button>
@@ -307,19 +307,19 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
               ))}
 
               {/* Deposit Information */}
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <h3 className="text-yellow-400 font-semibold mb-2 flex items-center gap-2">
+              <div className="p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
+                <h3 className="text-yellow-700 dark:text-yellow-400 font-semibold mb-2 flex items-center gap-2">
                   <DollarSign className="w-5 h-5" />
                   Depósito de Garantia Necessário
                 </h3>
-                <p className="text-gray-300 text-sm">
+                <p className="text-[var(--text-secondary)] text-sm">
                   Após a aprovação, será necessário um depósito de <strong>100.000 satoshis</strong> como garantia.
                   Este valor será devolvido após 3 meses e 200 transações bem-sucedidas.
                 </p>
               </div>
 
               {/* Terms Acceptance */}
-              <div className="flex items-start gap-3 p-4 bg-gray-800 rounded-lg">
+              <div className="flex items-start gap-3 p-4 bg-[var(--bg-secondary)] rounded-lg">
                 <input
                   type="checkbox"
                   id="acceptTerms"
@@ -327,7 +327,7 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
                   onChange={(e) => setFormData(prev => ({ ...prev, acceptTerms: e.target.checked }))}
                   className="mt-1"
                 />
-                <label htmlFor="acceptTerms" className="text-gray-300 text-sm">
+                <label htmlFor="acceptTerms" className="text-[var(--text-secondary)] text-sm">
                   Declaro que todas as informações fornecidas são verdadeiras e aceito os termos do Modo Comércio.
                   Entendo que informações falsas podem resultar na suspensão permanente da minha conta.
                 </label>
@@ -337,11 +337,11 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-gray-700">
+        <div className="p-6 border-t border-[var(--border-default)]">
           <div className="flex justify-between">
             <button
               onClick={handleBack}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-3 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={currentStep === 0 || isSubmitting}
             >
               <ChevronLeft className="w-5 h-5" />
@@ -351,7 +351,7 @@ export default function CommerceApplicationForm({ isOpen, onClose, onSuccess }: 
             {!isReviewStep ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all hover:scale-105"
+                className="flex items-center gap-2 px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg transition-all hover:scale-105"
               >
                 {isLastQuestion ? 'Revisar' : 'Próxima'}
                 <ChevronRight className="w-5 h-5" />

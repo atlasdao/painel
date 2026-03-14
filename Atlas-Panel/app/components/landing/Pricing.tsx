@@ -1,289 +1,225 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, Calculator, Shield, Info, Sparkles, Lock, EyeOff } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Check, Clock, Zap } from 'lucide-react';
 
-export default function Pricing() {
-  const [monthlyTransactions, setMonthlyTransactions] = useState(100);
-  const [averageTicket, setAverageTicket] = useState(150);
-  const [showComparison, setShowComparison] = useState(false);
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { threshold: 0.1 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, isVisible };
+}
 
-  // Atlas fee: 0.5% + R$ 0.99 per transaction
-  const atlasPercentage = 0.005; // 0.5%
-  const atlasFixed = 0.99;
+const sharedFeatures = [
+  'Links de pagamento ilimitados',
+  'Painel de vendas completo',
+  'Privacidade total dos dados',
+  'Suporte 24/7',
+  'Sem mensalidade',
+  'Sem taxa de adesao',
+];
 
-  // Competitors average (MercadoPago, PagSeguro, etc): ~4.99% + R$ 0.50
-  const competitorPercentage = 0.0499;
-  const competitorFixed = 0.50;
+// Calculator
+function SavingsCalculator({ isInstant }: { isInstant: boolean }) {
+  const [transactions, setTransactions] = useState(100);
+  const [ticket, setTicket] = useState(150);
 
-  const monthlyVolume = monthlyTransactions * averageTicket;
-  const atlasMonthlyFee = (monthlyVolume * atlasPercentage) + (monthlyTransactions * atlasFixed);
-  const competitorMonthlyFee = (monthlyVolume * competitorPercentage) + (monthlyTransactions * competitorFixed);
-  const monthlySavings = competitorMonthlyFee - atlasMonthlyFee;
-  const yearlySavings = monthlySavings * 12;
-  const savingsPercentage = competitorMonthlyFee > 0 ? Math.round((monthlySavings / competitorMonthlyFee) * 100) : 0;
+  const volume = transactions * ticket;
+  const atlasRate = isInstant ? 0.008 : 0.005;
+  const atlasFee = (volume * atlasRate) + (transactions * 0.99);
+  const competitorFee = (volume * 0.0499) + (transactions * 0.50);
+  const savings = competitorFee - atlasFee;
 
-  // Calculate effective rate for Atlas
-  const effectiveAtlasRate = monthlyVolume > 0 ? ((atlasMonthlyFee / monthlyVolume) * 100).toFixed(2) : '0';
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const features = [
-    { text: 'Privacidade total garantida', icon: EyeOff },
-    { text: 'Dados nunca compartilhados', icon: Lock },
-    { text: 'PIX instantâneo 24/7', icon: null },
-    { text: 'Links de pagamento ilimitados', icon: null },
-    { text: 'Dashboard em tempo real', icon: null },
-    { text: 'Sem mensalidade', icon: null },
-    { text: 'Suporte humanizado', icon: null }
-  ];
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   return (
-    <section id="pricing" className="py-20 px-4 bg-gray-800">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-purple-900/50 border border-purple-700/50 text-purple-400 px-4 py-2 rounded-full text-sm font-medium mb-4">
-            <Shield className="w-4 h-4" />
-            Privacidade tem seu valor
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 sm:p-8">
+      <h3 className="text-base sm:text-lg font-semibold text-zinc-50 mb-6">
+        Calcule sua economia
+      </h3>
+
+      <div className="space-y-5">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm text-zinc-400">Transacoes por mes</label>
+            <span className="text-sm font-semibold text-zinc-50">{transactions}</span>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Preço justo pela sua liberdade
+          <input
+            type="range"
+            min="10"
+            max="1000"
+            step="10"
+            value={transactions}
+            onChange={(e) => setTransactions(Number(e.target.value))}
+            className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm text-zinc-400">Ticket medio</label>
+            <span className="text-sm font-semibold text-zinc-50">{fmt(ticket)}</span>
+          </div>
+          <input
+            type="range"
+            min="10"
+            max="5000"
+            step="10"
+            value={ticket}
+            onChange={(e) => setTicket(Number(e.target.value))}
+            className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-zinc-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-zinc-400">Volume mensal</span>
+          <span className="text-sm font-medium text-zinc-50">{fmt(volume)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-zinc-400">Taxa Atlas ({isInstant ? 'Instantaneo' : 'D+1'})</span>
+          <span className="text-sm font-medium text-zinc-50">{fmt(atlasFee)}/mes</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-zinc-400">Taxa concorrentes (~5%)</span>
+          <span className="text-sm text-zinc-500 line-through">{fmt(competitorFee)}/mes</span>
+        </div>
+      </div>
+
+      <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-blue-400">Voce economiza</span>
+          <span className="text-lg sm:text-xl font-bold text-blue-400">{fmt(savings)}/mes</span>
+        </div>
+        <p className="text-xs text-zinc-500 mt-1">
+          Isso e {fmt(savings * 12)} por ano no seu bolso.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function Pricing() {
+  const { ref, isVisible } = useScrollReveal();
+  const [isInstant, setIsInstant] = useState(false);
+
+  return (
+    <section
+      id="pricing"
+      ref={ref}
+      className={`py-16 sm:py-24 md:py-32 transition-all duration-700 ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}
+    >
+      <div className="max-w-5xl mx-auto px-5 sm:px-6">
+        <div className="text-center mb-10 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-50">
+            Precos transparentes, sem surpresas
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Enquanto outros vendem seus dados e ainda cobram caro, nós protegemos sua privacidade
-            com uma taxa transparente de <span className="text-green-400 font-semibold">0,5% + R$ 0,99</span>.
+          <p className="text-zinc-400 mt-3 sm:mt-4 max-w-xl mx-auto text-sm sm:text-base">
+            Voce so paga quando recebe. Sem mensalidade, sem taxa de adesao,
+            sem custos ocultos.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          {/* Calculator */}
-          <div className="bg-gray-900 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <div className="flex items-center gap-3 mb-6">
-              <Calculator className="w-6 h-6 text-blue-400" />
-              <h3 className="text-2xl font-bold text-white">Calcule sua economia</h3>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Transações por mês
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="1000"
-                  step="10"
-                  value={monthlyTransactions}
-                  onChange={(e) => setMonthlyTransactions(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                />
-                <div className="mt-2 text-center">
-                  <span className="text-2xl font-bold text-white">
-                    {monthlyTransactions} transações
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Ticket médio
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="5000"
-                  step="10"
-                  value={averageTicket}
-                  onChange={(e) => setAverageTicket(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <div className="mt-2 text-center">
-                  <span className="text-2xl font-bold text-white">
-                    {formatCurrency(averageTicket)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-700/30">
-                <p className="text-sm text-gray-400">Volume mensal</p>
-                <p className="text-xl font-bold text-white">{formatCurrency(monthlyVolume)}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-purple-700/50">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Shield className="w-4 h-4 text-purple-400" />
-                    <p className="text-sm text-purple-400 font-medium">Com Atlas + Privacidade</p>
-                  </div>
-                  <p className="text-xl font-semibold text-white">{formatCurrency(atlasMonthlyFee)}/mês</p>
-                  <p className="text-xs text-gray-400">Taxa efetiva: {effectiveAtlasRate}%</p>
-                </div>
-                <span className="text-xs text-green-400 bg-green-900/50 px-3 py-1.5 rounded-full font-medium">
-                  0,5% + R$0,99
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-red-900/20 rounded-lg border border-red-900/50">
-                <div>
-                  <p className="text-sm text-gray-400">Outros (vendem seus dados)</p>
-                  <p className="text-xl font-semibold text-gray-500 line-through">
-                    {formatCurrency(competitorMonthlyFee)}/mês
-                  </p>
-                </div>
-                <span className="text-xs text-red-400">~5% + dados</span>
-              </div>
-            </div>
-
-            <div className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 rounded-xl border border-green-700/50 mt-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-5 h-5 text-green-400" />
-                <p className="text-sm font-medium text-green-400">Você economiza {savingsPercentage}% e mantém sua privacidade</p>
-              </div>
-              <p className="text-3xl font-bold text-green-400 mb-1">
-                {formatCurrency(monthlySavings)}/mês
-              </p>
-              <p className="text-lg font-semibold text-green-300">
-                {formatCurrency(yearlySavings)}/ano
-              </p>
-            </div>
-
+        {/* Switch D+1 / Instantaneo */}
+        <div className="flex items-center justify-center mb-10 sm:mb-12">
+          <div className="inline-flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-1.5">
             <button
-              onClick={() => setShowComparison(!showComparison)}
-              className="mt-4 text-sm text-blue-400 hover:text-purple-400 font-medium flex items-center gap-1"
+              onClick={() => setIsInstant(false)}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                !isInstant
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'text-zinc-400 hover:text-zinc-300'
+              }`}
             >
-              <Info className="w-4 h-4" />
-              {showComparison ? 'Ocultar' : 'Ver'} comparação detalhada
+              <Clock className="w-4 h-4" />
+              <div className="text-left">
+                <div className="text-sm">D+1</div>
+                <div className="text-[10px] sm:text-xs opacity-80">0,5% + R$0,99</div>
+              </div>
             </button>
-
-            {showComparison && (
-              <div className="mt-4 p-4 bg-purple-900/20 rounded-lg text-sm text-gray-300 border border-purple-900/50">
-                <p className="font-medium mb-3 text-white">Comparação honesta:</p>
-                <ul className="space-y-2">
-                  <li className="flex justify-between items-center">
-                    <span className="text-purple-400 font-medium flex items-center gap-2">
-                      <Shield className="w-3 h-3" /> Atlas
-                    </span>
-                    <span className="text-purple-400 font-bold">0,5% + R$0,99 + Privacidade</span>
-                  </li>
-                  <li className="flex justify-between items-center text-gray-400">
-                    <span>MercadoPago</span>
-                    <span>4,99% + R$0,60 + seus dados</span>
-                  </li>
-                  <li className="flex justify-between items-center text-gray-400">
-                    <span>PagSeguro</span>
-                    <span>4,99% + R$0,40 + seus dados</span>
-                  </li>
-                  <li className="flex justify-between items-center text-gray-400">
-                    <span>Stone</span>
-                    <span>4,78% + mensalidade + seus dados</span>
-                  </li>
-                </ul>
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <p className="text-xs text-gray-500">
-                    💡 Exemplo: venda de R$100
-                  </p>
-                  <p className="text-xs mt-1">
-                    <span className="text-purple-400">Atlas: R$1,49 + privacidade</span>
-                  </p>
-                  <p className="text-xs">
-                    <span className="text-red-400">Outros: ~R$5,50 + vendem seus dados</span>
-                  </p>
-                </div>
+            <button
+              onClick={() => setIsInstant(true)}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                isInstant
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'text-zinc-400 hover:text-zinc-300'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <div className="text-left">
+                <div className="text-sm">Instantaneo</div>
+                <div className="text-[10px] sm:text-xs opacity-80">0,8% + R$0,99</div>
               </div>
-            )}
-          </div>
-
-          {/* Pricing card */}
-          <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
-            {/* Background decoration */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
-
-            <div className="relative">
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-sm font-medium mb-3">
-                  <Lock className="w-4 h-4" />
-                  Privacidade inclusa
-                </div>
-                <h3 className="text-2xl font-bold mb-2">Taxa Transparente</h3>
-                <p className="text-purple-100">O preço justo pela sua liberdade</p>
-              </div>
-
-              <div className="mb-8">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">0,5%</span>
-                  <span className="text-2xl font-bold text-purple-200">+</span>
-                  <span className="text-4xl font-bold">R$0,99</span>
-                </div>
-                <p className="text-sm text-purple-100 mt-2">por transação aprovada</p>
-                <div className="mt-4 p-3 bg-white/10 rounded-lg">
-                  <p className="text-xs text-purple-100">
-                    <Shield className="w-3 h-3 inline mr-1" />
-                    Inclui: privacidade total, anonimato e proteção de dados
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-8">
-                {features.map((feature, index) => {
-                  const FeatureIcon = feature.icon;
-                  return (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                        {FeatureIcon ? <FeatureIcon className="w-3 h-3 text-white" /> : <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <span className="text-white/90">{feature.text}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <a
-                href="/register"
-                className="block w-full bg-white text-purple-600 px-6 py-4 rounded-lg font-semibold text-center hover:bg-purple-50 transition-colors shadow-lg"
-              >
-                Proteger Minha Privacidade
-              </a>
-
-              <p className="text-xs text-purple-100 text-center mt-4">
-                Sem cartão de crédito • Ativação instantânea
-              </p>
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* Bottom trust indicators */}
-        <div className="mt-16 grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-purple-900/50 border border-purple-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <EyeOff className="w-7 h-7 text-purple-400" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
+          {/* Pricing Card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 sm:p-8">
+            <div className="flex items-center gap-2 mb-1">
+              {isInstant ? <Zap className="w-5 h-5 text-blue-400" /> : <Clock className="w-5 h-5 text-blue-400" />}
+              <h3 className="text-base sm:text-lg font-semibold text-zinc-50">
+                {isInstant ? 'Recebimento Instantaneo' : 'Recebimento D+1'}
+              </h3>
             </div>
-            <h4 className="font-semibold text-white mb-2">Anonimato Total</h4>
-            <p className="text-sm text-gray-400">Seus dados nunca são vendidos</p>
+            <p className="text-xs sm:text-sm text-zinc-500 mb-5">
+              {isInstant ? 'O dinheiro cai na sua conta em minutos' : 'Receba no proximo dia util'}
+            </p>
+
+            <div className="mb-6">
+              <span className="text-3xl sm:text-4xl font-bold text-blue-400">
+                {isInstant ? '0,8%' : '0,5%'}
+              </span>
+              <span className="text-zinc-400 ml-2">+</span>
+              <span className="text-zinc-50 font-semibold ml-2">R$ 0,99</span>
+              <p className="text-xs sm:text-sm text-zinc-500 mt-1">por transacao aprovada</p>
+            </div>
+
+            <ul className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
+              {sharedFeatures.map((feat) => (
+                <li key={feat} className="flex items-center gap-2.5 sm:gap-3 text-sm text-zinc-400">
+                  <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                  {feat}
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              href="/register"
+              className="block text-center bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white w-full py-3.5 sm:py-3 rounded-lg font-semibold transition-colors"
+            >
+              Comecar Agora
+            </Link>
+
+            <p className="text-xs text-zinc-500 text-center mt-3">
+              Sem cartao de credito necessario
+            </p>
           </div>
 
-          <div className="text-center">
-            <div className="w-16 h-16 bg-blue-900/50 border border-blue-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-7 h-7 text-blue-400" />
-            </div>
-            <h4 className="font-semibold text-white mb-2">100% Seguro</h4>
-            <p className="text-sm text-gray-400">Criptografia de ponta</p>
-          </div>
+          {/* Savings Calculator */}
+          <SavingsCalculator isInstant={isInstant} />
+        </div>
 
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-lg font-bold text-green-400">D+0</span>
-            </div>
-            <h4 className="font-semibold text-white mb-2">Saque Imediato</h4>
-            <p className="text-sm text-gray-400">Seu dinheiro na hora</p>
-          </div>
+        <div className="text-center mt-8 sm:mt-10">
+          <p className="text-sm text-zinc-500">
+            <span className="font-medium text-zinc-400">Exemplo:</span> em uma venda de R$ 100 no D+1, voce recebe R$ 98,51.
+          </p>
+          <p className="text-sm text-zinc-500 mt-1">
+            No MercadoPago, voce receberia{' '}
+            <span className="text-red-400 line-through">R$ 94,02</span>.
+          </p>
         </div>
       </div>
     </section>

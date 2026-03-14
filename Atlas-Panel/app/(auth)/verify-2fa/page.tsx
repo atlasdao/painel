@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/app/lib/auth';
 import toast, { Toaster } from 'react-hot-toast';
-import { Shield, ArrowLeft, RefreshCw, Smartphone, Lock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Smartphone, Lock, CheckCircle } from 'lucide-react';
 
 function Verify2FAContent() {
   const router = useRouter();
@@ -186,164 +186,152 @@ function Verify2FAContent() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-        {/* Background effects */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 opacity-90" />
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-900/10 rounded-full filter blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-900/10 rounded-full filter blur-3xl animate-pulse" />
+      <div className="atlas-card">
+        {/* Icon */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <div className="w-20 h-20 bg-[var(--accent-soft)] rounded-full flex items-center justify-center">
+              <Shield className="w-10 h-10 text-[var(--accent)]" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[var(--color-success)] rounded-full flex items-center justify-center">
+              <Lock className="w-3 h-3 text-white" />
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 max-w-md w-full">
-          {/* Card */}
-          <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-8">
-            {/* Icon */}
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center">
-                  <Shield className="w-10 h-10 text-blue-500" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                  <Lock className="w-3 h-3 text-white" />
-                </div>
-              </div>
+        {/* Title */}
+        <h2 className="text-2xl font-bold text-[var(--text-primary)] text-center mb-2">
+          {useBackupCode ? 'Código de Backup' : 'Verificação em 2 Etapas'}
+        </h2>
+        <p className="text-[var(--text-secondary)] text-center mb-8">
+          {useBackupCode
+            ? 'Digite um dos seus códigos de backup'
+            : 'Digite o código de 6 dígitos do seu aplicativo autenticador'}
+        </p>
+
+        {!useBackupCode ? (
+          <>
+            {/* Code Input */}
+            <div className="flex justify-center gap-2 mb-8">
+              {code.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={el => {
+                    inputRefs.current[index] = el;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  onPaste={handlePaste}
+                  disabled={loading}
+                  className={`
+                    w-12 h-14 text-center text-xl font-semibold
+                    bg-[var(--bg-elevated)] border-2 text-[var(--text-primary)]
+                    rounded-lg transition-all duration-200
+                    focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--accent)]
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    ${digit ? 'border-[var(--accent)]' : 'border-[var(--border-default)]'}
+                    ${loading ? 'animate-pulse' : ''}
+                  `}
+                  placeholder="•"
+                />
+              ))}
             </div>
 
-            {/* Title */}
-            <h2 className="text-2xl font-bold text-white text-center mb-2">
-              {useBackupCode ? 'Código de Backup' : 'Verificação em 2 Etapas'}
-            </h2>
-            <p className="text-gray-400 text-center mb-8">
-              {useBackupCode
-                ? 'Digite um dos seus códigos de backup'
-                : 'Digite o código de 6 dígitos do seu aplicativo autenticador'}
-            </p>
+            {/* Verify Button */}
+            <button
+              onClick={() => handleVerify()}
+              disabled={loading || code.some(d => !d)}
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Verificar Código
+                </>
+              )}
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Backup Code Input */}
+            <div className="mb-8">
+              <input
+                type="text"
+                value={backupCode}
+                onChange={(e) => setBackupCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                placeholder="XXXXXXXX"
+                maxLength={8}
+                className="atlas-input text-center text-xl tracking-widest uppercase"
+                disabled={loading}
+                autoFocus
+              />
+              <p className="mt-2 text-xs text-[var(--text-muted)] text-center">
+                Cada código de backup só pode ser usado uma vez
+              </p>
+            </div>
 
-            {!useBackupCode ? (
-              <>
-                {/* Code Input */}
-                <div className="flex justify-center gap-2 mb-8">
-                  {code.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={el => {
-                        inputRefs.current[index] = el;
-                      }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleChange(index, e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(index, e)}
-                      onPaste={handlePaste}
-                      disabled={loading}
-                      className={`
-                        w-12 h-14 text-center text-xl font-semibold
-                        bg-gray-700 border-2 text-white
-                        rounded-lg transition-all duration-200
-                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        ${digit ? 'border-blue-500 bg-gray-700/50' : 'border-gray-600'}
-                        ${loading ? 'animate-pulse' : ''}
-                      `}
-                      placeholder="•"
-                    />
-                  ))}
-                </div>
+            {/* Verify Backup Button */}
+            <button
+              onClick={handleBackupCodeVerify}
+              disabled={loading || backupCode.length < 6}
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Verificar Código de Backup
+                </>
+              )}
+            </button>
+          </>
+        )}
 
-                {/* Verify Button */}
-                <button
-                  onClick={() => handleVerify()}
-                  disabled={loading || code.some(d => !d)}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Verificando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      Verificar Código
-                    </>
-                  )}
-                </button>
-              </>
-            ) : (
-              <>
-                {/* Backup Code Input */}
-                <div className="mb-8">
-                  <input
-                    type="text"
-                    value={backupCode}
-                    onChange={(e) => setBackupCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                    placeholder="XXXXXXXX"
-                    maxLength={8}
-                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
-                    disabled={loading}
-                    autoFocus
-                  />
-                  <p className="mt-2 text-xs text-gray-500 text-center">
-                    Cada código de backup só pode ser usado uma vez
-                  </p>
-                </div>
+        {/* Help Section */}
+        <div className="mt-6 pt-6 border-t border-[var(--border-default)]">
+          <div className="flex items-center justify-between text-sm">
+            <button
+              onClick={() => router.push('/login')}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar ao login
+            </button>
 
-                {/* Verify Backup Button */}
-                <button
-                  onClick={handleBackupCodeVerify}
-                  disabled={loading || backupCode.length < 6}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Verificando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      Verificar Código de Backup
-                    </>
-                  )}
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => {
+                setUseBackupCode(!useBackupCode);
+                setBackupCode('');
+                setCode(['', '', '', '', '', '']);
+              }}
+              className="text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+            >
+              {useBackupCode ? 'Usar código do app' : 'Usar código de backup'}
+            </button>
+          </div>
 
-            {/* Help Section */}
-            <div className="mt-6 pt-6 border-t border-gray-700">
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  onClick={() => router.push('/login')}
-                  className="text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Voltar ao login
-                </button>
-
-                <button
-                  onClick={() => {
-                    setUseBackupCode(!useBackupCode);
-                    setBackupCode('');
-                    setCode(['', '', '', '', '', '']);
-                  }}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {useBackupCode ? 'Usar código do app' : 'Usar código de backup'}
-                </button>
-              </div>
-
-              {/* Info */}
-              <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <Smartphone className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-blue-300">
-                    {useBackupCode
-                      ? 'Os códigos de backup foram gerados quando você ativou o 2FA. Se você não salvou seus códigos, entre em contato com o suporte.'
-                      : 'Abra seu aplicativo autenticador (Google Authenticator, Authy, etc.) e digite o código de 6 dígitos mostrado.'}
-                  </p>
-                </div>
-              </div>
+          {/* Info */}
+          <div className="mt-4 p-3 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Smartphone className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-[var(--accent)]">
+                {useBackupCode
+                  ? 'Os códigos de backup foram gerados quando você ativou o 2FA. Se você não salvou seus códigos, entre em contato com o suporte.'
+                  : 'Abra seu aplicativo autenticador (Google Authenticator, Authy, etc.) e digite o código de 6 dígitos mostrado.'}
+              </p>
             </div>
           </div>
         </div>
@@ -355,8 +343,10 @@ function Verify2FAContent() {
 export default function Verify2FAPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-        <div className="text-white">Carregando...</div>
+      <div className="atlas-card">
+        <div className="flex items-center justify-center p-8">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     }>
       <Verify2FAContent />

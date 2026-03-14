@@ -28,8 +28,9 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 		userId?: string;
 		startDate?: Date;
 		endDate?: Date;
+		search?: string;
 	}): Promise<Transaction[]> {
-		const { skip, take, where, orderBy, status, type, userId, startDate, endDate } = params || {};
+		const { skip, take, where, orderBy, status, type, userId, startDate, endDate, search } = params || {};
 
 		// Build date range filter
 		const dateFilter: any = {};
@@ -39,6 +40,21 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 			if (endDate) dateFilter.createdAt.lte = endDate;
 		}
 
+		// Build search filter across multiple fields
+		const searchFilter: any = {};
+		if (search) {
+			searchFilter.OR = [
+				{ id: { contains: search, mode: 'insensitive' } },
+				{ userId: { contains: search, mode: 'insensitive' } },
+				{ externalId: { contains: search, mode: 'insensitive' } },
+				{ buyerName: { contains: search, mode: 'insensitive' } },
+				{ description: { contains: search, mode: 'insensitive' } },
+				{ pixKey: { contains: search, mode: 'insensitive' } },
+				{ user: { username: { contains: search, mode: 'insensitive' } } },
+				{ user: { email: { contains: search, mode: 'insensitive' } } },
+			];
+		}
+
 		// Build comprehensive where clause
 		const comprehensiveWhere = {
 			...where,
@@ -46,6 +62,7 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 			...(type && { type }),
 			...(userId && { userId }),
 			...dateFilter,
+			...searchFilter,
 		};
 
 		return this.prisma.transaction.findMany({
@@ -155,10 +172,11 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 		completed: number;
 		failed: number;
 		totalAmount: number;
+		pendingAmount: number;
 	}> {
 		const where = userId ? { userId } : {};
 
-		const [total, pending, completed, failed, amounts] = await Promise.all([
+		const [total, pending, completed, failed, amounts, pendingAmounts] = await Promise.all([
 			this.prisma.transaction.count({ where }),
 			this.prisma.transaction.count({ where: { ...where, status: 'PENDING' } }),
 			this.prisma.transaction.count({
@@ -169,6 +187,10 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 				where: { ...where, status: 'COMPLETED' },
 				_sum: { amount: true },
 			}),
+			this.prisma.transaction.aggregate({
+				where: { ...where, status: 'PROCESSING' },
+				_sum: { amount: true },
+			}),
 		]);
 
 		return {
@@ -177,6 +199,7 @@ export class TransactionRepository extends AbstractBaseRepository<Transaction> {
 			completed,
 			failed,
 			totalAmount: amounts._sum.amount || 0,
+			pendingAmount: pendingAmounts._sum.amount || 0,
 		};
 	}
 

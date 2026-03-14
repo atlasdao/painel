@@ -41,13 +41,13 @@ interface PeriodOption {
 // Status and type styling functions
 const getStatusBadge = (status: string) => {
   const statusStyles = {
-    'COMPLETED': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    'PENDING': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    'PROCESSING': 'bg-green-500/20 text-green-400 border-green-500/30',
-    'IN_REVIEW': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    'FAILED': 'bg-red-500/20 text-red-400 border-red-500/30',
-    'EXPIRED': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    'CANCELLED': 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+    'COMPLETED': 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/30',
+    'PENDING': 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30',
+    'PROCESSING': 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/30',
+    'IN_REVIEW': 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/30',
+    'FAILED': 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30',
+    'EXPIRED': 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-500/30',
+    'CANCELLED': 'bg-gray-100 dark:bg-gray-500/20 text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-500/30'
   };
   return statusStyles[status as keyof typeof statusStyles] || statusStyles['CANCELLED'];
 };
@@ -68,27 +68,27 @@ const getStatusTooltip = (status: string) => {
 const getTypeIcon = (type: string) => {
   switch (type) {
     case 'DEPOSIT':
-      return <ArrowDownLeft className="w-4 h-4 text-green-400" />;
+      return <ArrowDownLeft className="w-4 h-4 text-green-600 dark:text-green-400" />;
     case 'WITHDRAW':
-      return <ArrowUpRight className="w-4 h-4 text-red-400" />;
+      return <ArrowUpRight className="w-4 h-4 text-red-600 dark:text-red-400" />;
     case 'TRANSFER':
       // Legacy support for existing transfer transactions in database
-      return <CreditCard className="w-4 h-4 text-blue-400" />;
+      return <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
     default:
-      return <DollarSign className="w-4 h-4 text-gray-400" />;
+      return <DollarSign className="w-4 h-4 text-[var(--text-muted)]" />;
   }
 };
 
 const getAmountClass = (type: string) => {
   switch (type) {
     case 'DEPOSIT':
-      return 'text-green-400';
+      return 'text-green-600 dark:text-green-400';
     case 'WITHDRAW':
-      return 'text-red-400';
+      return 'text-red-600 dark:text-red-400';
     case 'TRANSFER':
-      return 'text-blue-400';
+      return 'text-blue-600 dark:text-blue-400';
     default:
-      return 'text-gray-400';
+      return 'text-[var(--text-muted)]';
   }
 };
 
@@ -336,26 +336,26 @@ export default function TransactionsPage() {
 
   // Skeleton loading component
   const TransactionSkeleton = () => (
-    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 animate-pulse">
+    <div className="bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-default)] rounded-xl p-4 animate-pulse">
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-gray-700/50 rounded-lg w-10 h-10"></div>
+        <div className="p-2 bg-[var(--bg-elevated)] rounded-lg w-10 h-10"></div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
-            <div className="h-4 bg-gray-700 rounded w-20"></div>
-            <div className="h-4 bg-gray-700 rounded w-24"></div>
+            <div className="h-4 bg-[var(--bg-elevated)] rounded w-20"></div>
+            <div className="h-4 bg-[var(--bg-elevated)] rounded w-24"></div>
           </div>
           <div className="flex items-center justify-between">
-            <div className="h-3 bg-gray-700 rounded w-16"></div>
-            <div className="h-3 bg-gray-700 rounded w-32"></div>
+            <div className="h-3 bg-[var(--bg-elevated)] rounded w-16"></div>
+            <div className="h-3 bg-[var(--bg-elevated)] rounded w-32"></div>
           </div>
-          <div className="h-3 bg-gray-700 rounded w-40 mt-1"></div>
+          <div className="h-3 bg-[var(--bg-elevated)] rounded w-40 mt-1"></div>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-[calc(100vh-6rem)] bg-gray-900 text-white pb-12 overflow-x-hidden -m-6">
+    <div className="min-h-[calc(100vh-6rem)] bg-[var(--bg-primary)] text-[var(--text-primary)] pb-12 overflow-x-hidden -m-6">
       <style jsx>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -371,27 +371,27 @@ export default function TransactionsPage() {
       <div className="mb-4 px-4 pt-4 animate-fade-in-down">
         <div className="flex items-center gap-4 mb-4">
           <div className="relative">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300">
-              <TrendingUp className="w-8 h-8 text-white" />
+            <div className="p-3 bg-[var(--accent)] rounded-xl shadow-lg hover:shadow-[var(--accent)]/25 transition-all duration-300">
+              <TrendingUp className="w-8 h-8 text-[var(--text-primary)]" />
             </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-600 dark:bg-green-400 rounded-full animate-pulse"></div>
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)] mb-1">
               Transações
             </h1>
             <div className="flex items-center gap-3 text-sm">
-              <div className="flex items-center gap-1 text-green-400 font-medium">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                <div className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full animate-pulse"></div>
                 Atualizado
               </div>
-              <span className="text-gray-400">•</span>
-              <span className="text-gray-400">{transactions.length} transações</span>
+              <span className="text-[var(--text-muted)]">•</span>
+              <span className="text-[var(--text-muted)]">{transactions.length} transações</span>
             </div>
           </div>
           <button
             onClick={exportToCSV}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
             title="Exportar transações para CSV"
           >
@@ -400,7 +400,7 @@ export default function TransactionsPage() {
           </button>
           <button
             onClick={exportToCSV}
-            className="md:hidden p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="md:hidden p-2 bg-[var(--accent)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
             title="Exportar transações para CSV"
           >
@@ -408,24 +408,24 @@ export default function TransactionsPage() {
           </button>
           <button
             onClick={() => loadTransactions()}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"
             disabled={loading}
           >
-            <RefreshCw className={`w-5 h-5 text-gray-400 hover:text-white ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-[var(--text-muted)] hover:text-[var(--text-primary)] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* Filters Section */}
       <div className="mb-4 px-4 animate-slide-in-up animate-stagger-1">
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3">
+        <div className="bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-default)] rounded-xl p-3">
           <div className="flex gap-1 w-full">
             {/* Period Filter */}
             <div className="relative flex-[1.5] min-w-0">
               <button
                 ref={filterRef as React.RefObject<HTMLButtonElement>}
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-1 px-2 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors border border-gray-600/50 text-sm min-h-[44px] w-full"
+                className="flex items-center gap-1 px-2 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-lg transition-colors border border-[var(--border-default)] text-sm min-h-[44px] w-full"
               >
                 <Calendar className="w-3 h-3 flex-shrink-0" />
                 <span className="text-xs flex-1 min-w-0 text-left" title={selectedPeriod.label}>
@@ -442,13 +442,13 @@ export default function TransactionsPage() {
                 onClose={() => setShowFilters(false)}
                 targetRef={filterRef}
               >
-                <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-48">
+                <div className="bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-lg shadow-xl min-w-48">
                   {periodOptions.map((period) => (
                     <button
                       key={period.id}
                       onClick={() => handlePeriodChange(period)}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors first:rounded-t-lg last:rounded-b-lg ${
-                        selectedPeriod.id === period.id ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300'
+                      className={`w-full text-left px-4 py-3 hover:bg-[var(--bg-elevated)] transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                        selectedPeriod.id === period.id ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {period.label}
@@ -462,7 +462,7 @@ export default function TransactionsPage() {
             <select
               value={typeFilter}
               onChange={(e) => handleTypeFilterChange(e.target.value as typeof typeFilter)}
-              className="px-2 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent min-h-[44px] flex-1 min-w-0"
+              className="px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-lg text-xs focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent min-h-[44px] flex-1 min-w-0"
             >
               <option value="all">Tipos</option>
               <option value="DEPOSIT">Depósitos</option>
@@ -473,7 +473,7 @@ export default function TransactionsPage() {
             <select
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value as typeof statusFilter)}
-              className="px-2 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent min-h-[44px] flex-1 min-w-0"
+              className="px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-lg text-xs focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent min-h-[44px] flex-1 min-w-0"
             >
               <option value="all">Status</option>
               <option value="COMPLETED">Completado</option>
@@ -497,12 +497,12 @@ export default function TransactionsPage() {
             ))}
           </div>
         ) : transactions.length === 0 ? (
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-8 text-center">
-            <div className="p-4 bg-gray-700/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-              <Search className="w-8 h-8 text-gray-400" />
+          <div className="bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-default)] rounded-xl p-8 text-center">
+            <div className="p-4 bg-[var(--bg-elevated)] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <Search className="w-8 h-8 text-[var(--text-muted)]" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Nenhuma transação encontrada</h3>
-            <p className="text-gray-400">Tente ajustar os filtros ou período selecionado.</p>
+            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Nenhuma transação encontrada</h3>
+            <p className="text-[var(--text-muted)]">Tente ajustar os filtros ou período selecionado.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -510,17 +510,17 @@ export default function TransactionsPage() {
               <div
                 key={transaction.id}
                 onClick={() => handleTransactionClick(transaction)}
-                className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-200 cursor-pointer hover:border-purple-500/30 w-full overflow-hidden"
+                className="bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-default)] rounded-xl p-4 hover:bg-[var(--bg-elevated)] transition-all duration-200 cursor-pointer hover:border-[var(--border-hover)] w-full overflow-hidden"
               >
                 {/* Mobile Layout */}
                 <div className="block md:hidden">
                   <div className="flex items-start gap-3 w-full overflow-hidden">
-                    <div className="p-2 bg-gray-700/50 rounded-lg flex-shrink-0">
+                    <div className="p-2 bg-[var(--bg-elevated)] rounded-lg flex-shrink-0">
                       {getTypeIcon(transaction.type)}
                     </div>
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center justify-between mb-1 gap-2">
-                        <h4 className="font-medium text-white truncate flex-1 min-w-0">
+                        <h4 className="font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">
                           {transaction.type === 'DEPOSIT' ? 'Depósito' :
                            transaction.type === 'WITHDRAW' ? 'Saque' : 'Transferência'}
                         </h4>
@@ -537,14 +537,14 @@ export default function TransactionsPage() {
                           {translateStatus(transaction.status)}
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-gray-400 text-xs text-right">
+                          <span className="text-[var(--text-muted)] text-xs text-right">
                             {formatDate(transaction.createdAt)}
                           </span>
                         </div>
                       </div>
                       {transaction.description && (
                         <div className="flex items-center justify-between mt-1 gap-2">
-                          <p className="text-xs text-gray-500 truncate flex-1 min-w-0">
+                          <p className="text-xs text-[var(--text-muted)] truncate flex-1 min-w-0">
                             {transaction.description}
                           </p>
                           {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
@@ -553,7 +553,7 @@ export default function TransactionsPage() {
                                 e.stopPropagation();
                                 window.open(`/payment-confirmation/${transaction.id}`, '_blank');
                               }}
-                              className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                              className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors flex-shrink-0"
                               title="Ver comprovante"
                             >
                               <FileText className="w-4 h-4" />
@@ -568,7 +568,7 @@ export default function TransactionsPage() {
                               e.stopPropagation();
                               window.open(`/payment-confirmation/${transaction.id}`, '_blank');
                             }}
-                            className="text-gray-400 hover:text-blue-400 transition-colors"
+                            className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
                             title="Ver comprovante"
                           >
                             <FileText className="w-4 h-4" />
@@ -581,16 +581,16 @@ export default function TransactionsPage() {
 
                 {/* Desktop Layout */}
                 <div className="hidden md:flex items-center gap-4">
-                  <div className="p-2 bg-gray-700/50 rounded-lg">
+                  <div className="p-2 bg-[var(--bg-elevated)] rounded-lg">
                     {getTypeIcon(transaction.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-white">
+                    <h4 className="font-medium text-[var(--text-primary)]">
                       {transaction.type === 'DEPOSIT' ? 'Depósito' :
                        transaction.type === 'WITHDRAW' ? 'Saque' : 'Transferência'}
                     </h4>
                     {transaction.description && (
-                      <p className="text-sm text-gray-400 truncate">
+                      <p className="text-sm text-[var(--text-muted)] truncate">
                         {transaction.description}
                       </p>
                     )}
@@ -608,12 +608,12 @@ export default function TransactionsPage() {
                       {transaction.type === 'WITHDRAW' ? '-' : '+'}
                       {formatCurrency(transaction.amount)}
                     </div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm text-[var(--text-muted)]">
                       {formatDate(transaction.createdAt)}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-gray-400">
+                    <div className="text-[var(--text-muted)]">
                       <Eye className="w-4 h-4" />
                     </div>
                     {(transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (
@@ -622,7 +622,7 @@ export default function TransactionsPage() {
                           e.stopPropagation();
                           window.open(`/payment-confirmation/${transaction.id}`, '_blank');
                         }}
-                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                        className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
                         title="Ver comprovante"
                       >
                         <FileText className="w-4 h-4" />
@@ -647,7 +647,7 @@ export default function TransactionsPage() {
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {`Carregar mais (${itemsPerPage} transações)`}
             </button>

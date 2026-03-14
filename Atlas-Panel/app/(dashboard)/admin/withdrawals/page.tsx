@@ -151,14 +151,14 @@ export default function AdminWithdrawalsPage() {
 
   const getStatusColor = (status: WithdrawalStatus) => {
     switch (status) {
-      case WithdrawalStatus.PENDING: return 'text-yellow-400';
-      case WithdrawalStatus.APPROVED: return 'text-blue-400';
-      case WithdrawalStatus.PROCESSING: return 'text-blue-400';
-      case WithdrawalStatus.COMPLETED: return 'text-green-400';
-      case WithdrawalStatus.REJECTED: return 'text-red-400';
-      case WithdrawalStatus.FAILED: return 'text-red-400';
-      case WithdrawalStatus.CANCELLED: return 'text-gray-400';
-      default: return 'text-gray-400';
+      case WithdrawalStatus.PENDING: return 'text-yellow-600 dark:text-yellow-400';
+      case WithdrawalStatus.APPROVED: return 'text-blue-600 dark:text-blue-400';
+      case WithdrawalStatus.PROCESSING: return 'text-blue-600 dark:text-blue-400';
+      case WithdrawalStatus.COMPLETED: return 'text-green-600 dark:text-green-400';
+      case WithdrawalStatus.REJECTED: return 'text-red-600 dark:text-red-400';
+      case WithdrawalStatus.FAILED: return 'text-red-600 dark:text-red-400';
+      case WithdrawalStatus.CANCELLED: return 'text-[var(--text-muted)]';
+      default: return 'text-[var(--text-muted)]';
     }
   };
 
@@ -185,8 +185,8 @@ export default function AdminWithdrawalsPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2 text-white">Gerenciar Saques</h1>
-          <p className="text-gray-400">Aprovar e processar solicitações de saque</p>
+          <h1 className="text-3xl font-bold mb-2 text-[var(--text-primary)]">Gerenciar Saques</h1>
+          <p className="text-[var(--text-muted)]">Aprovar e processar solicitações de saque</p>
         </div>
         <button
           onClick={processWithdrawals}
@@ -201,40 +201,40 @@ export default function AdminWithdrawalsPage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Total</span>
-              <DollarSign size={20} className="text-green-400" />
+              <span className="text-[var(--text-muted)] text-sm">Total</span>
+              <DollarSign size={20} className="text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
+            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Pendentes</span>
-              <Clock size={20} className="text-yellow-400" />
+              <span className="text-[var(--text-muted)] text-sm">Pendentes</span>
+              <Clock size={20} className="text-yellow-600 dark:text-yellow-400" />
             </div>
-            <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
+            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Aprovados</span>
-              <CheckCircle size={20} className="text-blue-400" />
+              <span className="text-[var(--text-muted)] text-sm">Aprovados</span>
+              <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" />
             </div>
-            <p className="text-2xl font-bold text-blue-400">{stats.approved}</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.approved}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Concluídos</span>
-              <CheckCircle size={20} className="text-green-400" />
+              <span className="text-[var(--text-muted)] text-sm">Concluídos</span>
+              <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Volume Total</span>
-              <TrendingUp size={20} className="text-purple-400" />
+              <span className="text-[var(--text-muted)] text-sm">Volume Total</span>
+              <TrendingUp size={20} className="text-[var(--accent)]" />
             </div>
             <p className="text-xl font-bold">{formatCurrency(stats.totalAmount)}</p>
           </div>
@@ -243,7 +243,7 @@ export default function AdminWithdrawalsPage() {
 
       {/* Pending Withdrawals Alert */}
       {pendingWithdrawals.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500 rounded-lg">
+        <div className="mb-6 p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-300 dark:border-yellow-500 rounded-lg">
           <div className="flex items-center">
             <AlertCircle size={20} className="text-yellow-500 mr-2" />
             <span className="text-yellow-500">
@@ -258,7 +258,7 @@ export default function AdminWithdrawalsPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as WithdrawalStatus | '')}
-          className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+          className="px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
         >
           <option value="">Todos os Status</option>
           <option value={WithdrawalStatus.PENDING}>Pendente</option>
@@ -273,7 +273,7 @@ export default function AdminWithdrawalsPage() {
         <select
           value={methodFilter}
           onChange={(e) => setMethodFilter(e.target.value as WithdrawalMethod | '')}
-          className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+          className="px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
         >
           <option value="">Todos os Métodos</option>
           <option value={WithdrawalMethod.PIX}>PIX</option>
@@ -285,48 +285,48 @@ export default function AdminWithdrawalsPage() {
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="table-modern">
-            <thead className="bg-gray-700">
+            <thead className="bg-[var(--bg-elevated)]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Usuário
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Método
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Destino
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Valor
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Taxa
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Líquido
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Processamento
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-[var(--border-default)]">
               {withdrawals.map((withdrawal) => (
-                <tr key={withdrawal.id} className="hover:bg-gray-700/50">
+                <tr key={withdrawal.id} className="hover:bg-[var(--bg-elevated)]">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <p className="text-sm font-medium">{withdrawal.user.username}</p>
-                      <p className="text-xs text-gray-400">{withdrawal.user.email}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{withdrawal.user.email}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-400">
+                    <span className="px-2 py-1 text-xs rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
                       {withdrawal.method}
                     </span>
                   </td>
@@ -335,12 +335,12 @@ export default function AdminWithdrawalsPage() {
                       {withdrawal.method === WithdrawalMethod.PIX ? (
                         <>
                           <p>{withdrawal.pixKeyType}</p>
-                          <p className="text-gray-400 truncate max-w-xs" title={withdrawal.pixKey}>
+                          <p className="text-[var(--text-muted)] truncate max-w-xs" title={withdrawal.pixKey}>
                             {withdrawal.pixKey}
                           </p>
                         </>
                       ) : (
-                        <p className="text-gray-400 truncate max-w-xs" title={withdrawal.liquidAddress}>
+                        <p className="text-[var(--text-muted)] truncate max-w-xs" title={withdrawal.liquidAddress}>
                           {withdrawal.liquidAddress}
                         </p>
                       )}
@@ -349,10 +349,10 @@ export default function AdminWithdrawalsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {formatCurrency(withdrawal.amount)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-400">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600 dark:text-yellow-400">
                     {formatCurrency(withdrawal.fee)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-semibold">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400 font-semibold">
                     {formatCurrency(withdrawal.netAmount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -362,11 +362,11 @@ export default function AdminWithdrawalsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div>
-                      <p className={isToday(withdrawal.scheduledFor) ? 'text-yellow-400 font-semibold' : ''}>
+                      <p className={isToday(withdrawal.scheduledFor) ? 'text-yellow-600 dark:text-yellow-400 font-semibold' : ''}>
                         {new Date(withdrawal.scheduledFor).toLocaleDateString('pt-BR')}
                       </p>
                       {isToday(withdrawal.scheduledFor) && (
-                        <p className="text-xs text-yellow-400">Hoje</p>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400">Hoje</p>
                       )}
                     </div>
                   </td>
@@ -376,14 +376,14 @@ export default function AdminWithdrawalsPage() {
                         <>
                           <button
                             onClick={() => handleApprovalClick(withdrawal, 'approve')}
-                            className="p-1 hover:bg-green-600/20 rounded text-green-400"
+                            className="p-1 hover:bg-green-600/20 rounded text-green-600 dark:text-green-400"
                             title="Aprovar"
                           >
                             <Check size={16} />
                           </button>
                           <button
                             onClick={() => handleApprovalClick(withdrawal, 'reject')}
-                            className="p-1 hover:bg-red-600/20 rounded text-red-400"
+                            className="p-1 hover:bg-red-600/20 rounded text-red-600 dark:text-red-400"
                             title="Rejeitar"
                           >
                             <X size={16} />
@@ -392,7 +392,7 @@ export default function AdminWithdrawalsPage() {
                       )}
                       <button
                         onClick={() => setSelectedWithdrawal(withdrawal)}
-                        className="p-1 hover:bg-gray-600/20 rounded text-gray-400"
+                        className="p-1 hover:bg-[var(--bg-elevated)] rounded text-[var(--text-muted)]"
                         title="Ver detalhes"
                       >
                         <Eye size={16} />
@@ -403,7 +403,7 @@ export default function AdminWithdrawalsPage() {
               ))}
               {withdrawals.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-8 text-center text-[var(--text-muted)]">
                     Nenhum saque encontrado
                   </td>
                 </tr>
@@ -421,11 +421,11 @@ export default function AdminWithdrawalsPage() {
               {approvalAction === 'approve' ? 'Aprovar' : 'Rejeitar'} Saque
             </h3>
 
-            <div className="mb-4 p-3 bg-gray-700 rounded">
-              <p className="text-sm text-gray-400">Usuário: {selectedWithdrawal.user.username}</p>
-              <p className="text-sm text-gray-400">Valor: {formatCurrency(selectedWithdrawal.amount)}</p>
-              <p className="text-sm text-gray-400">Líquido: {formatCurrency(selectedWithdrawal.netAmount)}</p>
-              <p className="text-sm text-gray-400">Método: {selectedWithdrawal.method}</p>
+            <div className="mb-4 p-3 bg-[var(--bg-elevated)] rounded">
+              <p className="text-sm text-[var(--text-muted)]">Usuário: {selectedWithdrawal.user.username}</p>
+              <p className="text-sm text-[var(--text-muted)]">Valor: {formatCurrency(selectedWithdrawal.amount)}</p>
+              <p className="text-sm text-[var(--text-muted)]">Líquido: {formatCurrency(selectedWithdrawal.netAmount)}</p>
+              <p className="text-sm text-[var(--text-muted)]">Método: {selectedWithdrawal.method}</p>
             </div>
 
             {approvalAction === 'approve' && (
@@ -438,7 +438,7 @@ export default function AdminWithdrawalsPage() {
                   value={coldwalletTxId}
                   onChange={(e) => setColdwalletTxId(e.target.value)}
                   placeholder="TX ID da coldwallet"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
             )}
@@ -451,7 +451,7 @@ export default function AdminWithdrawalsPage() {
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Motivo da rejeição"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   required
                 />
               </div>
@@ -463,7 +463,7 @@ export default function AdminWithdrawalsPage() {
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
                 placeholder="Observações (opcional)"
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                 rows={3}
               />
             </div>
@@ -482,7 +482,7 @@ export default function AdminWithdrawalsPage() {
               </button>
               <button
                 onClick={() => setShowApprovalModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -500,54 +500,54 @@ export default function AdminWithdrawalsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-400">ID</p>
+                  <p className="text-sm text-[var(--text-muted)]">ID</p>
                   <p className="font-mono text-xs">{selectedWithdrawal.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Status</p>
+                  <p className="text-sm text-[var(--text-muted)]">Status</p>
                   <p className={`font-semibold ${getStatusColor(selectedWithdrawal.status)}`}>
                     {getStatusText(selectedWithdrawal.status)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Usuário</p>
+                  <p className="text-sm text-[var(--text-muted)]">Usuário</p>
                   <p>{selectedWithdrawal.user.username}</p>
-                  <p className="text-xs text-gray-400">{selectedWithdrawal.user.email}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{selectedWithdrawal.user.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Método</p>
+                  <p className="text-sm text-[var(--text-muted)]">Método</p>
                   <p>{selectedWithdrawal.method}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Valor Solicitado</p>
+                  <p className="text-sm text-[var(--text-muted)]">Valor Solicitado</p>
                   <p className="font-semibold">{formatCurrency(selectedWithdrawal.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Taxa</p>
-                  <p className="text-yellow-400">{formatCurrency(selectedWithdrawal.fee)}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Taxa</p>
+                  <p className="text-yellow-600 dark:text-yellow-400">{formatCurrency(selectedWithdrawal.fee)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Valor Líquido</p>
-                  <p className="text-green-400 font-semibold">{formatCurrency(selectedWithdrawal.netAmount)}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Valor Líquido</p>
+                  <p className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(selectedWithdrawal.netAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Data da Solicitação</p>
+                  <p className="text-sm text-[var(--text-muted)]">Data da Solicitação</p>
                   <p>{new Date(selectedWithdrawal.requestedAt).toLocaleString('pt-BR')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Processamento Agendado</p>
+                  <p className="text-sm text-[var(--text-muted)]">Processamento Agendado</p>
                   <p>{new Date(selectedWithdrawal.scheduledFor).toLocaleString('pt-BR')}</p>
                 </div>
                 {selectedWithdrawal.processedAt && (
                   <div>
-                    <p className="text-sm text-gray-400">Processado em</p>
+                    <p className="text-sm text-[var(--text-muted)]">Processado em</p>
                     <p>{new Date(selectedWithdrawal.processedAt).toLocaleString('pt-BR')}</p>
                   </div>
                 )}
               </div>
 
               {selectedWithdrawal.method === WithdrawalMethod.PIX && (
-                <div className="p-4 bg-gray-700 rounded">
+                <div className="p-4 bg-[var(--bg-elevated)] rounded">
                   <p className="text-sm font-medium mb-2">Dados PIX</p>
                   <p className="text-sm">Tipo: {selectedWithdrawal.pixKeyType}</p>
                   <p className="text-sm">Chave: {selectedWithdrawal.pixKey}</p>
@@ -555,14 +555,14 @@ export default function AdminWithdrawalsPage() {
               )}
 
               {selectedWithdrawal.method === WithdrawalMethod.DEPIX && (
-                <div className="p-4 bg-gray-700 rounded">
+                <div className="p-4 bg-[var(--bg-elevated)] rounded">
                   <p className="text-sm font-medium mb-2">Endereço Liquid</p>
                   <p className="text-sm font-mono break-all">{selectedWithdrawal.liquidAddress}</p>
                 </div>
               )}
 
               {selectedWithdrawal.cpfCnpj && (
-                <div className="p-4 bg-gray-700 rounded">
+                <div className="p-4 bg-[var(--bg-elevated)] rounded">
                   <p className="text-sm font-medium mb-2">Dados de Verificação</p>
                   <p className="text-sm">CPF/CNPJ: {selectedWithdrawal.cpfCnpj}</p>
                   {selectedWithdrawal.fullName && (
@@ -572,23 +572,23 @@ export default function AdminWithdrawalsPage() {
               )}
 
               {selectedWithdrawal.adminNotes && (
-                <div className="p-4 bg-gray-700 rounded">
+                <div className="p-4 bg-[var(--bg-elevated)] rounded">
                   <p className="text-sm font-medium mb-2">Observações do Admin</p>
                   <p className="text-sm">{selectedWithdrawal.adminNotes}</p>
                 </div>
               )}
 
               {selectedWithdrawal.statusReason && (
-                <div className="p-4 bg-red-900/20 border border-red-600 rounded">
-                  <p className="text-sm font-medium mb-2 text-red-400">Motivo do Status</p>
-                  <p className="text-sm text-red-300">{selectedWithdrawal.statusReason}</p>
+                <div className="p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-600 rounded">
+                  <p className="text-sm font-medium mb-2 text-red-600 dark:text-red-400">Motivo do Status</p>
+                  <p className="text-sm text-red-500 dark:text-red-300">{selectedWithdrawal.statusReason}</p>
                 </div>
               )}
 
               {selectedWithdrawal.coldwalletTxId && (
-                <div className="p-4 bg-green-900/20 border border-green-600 rounded">
-                  <p className="text-sm font-medium mb-2 text-green-400">Transação Coldwallet</p>
-                  <p className="text-sm font-mono text-green-300">{selectedWithdrawal.coldwalletTxId}</p>
+                <div className="p-4 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-600 rounded">
+                  <p className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">Transação Coldwallet</p>
+                  <p className="text-sm font-mono text-green-500 dark:text-green-300">{selectedWithdrawal.coldwalletTxId}</p>
                 </div>
               )}
             </div>
@@ -596,7 +596,7 @@ export default function AdminWithdrawalsPage() {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setSelectedWithdrawal(null)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors"
               >
                 Fechar
               </button>

@@ -60,7 +60,7 @@ export default function FloatingActionMenu({
               <button
                 key={action.label}
                 onClick={() => handleActionClick(action)}
-                className={`flex items-center gap-3 animate-slide-in-up bg-gray-900/90 backdrop-blur-sm text-white text-sm font-medium px-4 py-3 rounded-full border border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group min-w-0`}
+                className={`flex items-center gap-3 animate-slide-in-up bg-[var(--bg-primary)]/90 backdrop-blur-sm text-[var(--text-primary)] text-sm font-medium px-4 py-3 rounded-full border border-[var(--border-default)] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group min-w-0`}
                 style={{ animationDelay: `${action.delay}ms` }}
                 title={action.label}
               >
@@ -82,20 +82,20 @@ export default function FloatingActionMenu({
       {/* Main FAB */}
       <button
         onClick={toggleMenu}
-        className={`w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center group ${
+        className={`w-16 h-16 bg-[var(--accent)] rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center group ${
           isOpen ? 'scale-110 rotate-45' : 'hover:scale-110'
         }`}
         title={isOpen ? 'Fechar menu' : 'Menu de ações rápidas'}
       >
         {isOpen ? (
-          <X className="w-6 h-6 text-white transition-transform duration-300" />
+          <X className="w-6 h-6 text-[var(--text-primary)] transition-transform duration-300" />
         ) : (
-          <Plus className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
+          <Plus className="w-6 h-6 text-[var(--text-primary)] group-hover:rotate-90 transition-transform duration-300" />
         )}
 
         {/* Pulsing ring effect */}
         {!isOpen && (
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 animate-ping opacity-20"></div>
+          <div className="absolute inset-0 rounded-full bg-[var(--accent)] animate-ping opacity-20"></div>
         )}
       </button>
 

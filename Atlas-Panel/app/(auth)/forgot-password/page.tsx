@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email) {
       toast.error('Por favor, insira seu email');
       return;
@@ -38,50 +38,50 @@ export default function ForgotPasswordPage() {
     return (
       <>
         <Toaster position="top-right" />
-        
-        <div className="card bg-gray-800 border-gray-700">
+
+        <div className="atlas-card">
           <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-8 h-8 text-white" />
+            <div className="mx-auto w-16 h-16 bg-green-500/10 border-2 border-[var(--color-success)] rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-[var(--color-success)]" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Email Enviado!</h2>
-            <p className="text-gray-300">
+            <h2 className="text-2xl font-bold text-[var(--text-primary)]">Email Enviado!</h2>
+            <p className="text-[var(--text-secondary)]">
               Verificamos sua caixa de entrada em <strong>{email}</strong>
             </p>
 
-            <div className="p-4 bg-blue-900/20 border border-blue-600 rounded-lg">
-              <p className="text-sm text-blue-300">
-                📧 Um código de 6 dígitos foi enviado para seu email
+            <div className="p-4 bg-[var(--accent-soft)] border border-[var(--accent)]/20 rounded-lg">
+              <p className="text-sm text-[var(--accent)]">
+                Um código de 6 dígitos foi enviado para seu email
               </p>
             </div>
-            
-            <div className="p-4 bg-yellow-900/20 border border-yellow-600 rounded-lg">
-              <p className="text-sm text-yellow-300">
-                ⏰ O código expira em 10 minutos
+
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-sm text-amber-500">
+                O código expira em 10 minutos
               </p>
             </div>
 
             <div className="pt-4 space-y-3">
               <button
                 onClick={() => router.push(`/reset-password?email=${encodeURIComponent(email)}`)}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
+                className="atlas-btn w-full"
               >
                 Inserir Código
               </button>
-              
+
               <button
                 onClick={() => {
                   setEmailSent(false);
                   setEmail('');
                 }}
-                className="w-full bg-gray-700 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200"
+                className="atlas-btn-secondary w-full py-2.5 px-4 rounded-lg transition-colors"
               >
                 Tentar Outro Email
               </button>
             </div>
 
-            <div className="pt-4 border-t border-gray-700">
-              <p className="text-xs text-gray-400">
+            <div className="pt-4 border-t border-[var(--border-default)]">
+              <p className="text-xs text-[var(--text-muted)]">
                 Não recebeu o email? Verifique sua pasta de spam ou aguarde alguns minutos
               </p>
             </div>
@@ -94,22 +94,22 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <Toaster position="top-right" />
-      
-      <div className="card bg-gray-800 border-gray-700">
+
+      <div className="atlas-card">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white">Esqueci minha senha</h2>
-          <p className="text-gray-400 mt-2">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Esqueci minha senha</h2>
+          <p className="text-[var(--text-secondary)] mt-2">
             Digite seu email para receber um código de recuperação
           </p>
         </div>
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+            <label htmlFor="email" className="block text-sm font-medium text-[var(--text-secondary)]">
               Email
             </label>
             <div className="mt-1 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                <Mail className="h-5 w-5 text-gray-400" />
+                <Mail className="h-5 w-5 text-[var(--text-muted)]" />
               </div>
               <input
                 id="email"
@@ -119,7 +119,7 @@ export default function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 relative"
+                className="atlas-input pl-10"
                 placeholder="Digite seu email"
               />
             </div>
@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-md transition-colors"
+              className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
@@ -146,17 +146,17 @@ export default function ForgotPasswordPage() {
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-600" />
+              <div className="w-full border-t border-[var(--border-default)]" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-800 text-gray-400">ou</span>
+              <span className="px-2 bg-[var(--bg-card)] text-[var(--text-muted)]">ou</span>
             </div>
           </div>
 
           <div className="mt-6">
             <Link
               href="/login"
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-200"
+              className="w-full flex justify-center items-center py-2.5 px-4 border border-[var(--border-default)] rounded-lg text-sm font-medium text-[var(--text-secondary)] bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar ao Login

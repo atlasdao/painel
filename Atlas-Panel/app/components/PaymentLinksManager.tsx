@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, isAuxiliarCollaborator } from '@/app/lib/api';
 import { toast } from 'sonner';
 import {
@@ -31,8 +31,9 @@ import {
   Webhook
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { accountValidationService } from '@/app/lib/services';
+import { accountValidationService, commerceTermsService } from '@/app/lib/services';
 import WebhookConfiguration from './WebhookConfiguration';
+import CommerceTermsModal from './CommerceTermsModal';
 // import { triggerConfetti } from '@/app/lib/confetti';
 
 interface PaymentLink {
@@ -88,6 +89,10 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     return true;
   });
   const [showWebhookConfig, setShowWebhookConfig] = useState<string | null>(null);
+  // Commerce Terms Modal - DESABILITADO TEMPORARIAMENTE
+  const [showCommerceTermsModal, setShowCommerceTermsModal] = useState(false);
+  const [commerceTermsAccepted, setCommerceTermsAccepted] = useState<boolean>(true); // Sempre true para desabilitar
+  const commerceTermsCheckRef = useRef(false);
 
   // Scroll to top when webhook modal opens
   useEffect(() => {
@@ -297,7 +302,56 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
   useEffect(() => {
     checkValidationStatus();
     loadPaymentLinks();
+    // checkCommerceTerms(); // DESABILITADO TEMPORARIAMENTE
   }, []);
+
+  const checkCommerceTerms = async () => {
+    // Evitar múltiplas verificações usando ref (persiste entre renders)
+    if (commerceTermsCheckRef.current) return;
+    commerceTermsCheckRef.current = true;
+
+    // Se já aceitou (localStorage), não precisa verificar
+    if (typeof window !== 'undefined' && localStorage.getItem('commerce-terms-accepted') === 'true') {
+      setCommerceTermsAccepted(true);
+      return;
+    }
+
+    try {
+      const status = await commerceTermsService.getStatus();
+
+      if (status.hasAcceptedTerms) {
+        setCommerceTermsAccepted(true);
+        localStorage.setItem('commerce-terms-accepted', 'true');
+      } else {
+        setCommerceTermsAccepted(false);
+        // Se o usuário já tem payment links mas não aceitou os termos, mostrar modal
+        if (status.needsToAcceptTerms && status.hasPaymentLinks) {
+          setShowCommerceTermsModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking commerce terms:', error);
+      // Em caso de erro, assumir que já aceitou para não bloquear
+      setCommerceTermsAccepted(true);
+    }
+  };
+
+  const handleAcceptCommerceTerms = async () => {
+    try {
+      await commerceTermsService.acceptTerms();
+      setCommerceTermsAccepted(true);
+      setShowCommerceTermsModal(false);
+      // Salvar no localStorage para evitar mostrar novamente durante a sessão
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('commerce-terms-accepted', 'true');
+      }
+      toast.success('Termos aceitos com sucesso!');
+    } catch (error) {
+      console.error('Error accepting commerce terms:', error);
+      toast.error('Erro ao aceitar os termos. Tente novamente.');
+      throw error;
+    }
+  };
 
 
   const checkValidationStatus = async () => {
@@ -365,6 +419,12 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
   };
 
   const handleCreateLink = async () => {
+    // DESABILITADO TEMPORARIAMENTE - Verificação de termos do modo comércio
+    // if (!commerceTermsAccepted && paymentLinks.length === 0) {
+    //   setShowCommerceTermsModal(true);
+    //   return;
+    // }
+
     // Enhanced validation with better error messages
     if (formData.isCustomAmount) {
       const minAmount = sanitizeNumber(formData.minAmount);
@@ -671,7 +731,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader className="w-8 h-8 animate-spin text-purple-500" />
+        <Loader className="w-8 h-8 animate-spin text-[var(--accent)]" />
       </div>
     );
   }
@@ -680,7 +740,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
     <div className="space-y-6 native-scroll">
       <div className="flex items-center justify-between mb-6">
         <h2 className="native-heading-2 flex items-center gap-3">
-          <Link className="text-purple-400" size={24} />
+          <Link className="text-[var(--accent)]" size={24} />
           Links de Pagamento
         </h2>
 
@@ -696,7 +756,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
         ) : (
           <button
             disabled
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600/50 text-gray-400 rounded-lg cursor-not-allowed opacity-50 touch-target"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-muted)] rounded-lg cursor-not-allowed opacity-50 touch-target"
           >
             <Shield size={20} />
             <span className="hidden sm:inline">Validação Necessária</span>
@@ -707,30 +767,30 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
       {/* Validation Status Info */}
       {loadingValidation ? (
-        <div className="mb-6 p-4 glass-card animate-bounce-in">
+        <div className="mb-6 p-4 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl animate-bounce-in">
           <div className="flex items-center gap-3">
-            <Loader className="text-gray-400 animate-spin" size={20} />
-            <p className="text-gray-400">Verificando status de validação...</p>
+            <Loader className="text-[var(--text-muted)] animate-spin" size={20} />
+            <p className="text-[var(--text-muted)]">Verificando status de validação...</p>
           </div>
         </div>
       ) : !validationStatus?.isValidated ? (
-        <div className="mb-6 p-6 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+        <div className="mb-6 p-6 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
           <div className="flex items-start gap-4">
-            <div className="p-2 bg-yellow-500/20 rounded-lg">
-              <Shield className="text-yellow-400 flex-shrink-0" size={24} />
+            <div className="p-2 bg-yellow-200 dark:bg-yellow-500/20 rounded-lg">
+              <Shield className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="text-yellow-400 font-semibold text-lg mb-2">Validação de Conta Necessária</h3>
-              <p className="text-gray-300 mb-5 leading-relaxed">
+              <h3 className="text-yellow-700 dark:text-yellow-400 font-semibold text-lg mb-2">Validação de Conta Necessária</h3>
+              <p className="text-[var(--text-secondary)] mb-5 leading-relaxed">
                 Para criar links de pagamento, você precisa validar sua conta primeiro.
-                O processo é simples e requer apenas um pagamento de <strong className="text-white">
+                O processo é simples e requer apenas um pagamento de <strong className="text-[var(--text-primary)]">
                   R$ {validationRequirements?.amount ? validationRequirements.amount.toFixed(2).replace('.', ',') : '2,00'}
                 </strong>.
               </p>
 
               <a
                 href="/deposit"
-                className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl touch-target"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-[var(--text-primary)] rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl touch-target"
               >
                 <Shield size={18} />
                 Validar Conta Agora
@@ -739,29 +799,29 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
           </div>
         </div>
       ) : showDescription ? (
-        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+        <div className="mb-6 p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30 rounded-lg">
           <div className="flex items-start gap-3">
-            <QrCode className="text-blue-400 mt-0.5" size={20} />
+            <QrCode className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-blue-400 font-medium">Links de Pagamento Rápido</p>
-                <div className="flex items-center gap-1 text-green-400">
+                <p className="text-blue-600 dark:text-blue-400 font-medium">Links de Pagamento Rápido</p>
+                <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                   <CheckCircle size={16} />
                   <span className="text-sm">Conta Validada</span>
                 </div>
               </div>
-              <p className="text-gray-300 text-sm">
+              <p className="text-[var(--text-secondary)] text-sm">
                 Crie links personalizados para receber pagamentos PIX de até R$ 5.000 de múltiplos CPF/CNPJ diretamente em Depix
               </p>
               {validationStatus?.limits && (
-                <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/30 rounded">
-                  <p className="text-blue-300 text-sm font-medium mb-1">Seus Limites Atuais:</p>
-                  <p className="text-blue-300 text-sm">
+                <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600/30 rounded">
+                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-1">Seus Limites Atuais:</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm">
                     Limite diário: <strong>R$ {validationStatus.limits.currentDailyLimit}</strong>
                     (Tier {validationStatus.limits.limitTier})
                   </p>
                   {validationStatus.reputation && (
-                    <p className="text-blue-300 text-sm">
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">
                       Reputação: <strong>{validationStatus.reputation.reputationScore.toFixed(1)}</strong>
                       ({validationStatus.reputation.totalApprovedCount} pagamentos aprovados)
                     </p>
@@ -771,7 +831,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
             </div>
             <button
               onClick={dismissDescription}
-              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors touch-target text-gray-400 hover:text-gray-300 flex-shrink-0"
+              className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors touch-target text-[var(--text-muted)] hover:text-[var(--text-secondary)] flex-shrink-0"
               title="Ocultar esta mensagem permanentemente"
             >
               <X size={18} />
@@ -784,10 +844,10 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
       {showCreateForm && (
         <div className="glass-card-premium p-6 animate-slide-up">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg">
-              <Plus className="text-purple-400" size={20} />
+            <div className="p-2 bg-[var(--accent-soft)] rounded-lg">
+              <Plus className="text-[var(--accent)]" size={20} />
             </div>
-            <h3 className="text-xl font-bold text-white">Criar Novo Link de Pagamento</h3>
+            <h3 className="text-xl font-bold text-[var(--text-primary)]">Criar Novo Link de Pagamento</h3>
           </div>
 
           <div className="space-y-5">
@@ -798,9 +858,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 id="customAmount"
                 checked={formData.isCustomAmount}
                 onChange={(e) => setFormData({ ...formData, isCustomAmount: e.target.checked })}
-                className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                className="w-5 h-5 text-[var(--accent)] bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-[var(--accent)]"
               />
-              <label htmlFor="customAmount" className="text-gray-300">
+              <label htmlFor="customAmount" className="text-[var(--text-secondary)]">
                 Permitir valor personalizado
               </label>
             </div>
@@ -809,7 +869,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
             {formData.isCustomAmount ? (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Valor Mínimo
                   </label>
                   <input
@@ -819,12 +879,12 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     placeholder="10.00"
                     min="0.01"
                     step="0.01"
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Valor Máximo
                   </label>
                   <input
@@ -834,14 +894,14 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     placeholder="1000.00"
                     min="0.01"
                     step="0.01"
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                   Valor do Pagamento
                 </label>
                 <input
@@ -851,7 +911,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   placeholder="100.00"
                   min="0.01"
                   step="0.01"
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                   style={{ fontSize: '16px' }}
                 />
               </div>
@@ -859,7 +919,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                 Descrição (opcional)
               </label>
               <input
@@ -867,27 +927,27 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Ex: Pagamento do pedido #123"
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                 style={{ fontSize: '16px' }}
               />
             </div>
 
             {/* Wallet Configuration Section - Always Visible */}
-            <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
+            <div className="p-4 bg-gradient-to-br from-blue-100 dark:from-blue-600/10 to-purple-100 dark:to-purple-600/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Wallet className="text-blue-400" size={20} />
+                <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                  <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
                 </div>
                 <div>
-                  <h4 className="text-white font-medium">Carteira para Recebimento</h4>
-                  <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
+                  <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                  <p className="text-[var(--text-muted)] text-sm">Endereço Liquid Network</p>
                 </div>
               </div>
 
               {defaultWallet && (
-                <div className="mb-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
-                  <p className="text-xs text-green-400 font-medium mb-1">Carteira padrão configurada:</p>
-                  <code className="text-xs text-green-300">
+                <div className="mb-3 p-3 bg-green-100 dark:bg-green-500/10 rounded-lg border border-green-300 dark:border-green-500/30">
+                  <p className="text-xs text-green-700 dark:text-green-400 font-medium mb-1">Carteira padrão configurada:</p>
+                  <code className="text-xs text-green-700 dark:text-green-300">
                     {defaultWallet.substring(0, 10)}...{defaultWallet.substring(defaultWallet.length - 9)}
                   </code>
                 </div>
@@ -895,8 +955,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
               {/* Info for AUXILIAR collaborators */}
               {isAuxiliarCollaborator() && defaultWallet && (
-                <div className="mb-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                  <p className="text-sm text-blue-400">
+                <div className="mb-3 p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
                     Como colaborador auxiliar, você utiliza a carteira padrão da conta.
                   </p>
                 </div>
@@ -905,19 +965,19 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
               {/* Only show wallet input if not AUXILIAR or no default wallet */}
               {(!isAuxiliarCollaborator() || !defaultWallet) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Endereço da Carteira {!defaultWallet && <span className="text-red-400">*</span>}
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                    Endereço da Carteira {!defaultWallet && <span className="text-red-600 dark:text-red-400">*</span>}
                   </label>
                   <input
                     type="text"
                     value={formData.walletAddress}
                     onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
                     placeholder={defaultWallet ? "Usar carteira padrão ou digite outro endereço" : "Digite o endereço da carteira Liquid"}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none touch-target"
                     style={{ fontSize: '16px' }}
                   />
                   {!defaultWallet && (
-                    <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-start gap-1">
                       <Shield size={12} className="mt-0.5 flex-shrink-0" />
                       <span>Configure uma carteira padrão nas configurações para tornar este campo opcional</span>
                     </p>
@@ -927,24 +987,24 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
             </div>
 
             {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
-            <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+            <div className="p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/20">
               <div className="flex items-start gap-2">
-                <div className="p-1 bg-blue-500/20 rounded mt-0.5">
-                  <Shield className="text-blue-400" size={14} />
+                <div className="p-1 bg-blue-200 dark:bg-blue-500/20 rounded mt-0.5">
+                  <Shield className="text-blue-600 dark:text-blue-400" size={14} />
                 </div>
                 <div className="text-sm space-y-1">
-                  <p className="text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
-                  <ul className="text-gray-300 space-y-0.5">
+                  <p className="text-blue-700 dark:text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                  <ul className="text-[var(--text-secondary)] space-y-0.5">
                     <li className="flex items-start gap-1">
-                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                       <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
                     </li>
                     <li className="flex items-start gap-1">
-                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                       <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
                     </li>
                     <li className="flex items-start gap-1">
-                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                       <span>Permite pagamentos até R$ 5.000 por transação</span>
                     </li>
                   </ul>
@@ -953,17 +1013,17 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
             </div>
 
             {/* Enhanced Action Buttons */}
-            <div className="flex gap-3 pt-4 border-t border-gray-700">
+            <div className="flex gap-3 pt-4 border-t border-[var(--border-default)]">
               <button
                 onClick={handleCreateLink}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
               >
                 <Plus size={18} />
                 Criar Link de Pagamento
               </button>
               <button
                 onClick={() => setShowCreateForm(false)}
-                className="px-6 py-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-all duration-200 touch-target"
+                className="px-6 py-4 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg font-medium transition-all duration-200 touch-target"
               >
                 Cancelar
               </button>
@@ -978,12 +1038,12 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
           <div className="glass-card-premium max-w-2xl w-full my-8 animate-slide-up">
             <div className="p-6 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
-                  <Edit className="text-blue-400" size={20} />
+                <div className="p-2 bg-[var(--accent-soft)] rounded-lg">
+                  <Edit className="text-blue-600 dark:text-blue-400" size={20} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white">Editar Link de Pagamento</h3>
-                  <p className="text-gray-400 text-sm">
+                  <h3 className="text-xl font-bold text-[var(--text-primary)]">Editar Link de Pagamento</h3>
+                  <p className="text-[var(--text-muted)] text-sm">
                     Código: {editingLink.shortCode} • Criado em {new Date(editingLink.createdAt).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
@@ -993,27 +1053,27 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     setEditingLink(null);
                     clearEditFormData();
                   }}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors touch-target"
+                  className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors touch-target"
                   title="Fechar"
                 >
-                  <XCircle className="text-gray-400" size={20} />
+                  <XCircle className="text-[var(--text-muted)]" size={20} />
                 </button>
               </div>
 
               <div className="space-y-5">
                 {/* Status Toggle */}
-                <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-white font-medium mb-1">Status do Link</h4>
-                      <p className="text-gray-400 text-sm">
+                      <h4 className="text-[var(--text-primary)] font-medium mb-1">Status do Link</h4>
+                      <p className="text-[var(--text-muted)] text-sm">
                         {editFormData.isActive ? 'Link ativo e funcionando' : 'Link desativado temporariamente'}
                       </p>
                     </div>
                     <button
                       onClick={() => setEditFormData({ ...editFormData, isActive: !editFormData.isActive })}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        editFormData.isActive ? 'bg-green-600' : 'bg-gray-600'
+                        editFormData.isActive ? 'bg-green-600' : 'bg-[var(--bg-elevated)]'
                       }`}
                       title={editFormData.isActive ? 'Desativar link' : 'Ativar link'}
                     >
@@ -1031,9 +1091,9 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     id="editCustomAmount"
                     checked={editFormData.isCustomAmount}
                     onChange={(e) => setEditFormData({ ...editFormData, isCustomAmount: e.target.checked })}
-                    className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                    className="w-5 h-5 text-[var(--accent)] bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-[var(--accent)]"
                   />
-                  <label htmlFor="editCustomAmount" className="text-gray-300">
+                  <label htmlFor="editCustomAmount" className="text-[var(--text-secondary)]">
                     Permitir valor personalizado
                   </label>
                 </div>
@@ -1042,7 +1102,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 {editFormData.isCustomAmount ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                         Valor Mínimo
                       </label>
                       <input
@@ -1052,12 +1112,12 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         placeholder="10.00"
                         min="0.01"
                         step="0.01"
-                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                         style={{ fontSize: '16px' }}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                         Valor Máximo
                       </label>
                       <input
@@ -1067,14 +1127,14 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         placeholder="1000.00"
                         min="0.01"
                         step="0.01"
-                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                         style={{ fontSize: '16px' }}
                       />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                       Valor do Pagamento
                     </label>
                     <input
@@ -1084,7 +1144,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                       placeholder="100.00"
                       min="0.01"
                       step="0.01"
-                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
@@ -1092,7 +1152,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
                 {/* Description */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                     Descrição (opcional)
                   </label>
                   <input
@@ -1100,49 +1160,49 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     value={editFormData.description}
                     onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
                     placeholder="Ex: Pagamento do pedido #123"
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none touch-target"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
 
                 {/* Wallet Address - Hidden for AUXILIAR collaborators */}
                 {isAuxiliarCollaborator() ? (
-                  <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                  <div className="p-4 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/20 rounded-lg">
-                        <Wallet className="text-blue-400" size={20} />
+                      <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
                       </div>
                       <div>
-                        <h4 className="text-white font-medium">Carteira para Recebimento</h4>
-                        <p className="text-blue-400 text-sm">Como colaborador auxiliar, você utiliza a carteira padrão da conta.</p>
+                        <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                        <p className="text-blue-600 dark:text-blue-400 text-sm">Como colaborador auxiliar, você utiliza a carteira padrão da conta.</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-lg border border-blue-500/30">
+                  <div className="p-4 bg-gradient-to-br from-blue-100 dark:from-blue-600/10 to-purple-100 dark:to-purple-600/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-blue-500/20 rounded-lg">
-                        <Wallet className="text-blue-400" size={20} />
+                      <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
                       </div>
                       <div>
-                        <h4 className="text-white font-medium">Carteira para Recebimento</h4>
-                        <p className="text-gray-400 text-sm">Endereço Liquid Network</p>
+                        <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                        <p className="text-[var(--text-muted)] text-sm">Endereço Liquid Network</p>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Endereço da Carteira <span className="text-red-400">*</span>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                        Endereço da Carteira <span className="text-red-600 dark:text-red-400">*</span>
                       </label>
                       <input
                         type="text"
                         value={editFormData.walletAddress}
                         onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
                         placeholder="Digite o endereço da carteira Liquid"
-                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none touch-target"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none touch-target"
                         style={{ fontSize: '16px' }}
                       />
-                      <p className="text-xs text-yellow-400 mt-2 flex items-start gap-1">
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-start gap-1">
                         <Shield size={12} className="mt-0.5 flex-shrink-0" />
                         <span>⚠️ Alterar a carteira invalidará o QR Code atual</span>
                       </p>
@@ -1151,24 +1211,24 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 )}
 
                 {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
-                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <div className="p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/20">
                   <div className="flex items-start gap-2">
-                    <div className="p-1 bg-blue-500/20 rounded mt-0.5">
-                      <Shield className="text-blue-400" size={14} />
+                    <div className="p-1 bg-blue-200 dark:bg-blue-500/20 rounded mt-0.5">
+                      <Shield className="text-blue-600 dark:text-blue-400" size={14} />
                     </div>
                     <div className="text-sm space-y-1">
-                      <p className="text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
-                      <ul className="text-gray-300 space-y-0.5">
+                      <p className="text-blue-700 dark:text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                      <ul className="text-[var(--text-secondary)] space-y-0.5">
                         <li className="flex items-start gap-1">
-                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                           <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
                         </li>
                         <li className="flex items-start gap-1">
-                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                           <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
                         </li>
                         <li className="flex items-start gap-1">
-                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                           <span>Permite pagamentos até R$ 5.000 por transação</span>
                         </li>
                       </ul>
@@ -1177,10 +1237,10 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-6 border-t border-gray-700">
+                <div className="flex gap-3 pt-6 border-t border-[var(--border-default)]">
                   <button
                     onClick={handleUpdateLink}
-                    className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
+                    className="flex-1 px-6 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
                   >
                     <Edit size={18} />
                     Atualizar Link
@@ -1191,7 +1251,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                       setEditingLink(null);
                       clearEditFormData();
                     }}
-                    className="px-6 py-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-all duration-200 touch-target"
+                    className="px-6 py-4 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg font-medium transition-all duration-200 touch-target"
                   >
                     Cancelar
                   </button>
@@ -1207,16 +1267,16 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {paymentLinks.length === 0 ? (
-              <div className="col-span-full glass-card p-12 text-center">
-                <Link className="mx-auto h-12 w-12 text-gray-500 mb-4" />
-                <p className="text-gray-400">Nenhum link de pagamento criado</p>
-                <p className="text-gray-500 text-sm mt-2">
+              <div className="col-span-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-12 text-center">
+                <Link className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-4" />
+                <p className="text-[var(--text-muted)]">Nenhum link de pagamento criado</p>
+                <p className="text-[var(--text-muted)] text-sm mt-2">
                   Clique em "Criar Novo Link" para criar seu primeiro link de pagamento
                 </p>
               </div>
             ) : (
               currentLinks.map((link) => (
-              <div key={link.id} className="glass-card p-6">
+              <div key={link.id} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-6">
                 {/* QR Code */}
                 <div className="flex justify-center mb-4">
                   {qrCodeUrls[link.id] && (
@@ -1231,12 +1291,12 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                 {/* Link Info */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-400">Valor</p>
+                    <p className="text-sm text-[var(--text-muted)]">Valor</p>
                     {link.isCustomAmount ? (
                       <div>
-                        <p className="text-lg font-bold text-blue-400">Valor Personalizado</p>
+                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">Valor Personalizado</p>
                         {(link.minAmount || link.maxAmount) && (
-                          <p className="text-sm text-gray-400">
+                          <p className="text-sm text-[var(--text-muted)]">
                             {link.minAmount && `Min: ${formatCurrency(link.minAmount)}`}
                             {link.minAmount && link.maxAmount && ' - '}
                             {link.maxAmount && `Max: ${formatCurrency(link.maxAmount)}`}
@@ -1244,26 +1304,26 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         )}
                       </div>
                     ) : (
-                      <p className="text-xl font-bold text-white">{formatCurrency(link.amount || 0)}</p>
+                      <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(link.amount || 0)}</p>
                     )}
                   </div>
 
                   {link.description && (
                     <div>
-                      <p className="text-sm text-gray-400">Descrição</p>
-                      <p className="text-white">{link.description}</p>
+                      <p className="text-sm text-[var(--text-muted)]">Descrição</p>
+                      <p className="text-[var(--text-primary)]">{link.description}</p>
                     </div>
                   )}
 
                   <div>
-                    <p className="text-sm text-gray-400">Link</p>
+                    <p className="text-sm text-[var(--text-muted)]">Link</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs text-blue-400 bg-gray-700 px-2 py-1 rounded flex-1 truncate">
+                      <code className="text-xs text-blue-600 dark:text-blue-400 bg-[var(--bg-elevated)] px-2 py-1 rounded flex-1 truncate">
                         {window.location.origin}/pay/{link.shortCode}
                       </code>
                       <button
                         onClick={() => copyLink(link.shortCode)}
-                        className="text-gray-400 hover:text-white touch-target"
+                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] touch-target"
                         title="Copiar link"
                       >
                         <Copy size={16} />
@@ -1272,7 +1332,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         href={`${window.location.origin}/pay/${link.shortCode}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-400 hover:text-white touch-target"
+                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] touch-target"
                         title="Abrir link"
                       >
                         <ExternalLink size={16} />
@@ -1281,27 +1341,27 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-700">
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border-default)]">
                     <div>
-                      <p className="text-xs text-gray-400">Pagamentos</p>
-                      <p className="text-lg font-semibold text-white">{link.totalPayments || 0}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Pagamentos</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">{link.totalPayments || 0}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400">Total Recebido</p>
-                      <p className="text-lg font-semibold text-white">
+                      <p className="text-xs text-[var(--text-muted)]">Total Recebido</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">
                         {formatCurrency(link.totalAmount || 0)}
                       </p>
                     </div>
                   </div>
 
                   {/* Toggle and Actions */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-700">
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
                     {/* Toggle Switch */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleToggleLink(link)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          link.isActive ? 'bg-green-600' : 'bg-gray-600'
+                          link.isActive ? 'bg-green-600' : 'bg-[var(--bg-elevated)]'
                         }`}
                         title={link.isActive ? 'Desativar link' : 'Ativar link'}
                       >
@@ -1310,7 +1370,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         }`} />
                       </button>
                       <span className={`text-xs ${
-                        link.isActive ? 'text-green-400' : 'text-gray-400'
+                        link.isActive ? 'text-green-600 dark:text-green-400' : 'text-[var(--text-muted)]'
                       }`}>
                         {link.isActive ? 'Ativo' : 'Inativo'}
                       </span>
@@ -1320,21 +1380,21 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                     <div className="flex gap-1 flex-wrap">
                       <button
                         onClick={() => setShowWebhookConfig(link.id)}
-                        className="p-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg transition-colors"
+                        className="p-2 bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded-lg transition-colors"
                         title="Configurar webhooks"
                       >
                         <Webhook size={16} />
                       </button>
                       <button
                         onClick={() => handleEditLink(link)}
-                        className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors"
+                        className="p-2 bg-blue-100 dark:bg-blue-600/20 hover:bg-blue-200 dark:hover:bg-blue-600/30 text-blue-700 dark:text-blue-400 rounded-lg transition-colors"
                         title="Editar link"
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => downloadQRCode(link)}
-                        className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                        className="p-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
                         title="Baixar QR Code"
                       >
                         <Download size={16} />
@@ -1342,7 +1402,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                       <button
                         onClick={() => handleDeleteLink(link.id)}
                         disabled={deletingId === link.id}
-                        className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
+                        className="p-2 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 text-red-700 dark:text-red-400 rounded-lg transition-colors"
                         title="Excluir link"
                       >
                         {deletingId === link.id ? (
@@ -1361,8 +1421,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
           {/* Pagination Controls */}
           {paymentLinks.length > linksPerPage && (
-          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-gradient-to-r from-purple-600/30 to-blue-600/30 border-2 border-purple-500 p-4 rounded-lg shadow-lg shadow-purple-500/20">
-              <div className="text-sm text-gray-400">
+          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-[var(--accent)]/30 border-2 border-[var(--accent)] p-4 rounded-lg shadow-lg shadow-[var(--accent)]/20">
+              <div className="text-sm text-[var(--text-muted)]">
                 Mostrando {indexOfFirstLink + 1} - {Math.min(indexOfLastLink, paymentLinks.length)} de {paymentLinks.length} links
               </div>
               <div className="flex items-center gap-2">
@@ -1371,8 +1431,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   disabled={currentPage === 1}
                   className={`px-3 py-1.5 rounded-lg transition-colors ${
                     currentPage === 1
-                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                      : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
+                      ? 'bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed'
+                      : 'bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)]'
                   }`}
                 >
                   Anterior
@@ -1392,7 +1452,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                       pageNumber === currentPage + 2 && currentPage < totalPages - 2;
 
                     if (showEllipsis) {
-                      return <span key={pageNumber} className="text-gray-500 px-2">...</span>;
+                      return <span key={pageNumber} className="text-[var(--text-muted)] px-2">...</span>;
                     }
 
                     if (!showPage) return null;
@@ -1403,8 +1463,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                         onClick={() => setCurrentPage(pageNumber)}
                         className={`min-w-[32px] h-8 px-2 rounded-lg transition-colors ${
                           currentPage === pageNumber
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                            ? 'bg-[var(--accent)] text-[var(--text-primary)]'
+                            : 'bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)]'
                         }`}
                       >
                         {pageNumber}
@@ -1418,8 +1478,8 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
                   disabled={currentPage === totalPages}
                   className={`px-3 py-1.5 rounded-lg transition-colors ${
                     currentPage === totalPages
-                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                      : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
+                      ? 'bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed'
+                      : 'bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)]'
                   }`}
                 >
                   Próximo
@@ -1430,12 +1490,18 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
 
           {/* Pagination info - always show for debugging */}
           {paymentLinks.length > 0 && paymentLinks.length <= linksPerPage && (
-            <div className="mt-6 text-center text-gray-500 text-sm p-2 bg-gray-800/30 rounded">
+            <div className="mt-6 text-center text-[var(--text-muted)] text-sm p-2 bg-[var(--bg-card)] rounded">
               Mostrando todos os {paymentLinks.length} links (paginação aparece com mais de {linksPerPage} links)
             </div>
           )}
         </div>
       )}
+
+      {/* Commerce Terms Modal - DESABILITADO TEMPORARIAMENTE */}
+      {/* <CommerceTermsModal
+        isOpen={showCommerceTermsModal}
+        onAccept={handleAcceptCommerceTerms}
+      /> */}
 
       {/* Webhook Configuration Modal */}
       {showWebhookConfig && (
@@ -1458,7 +1524,7 @@ export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManag
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Configuração de Webhooks</h2>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">Configuração de Webhooks</h2>
                 <button
                   onClick={() => {
                     setShowWebhookConfig(null);

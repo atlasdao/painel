@@ -170,7 +170,7 @@ export class AuthController {
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
 	async updateNotificationSettings(
 		@Req() req: any,
-		@Body() settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean },
+		@Body() settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean; marketingEmails?: boolean },
 	) {
 		return this.authService.updateNotificationSettings(req.user.id, settings);
 	}

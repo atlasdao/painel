@@ -50,37 +50,37 @@ export default function SystemWarningBanner() {
       case 'INFO':
         return {
           bg: 'bg-blue-500/10 border-blue-500/30',
-          icon: <Info className="w-5 h-5 text-blue-400" />,
-          title: 'text-blue-400',
-          text: 'text-blue-300',
+          icon: <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />,
+          title: 'text-blue-600 dark:text-blue-400',
+          text: 'text-blue-700 dark:text-blue-300',
         };
       case 'WARNING':
         return {
           bg: 'bg-yellow-500/10 border-yellow-500/30',
-          icon: <AlertTriangle className="w-5 h-5 text-yellow-400" />,
-          title: 'text-yellow-400',
-          text: 'text-yellow-300',
+          icon: <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />,
+          title: 'text-yellow-600 dark:text-yellow-400',
+          text: 'text-yellow-700 dark:text-yellow-300',
         };
       case 'CRITICAL':
         return {
           bg: 'bg-red-500/10 border-red-500/30',
-          icon: <AlertCircle className="w-5 h-5 text-red-400" />,
-          title: 'text-red-400',
-          text: 'text-red-300',
+          icon: <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />,
+          title: 'text-red-600 dark:text-red-400',
+          text: 'text-red-700 dark:text-red-300',
         };
       case 'SUCCESS':
         return {
           bg: 'bg-green-500/10 border-green-500/30',
-          icon: <CheckCircle className="w-5 h-5 text-green-400" />,
-          title: 'text-green-400',
-          text: 'text-green-300',
+          icon: <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />,
+          title: 'text-green-600 dark:text-green-400',
+          text: 'text-green-700 dark:text-green-300',
         };
       default:
         return {
-          bg: 'bg-gray-500/10 border-gray-500/30',
-          icon: <Info className="w-5 h-5 text-gray-400" />,
-          title: 'text-gray-400',
-          text: 'text-gray-300',
+          bg: 'bg-[var(--bg-elevated)]/50 border-[var(--border-default)]',
+          icon: <Info className="w-5 h-5 text-[var(--text-muted)]" />,
+          title: 'text-[var(--text-muted)]',
+          text: 'text-[var(--text-secondary)]',
         };
     }
   };
@@ -127,7 +127,7 @@ export default function SystemWarningBanner() {
                   className="flex-shrink-0 p-1 rounded hover:bg-white/10 transition-colors"
                   title="Dispensar"
                 >
-                  <X className="w-4 h-4 text-gray-400 hover:text-white" />
+                  <X className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                 </button>
               )}
             </div>

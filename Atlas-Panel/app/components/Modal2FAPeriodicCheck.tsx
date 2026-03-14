@@ -75,7 +75,7 @@ export default function Modal2FAPeriodicCheck({
     const verificationCode = fullCode || code.join('');
 
     if (verificationCode.length !== 6) {
-      setError('Digite o código de 6 dígitos');
+      setError('Digite o codigo de 6 digitos');
       return;
     }
 
@@ -84,10 +84,10 @@ export default function Modal2FAPeriodicCheck({
 
     try {
       await authService.verifyPeriodicCheck(verificationCode);
-      toast.success('Verificação concluída!');
+      toast.success('Verificacao concluida!');
       onSuccess();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Código inválido';
+      const message = err.response?.data?.message || 'Codigo invalido';
       setError(message);
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -98,7 +98,7 @@ export default function Modal2FAPeriodicCheck({
 
   const handleBackupCodeVerify = async () => {
     if (backupCode.length < 6) {
-      setError('Digite o código de backup completo');
+      setError('Digite o codigo de backup completo');
       return;
     }
 
@@ -110,15 +110,15 @@ export default function Modal2FAPeriodicCheck({
       // Since this is periodic check, we need email from current user
       const userCookie = document.cookie.split('; ').find(row => row.startsWith('user='));
       if (!userCookie) {
-        throw new Error('Sessão expirada');
+        throw new Error('Sessao expirada');
       }
       const user = JSON.parse(decodeURIComponent(userCookie.split('=')[1]));
 
       await authService.verify2FAWithBackupCode(user.email, backupCode);
-      toast.success('Verificação com código de backup concluída!');
+      toast.success('Verificacao com codigo de backup concluida!');
       onSuccess();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Código de backup inválido';
+      const message = err.response?.data?.message || 'Codigo de backup invalido';
       setError(message);
     } finally {
       setLoading(false);
@@ -132,50 +132,50 @@ export default function Modal2FAPeriodicCheck({
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-    if (diffHours < 1) return 'Há menos de 1 hora';
-    if (diffHours === 1) return 'Há 1 hora';
-    if (diffHours < 24) return `Há ${diffHours} horas`;
+    if (diffHours < 1) return 'Ha menos de 1 hora';
+    if (diffHours === 1) return 'Ha 1 hora';
+    if (diffHours < 24) return `Ha ${diffHours} horas`;
 
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return 'Há 1 dia';
-    return `Há ${diffDays} dias`;
+    if (diffDays === 1) return 'Ha 1 dia';
+    return `Ha ${diffDays} dias`;
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-      {/* Backdrop - não permite fechar clicando fora */}
+      {/* Backdrop - nao permite fechar clicando fora */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden animate-slideUp">
+      <div className="relative w-full max-w-md bg-gradient-to-b from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-default)] overflow-hidden animate-slideUp">
         {/* Gradient accent border */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-[var(--accent)]/20 to-blue-600/20 pointer-events-none" />
 
         <div className="relative p-6">
           {/* Header */}
           <div className="flex items-center justify-center mb-6">
             <div className="relative">
               <div className="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center">
-                <Shield className="w-10 h-10 text-blue-400" />
+                <Shield className="w-10 h-10 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
-                <Clock className="w-3 h-3 text-gray-900" />
+                <Clock className="w-3 h-3 text-[var(--bg-primary)]" />
               </div>
             </div>
           </div>
 
-          <h2 className="text-xl font-bold text-white text-center mb-2">
-            Verificação de Segurança
+          <h2 className="text-xl font-bold text-[var(--text-primary)] text-center mb-2">
+            Verificacao de Seguranca
           </h2>
-          <p className="text-gray-400 text-center text-sm mb-4">
-            Sua verificação 2FA de 12 horas expirou. Por favor, confirme sua identidade para continuar.
+          <p className="text-[var(--text-muted)] text-center text-sm mb-4">
+            Sua verificacao 2FA de 12 horas expirou. Por favor, confirme sua identidade para continuar.
           </p>
 
           {lastVerified && (
-            <div className="mb-4 p-3 bg-gray-800/50 rounded-lg flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-400">
-                Última verificação: {formatLastVerified(lastVerified)}
+            <div className="mb-4 p-3 bg-[var(--bg-card)] rounded-lg flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[var(--text-muted)]" />
+              <span className="text-sm text-[var(--text-muted)]">
+                Ultima verificacao: {formatLastVerified(lastVerified)}
               </span>
             </div>
           )}
@@ -198,11 +198,11 @@ export default function Modal2FAPeriodicCheck({
                     disabled={loading}
                     className={`
                       w-12 h-14 text-center text-xl font-semibold
-                      bg-gray-700 border-2 text-white
+                      bg-[var(--bg-elevated)] border-2 text-[var(--text-primary)]
                       rounded-lg transition-all duration-200
                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                       disabled:opacity-50 disabled:cursor-not-allowed
-                      ${digit ? 'border-blue-500 bg-gray-700/50' : 'border-gray-600'}
+                      ${digit ? 'border-blue-500 bg-[var(--bg-elevated)]' : 'border-[var(--border-hover)]'}
                       ${loading ? 'animate-pulse' : ''}
                     `}
                     placeholder="•"
@@ -212,8 +212,8 @@ export default function Modal2FAPeriodicCheck({
 
               {/* Error */}
               {error && (
-                <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                  <p className="text-sm text-red-400 text-center">{error}</p>
+                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-500/30 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-400 text-center">{error}</p>
                 </div>
               )}
 
@@ -221,7 +221,7 @@ export default function Modal2FAPeriodicCheck({
               <button
                 onClick={() => handleVerify()}
                 disabled={loading || code.some(d => !d)}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 mb-4"
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-[var(--bg-elevated)] disabled:cursor-not-allowed text-[var(--text-primary)] font-medium rounded-lg transition-colors flex items-center justify-center gap-2 mb-4"
               >
                 {loading ? (
                   <>
@@ -239,18 +239,18 @@ export default function Modal2FAPeriodicCheck({
               {/* Backup code option */}
               <button
                 onClick={() => setUseBackupCode(true)}
-                className="w-full text-sm text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
+                className="w-full text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors flex items-center justify-center gap-2"
               >
                 <Key className="w-4 h-4" />
-                Usar código de backup
+                Usar codigo de backup
               </button>
             </>
           ) : (
             <>
               {/* Backup code input */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Código de Backup
+                <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                  Codigo de Backup
                 </label>
                 <input
                   type="text"
@@ -261,15 +261,15 @@ export default function Modal2FAPeriodicCheck({
                   }}
                   placeholder="XXXXXXXX"
                   maxLength={8}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+                  className="w-full px-4 py-3 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] text-center text-xl tracking-widest placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
                   disabled={loading}
                 />
               </div>
 
               {/* Error */}
               {error && (
-                <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                  <p className="text-sm text-red-400 text-center">{error}</p>
+                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-500/30 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-400 text-center">{error}</p>
                 </div>
               )}
 
@@ -277,7 +277,7 @@ export default function Modal2FAPeriodicCheck({
               <button
                 onClick={handleBackupCodeVerify}
                 disabled={loading || backupCode.length < 6}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 mb-4"
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-[var(--bg-elevated)] disabled:cursor-not-allowed text-[var(--text-primary)] font-medium rounded-lg transition-colors flex items-center justify-center gap-2 mb-4"
               >
                 {loading ? (
                   <>
@@ -287,7 +287,7 @@ export default function Modal2FAPeriodicCheck({
                 ) : (
                   <>
                     <Key className="w-5 h-5" />
-                    Verificar Código de Backup
+                    Verificar Codigo de Backup
                   </>
                 )}
               </button>
@@ -299,9 +299,9 @@ export default function Modal2FAPeriodicCheck({
                   setBackupCode('');
                   setError('');
                 }}
-                className="w-full text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                className="w-full text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
               >
-                Voltar para código do app
+                Voltar para codigo do app
               </button>
             </>
           )}
@@ -309,10 +309,10 @@ export default function Modal2FAPeriodicCheck({
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
+              <div className="w-full border-t border-[var(--border-default)]"></div>
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 bg-gray-800 text-sm text-gray-500">ou</span>
+              <span className="px-3 bg-[var(--bg-secondary)] text-sm text-[var(--text-muted)]">ou</span>
             </div>
           </div>
 
@@ -320,15 +320,15 @@ export default function Modal2FAPeriodicCheck({
           <button
             onClick={onLogout}
             disabled={loading}
-            className="w-full py-3 px-4 bg-red-900/20 hover:bg-red-900/30 border border-red-500/30 text-red-400 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/30 border border-red-300 dark:border-red-500/30 text-red-700 dark:text-red-400 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <AlertTriangle className="w-5 h-5" />
             Sair da conta
           </button>
 
           {/* Info */}
-          <p className="mt-4 text-xs text-gray-500 text-center">
-            A verificação periódica de 12 horas foi ativada nas configurações da sua conta para maior segurança.
+          <p className="mt-4 text-xs text-[var(--text-muted)] text-center">
+            A verificacao periodica de 12 horas foi ativada nas configuracoes da sua conta para maior seguranca.
           </p>
         </div>
       </div>

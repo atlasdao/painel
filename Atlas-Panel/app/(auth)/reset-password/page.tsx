@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader, CheckCircle, XCircle, Circle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader, CheckCircle, Circle } from 'lucide-react';
 import api from '@/app/lib/api';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -17,7 +17,7 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'code' | 'password' | 'success'>('code');
   const [codeVerified, setCodeVerified] = useState(false);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -42,7 +42,7 @@ function ResetPasswordContent() {
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !resetCode) {
       toast.error('Por favor, preencha todos os campos');
       return;
@@ -77,7 +77,7 @@ function ResetPasswordContent() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newPassword || !confirmPassword) {
       toast.error('Por favor, preencha todos os campos');
       return;
@@ -120,317 +120,308 @@ function ResetPasswordContent() {
 
   if (step === 'success') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <>
         <Toaster position="top-right" />
-        
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-8 h-8 text-white" />
+        <div className="atlas-card">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-green-500/10 border-2 border-[var(--color-success)] rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-[var(--color-success)]" />
             </div>
-            <h2 className="text-3xl font-bold text-white">Senha Redefinida!</h2>
-            <p className="mt-2 text-gray-300">
+            <h2 className="text-2xl font-bold text-[var(--text-primary)]">Senha Redefinida!</h2>
+            <p className="text-[var(--text-secondary)]">
               Sua senha foi alterada com sucesso
             </p>
-          </div>
-        </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-gray-800 border border-gray-700 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-green-900/20 border border-green-600 rounded-lg">
-                <p className="text-sm text-green-300">
-                  ✅ Agora você pode fazer login com sua nova senha
-                </p>
-              </div>
-
-              <button
-                onClick={() => router.push('/login')}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
-              >
-                Ir para o Login
-              </button>
+            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <p className="text-sm text-[var(--color-success)]">
+                Agora você pode fazer login com sua nova senha
+              </p>
             </div>
+
+            <button
+              onClick={() => router.push('/login')}
+              className="atlas-btn w-full"
+            >
+              Ir para o Login
+            </button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <>
       <Toaster position="top-right" />
-      
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-white">
+
+      <div className="atlas-card">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">
             {step === 'code' ? 'Verificar Código' : 'Nova Senha'}
           </h2>
-          <p className="mt-2 text-gray-300">
-            {step === 'code' 
+          <p className="text-[var(--text-secondary)] mt-2">
+            {step === 'code'
               ? 'Digite o código de 6 dígitos enviado por email'
               : 'Digite sua nova senha'
             }
           </p>
         </div>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-gray-800 border border-gray-700 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {step === 'code' ? (
-            <form className="space-y-6" onSubmit={handleVerifyCode}>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-white">
-                  Email
-                </label>
-                <div className="mt-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg placeholder-gray-400 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Digite seu email"
-                  />
+        {step === 'code' ? (
+          <form className="space-y-6" onSubmit={handleVerifyCode}>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-[var(--text-secondary)]">
+                Email
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-[var(--text-muted)]" />
                 </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="atlas-input pl-10"
+                  placeholder="Digite seu email"
+                />
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="resetCode" className="block text-sm font-medium text-white">
-                  Código de Verificação
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="resetCode"
-                    name="resetCode"
-                    type="text"
-                    maxLength={6}
-                    required
-                    value={resetCode}
-                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-600 rounded-lg placeholder-gray-400 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl font-mono tracking-widest"
-                    placeholder="123456"
-                  />
+            <div>
+              <label htmlFor="resetCode" className="block text-sm font-medium text-[var(--text-secondary)]">
+                Código de Verificação
+              </label>
+              <div className="mt-1">
+                <input
+                  id="resetCode"
+                  name="resetCode"
+                  type="text"
+                  maxLength={6}
+                  required
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                  className="atlas-input text-center text-2xl font-mono tracking-widest"
+                  placeholder="123456"
+                />
+              </div>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Digite os 6 dígitos enviados por email
+              </p>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading || resetCode.length !== 6}
+                className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Verificando...
+                  </>
+                ) : (
+                  'Verificar Código'
+                )}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form className="space-y-6" onSubmit={handleResetPassword}>
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-[var(--text-secondary)]">
+                Nova Senha
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-[var(--text-muted)]" />
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  Digite os 6 dígitos enviados por email
-                </p>
-              </div>
-
-              <div>
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="atlas-input pl-10 pr-10"
+                  placeholder="Digite sua nova senha"
+                />
                 <button
-                  type="submit"
-                  disabled={loading || resetCode.length !== 6}
-                  className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
                 >
-                  {loading ? (
-                    <>
-                      <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                      Verificando...
-                    </>
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                   ) : (
-                    'Verificar Código'
+                    <Eye className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                   )}
                 </button>
               </div>
-            </form>
-          ) : (
-            <form className="space-y-6" onSubmit={handleResetPassword}>
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-white">
-                  Nova Senha
-                </label>
-                <div className="mt-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="newPassword"
-                    name="newPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-600 rounded-lg placeholder-gray-400 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Digite sua nova senha"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-white" />
-                    )}
-                  </button>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--text-secondary)]">
+                Confirmar Nova Senha
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-[var(--text-muted)]" />
                 </div>
-              </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-white">
-                  Confirmar Nova Senha
-                </label>
-                <div className="mt-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-600 rounded-lg placeholder-gray-400 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Confirme sua nova senha"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-white" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Password Strength Criteria */}
-              <div className="p-4 bg-gray-900/50 border border-gray-600 rounded-lg space-y-2">
-                <p className="text-sm font-medium text-gray-300 mb-3">Critérios de segurança:</p>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-center gap-2">
-                    {passwordCriteria.minLength ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.minLength ? 'text-green-400' : 'text-gray-400'}`}>
-                      Mínimo 8 caracteres
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {passwordCriteria.hasLowercase ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.hasLowercase ? 'text-green-400' : 'text-gray-400'}`}>
-                      1 letra minúscula
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {passwordCriteria.hasUppercase ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.hasUppercase ? 'text-green-400' : 'text-gray-400'}`}>
-                      1 letra maiúscula
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {passwordCriteria.hasNumber ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.hasNumber ? 'text-green-400' : 'text-gray-400'}`}>
-                      1 número
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {passwordCriteria.hasSpecial ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.hasSpecial ? 'text-green-400' : 'text-gray-400'}`}>
-                      1 caractere especial (@$!%*?&)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-gray-700 mt-1">
-                    {passwordCriteria.passwordsMatch ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-gray-500" />
-                    )}
-                    <span className={`text-sm ${passwordCriteria.passwordsMatch ? 'text-green-400' : 'text-gray-400'}`}>
-                      Senhas coincidem
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="atlas-input pl-10 pr-10"
+                  placeholder="Confirme sua nova senha"
+                />
                 <button
-                  type="submit"
-                  disabled={loading || !allCriteriaMet}
-                  className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {loading ? (
-                    <>
-                      <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                      Redefinindo...
-                    </>
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                   ) : (
-                    'Redefinir Senha'
+                    <Eye className="h-5 w-5 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                   )}
                 </button>
               </div>
-            </form>
-          )}
+            </div>
+
+            {/* Password Strength Criteria */}
+            <div className="p-4 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg space-y-2">
+              <p className="text-sm font-medium text-[var(--text-secondary)] mb-3">Critérios de segurança:</p>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center gap-2">
+                  {passwordCriteria.minLength ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.minLength ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    Mínimo 8 caracteres
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordCriteria.hasLowercase ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.hasLowercase ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    1 letra minúscula
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordCriteria.hasUppercase ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.hasUppercase ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    1 letra maiúscula
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordCriteria.hasNumber ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.hasNumber ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    1 número
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordCriteria.hasSpecial ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.hasSpecial ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    1 caractere especial (@$!%*?&)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 border-t border-[var(--border-default)] mt-1">
+                  {passwordCriteria.passwordsMatch ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                  <span className={`text-sm ${passwordCriteria.passwordsMatch ? 'text-green-500' : 'text-[var(--text-muted)]'}`}>
+                    Senhas coincidem
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading || !allCriteriaMet}
+                className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Redefinindo...
+                  </>
+                ) : (
+                  'Redefinir Senha'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border-default)]" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-[var(--bg-card)] text-[var(--text-muted)]">ou</span>
+            </div>
+          </div>
 
           <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-800 text-gray-400">ou</span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Link
-                href="/login"
-                className="w-full flex justify-center items-center py-2 px-4 border border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-200"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Voltar ao Login
-              </Link>
-            </div>
+            <Link
+              href="/login"
+              className="w-full flex justify-center items-center py-2.5 px-4 border border-[var(--border-default)] rounded-lg text-sm font-medium text-[var(--text-secondary)] bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Login
+            </Link>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="atlas-card">
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)]"></div>
+        </div>
       </div>
     }>
       <ResetPasswordContent />

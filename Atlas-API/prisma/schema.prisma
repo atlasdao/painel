@@ -26,6 +26,7 @@ model User {
   verifiedTaxNumber       String?
   commerceMode            Boolean              @default(false)
   commerceModeActivatedAt DateTime?
+  commerceTermsAcceptedAt DateTime?            // Data de aceite dos termos do modo comércio
   whitelistDepix          Boolean              @default(false)
   whitelistDepixActivatedAt DateTime?
   collateral              Float?               // Valor de colateral em BRL (null/0 = desligado). QR codes <= colateral usam whitelist
@@ -47,8 +48,11 @@ model User {
   twoFactorLockedUntil    DateTime?
   notifyApprovedSales     Boolean              @default(true)
   notifyReviewSales       Boolean              @default(true)
+  marketingEmails         Boolean              @default(false)
   delayedPaymentEnabled   Boolean              @default(false) // Pagamento com delay D+1 (janelas 6h/18h)
   delayedPaymentEnabledAt DateTime?            // Data de ativação do pagamento com delay
+  collateralDelayEnabled  Boolean              @default(false) // D+0 até ao colateral (pagamentos <= colateral sem delay)
+  collateralDelayEnabledAt DateTime?           // Data de ativação do D+0 até ao colateral
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
   lastLoginAt             DateTime?
@@ -77,6 +81,15 @@ model User {
   devices                 UserDevice[]     // Dispositivos conhecidos do usuário
   visitorSessions         VisitorSession[] // Sessões de visitante
   riskProfile             RiskProfile?     // Perfil de risco
+
+  // Programa de Indicação (Referral)
+  referralLink            ReferralLink?                // Link de indicação do usuário
+  referredBy              ReferredUser?    @relation("ReferredByLink")  // Se foi indicado por alguém
+  commissionPayouts       CommissionPayout[] @relation("CommissionPayouts")  // Comissões recebidas
+  referralTermsAcceptedAt DateTime?        // Aceite dos termos do programa
+
+  // Sistema de Colateral
+  collateralTransactions  CollateralTransaction[]      // Histórico de transações de colateral
 
   @@index([email])
   @@index([username])
@@ -352,37 +365,52 @@ model UserReputation {
 }
 
 model WithdrawalRequest {
-  id             String           @id @default(uuid())
-  userId         String
-  amount         Float
-  method         WithdrawalMethod
-  pixKey         String?
-  pixKeyType     PixKeyType?
-  liquidAddress  String?
-  fee            Float
-  netAmount      Float
-  status         WithdrawalStatus @default(PENDING)
-  statusReason   String?
-  requestedAt    DateTime         @default(now())
-  scheduledFor   DateTime
-  processedAt    DateTime?
-  approvedBy     String?
-  approvedAt     DateTime?
-  rejectedBy     String?
-  rejectedAt     DateTime?
-  adminNotes     String?
-  coldwalletTxId String?
-  cpfCnpj        String?
-  fullName       String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  couponUsages   CouponUsage[]
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                      String           @id @default(uuid())
+  userId                  String
+  amount                  Float
+  method                  WithdrawalMethod @default(PIX)
+  pixKey                  String?
+  pixKeyType              PixKeyType?
+  liquidAddress           String?
+  fee                     Float
+  netAmount               Float
+  status                  WithdrawalStatus @default(AWAITING_DEPOSIT)
+  statusReason            String?
+  requestedAt             DateTime         @default(now())
+  scheduledFor            DateTime
+  processedAt             DateTime?
+  approvedBy              String?
+  approvedAt              DateTime?
+  rejectedBy              String?
+  rejectedAt              DateTime?
+  adminNotes              String?
+  coldwalletTxId          String?
+  cpfCnpj                 String?
+  fullName                String?
+  depixReceiveAddress     String?
+  depixReceiveTxId        String?
+  addressIndex            Int?
+  pollingExpiresAt        DateTime?
+  receivedAmount          Float?
+  eulenWithdrawalId       String?
+  eulenDepositAddress     String?
+  eulenDepositAmountCents Int?
+  eulenPayoutAmountCents  Int?
+  eulenStatus             String?
+  eulenSplits             Json?
+  receiptData             Json?
+  excessAmount            Float?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  couponUsages            CouponUsage[]
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
   @@index([scheduledFor])
   @@index([method])
+  @@index([depixReceiveAddress])
+  @@index([eulenWithdrawalId])
 }
 
 model SystemSettings {
@@ -606,10 +634,10 @@ enum WebhookEventStatus {
 
 enum WithdrawalMethod {
   PIX
-  DEPIX
 }
 
 enum WithdrawalStatus {
+  AWAITING_DEPOSIT
   PENDING
   APPROVED
   REJECTED
@@ -617,6 +645,7 @@ enum WithdrawalStatus {
   COMPLETED
   FAILED
   CANCELLED
+  EXPIRED
 }
 
 enum DonationMethod {
@@ -1154,4 +1183,206 @@ model RiskEvent {
   @@index([eventType])
   @@index([severity])
   @@index([createdAt])
+}
+
+// ============================================
+// PROGRAMA DE INDICAÇÃO (REFERRAL)
+// ============================================
+
+enum ReferralStatus {
+  PENDING       // Aguardando indicado bater 10k
+  VALID         // Indicado bateu 10k no prazo
+  EXPIRED       // 3 meses se passaram sem bater
+}
+
+enum CommissionPayoutStatus {
+  AVAILABLE     // Comissão disponível para saque
+  REQUESTED     // Usuário solicitou saque
+  PROCESSING    // Admin aprovou, processando
+  COMPLETED     // Pago
+  REJECTED      // Admin rejeitou
+}
+
+// ============================================
+// SISTEMA DE COLATERAL
+// ============================================
+
+enum CollateralTransactionType {
+  DEPOSIT_PIX       // Aumento via pagamento PIX
+  DEPOSIT_DEPIX     // Aumento via recebimento Depix/LWK
+  WITHDRAWAL        // Diminuição - solicitação de saque
+}
+
+enum CollateralTransactionStatus {
+  PENDING           // Aguardando pagamento/confirmação
+  POLLING           // Polling ativo para pagamento Depix
+  COMPLETED         // Processado com sucesso
+  FAILED            // Falhou
+  EXPIRED           // Expirou (timeout no polling)
+  CANCELLED         // Cancelado pelo usuário
+  AWAITING_APPROVAL // Saque aguardando aprovação admin
+  APPROVED          // Saque aprovado pelo admin
+  REJECTED          // Saque rejeitado pelo admin
+  PROCESSING        // Saque em processamento
+}
+
+model ReferralLink {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  shortCode         String    @unique    // ex: "joao123" ou random (5-8 chars)
+  isCustomShortCode Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  isBlocked         Boolean   @default(false)
+  blockReason       String?
+
+  // Stats (desnormalizados para performance)
+  totalSignups      Int       @default(0)
+  validReferrals    Int       @default(0)
+  totalCommissions  Decimal   @default(0) @db.Decimal(10, 2)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals         ReferredUser[]
+
+  @@index([shortCode])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model ReferredUser {
+  id                  String           @id @default(uuid())
+  referralLinkId      String
+  referredUserId      String           @unique  // Cada usuário só pode ser indicado 1x
+
+  status              ReferralStatus   @default(PENDING)
+  signupDate          DateTime         @default(now())
+  deadlineDate        DateTime         // signupDate + 3 meses
+  validatedAt         DateTime?        // Quando bateu 10k
+
+  // Cache de vendas do indicado (atualizado por cron)
+  commerceSalesTotal  Decimal          @default(0) @db.Decimal(12, 2)
+  lastSalesUpdate     DateTime?
+
+  // Comissão (definida quando status = VALID)
+  commissionAmount    Decimal?         @db.Decimal(10, 2)
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  referralLink        ReferralLink     @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
+  referredUser        User             @relation("ReferredByLink", fields: [referredUserId], references: [id], onDelete: Cascade)
+  commissionPayout    CommissionPayout?
+
+  @@index([referralLinkId])
+  @@index([referredUserId])
+  @@index([status])
+  @@index([deadlineDate])
+}
+
+model CommissionPayout {
+  id                  String                   @id @default(uuid())
+  referredUserId      String                   @unique
+  userId              String                   // Indicador (recebe o pagamento)
+
+  amount              Decimal                  @db.Decimal(10, 2)
+  liquidAddress       String?
+
+  status              CommissionPayoutStatus   @default(AVAILABLE)
+  statusReason        String?
+
+  requestedAt         DateTime?
+  approvedBy          String?
+  approvedAt          DateTime?
+  rejectedBy          String?
+  rejectedAt          DateTime?
+  adminNotes          String?
+  coldwalletTxId      String?
+
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  referredUser        ReferredUser             @relation(fields: [referredUserId], references: [id], onDelete: Cascade)
+  user                User                     @relation("CommissionPayouts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+model UptimeRecord {
+  id            String   @id @default(uuid())
+  date          DateTime @db.Date
+  serviceName   String
+  totalChecks   Int      @default(0)
+  successChecks Int      @default(0)
+  uptime        Float    @default(100)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([date, serviceName])
+  @@index([date])
+  @@index([serviceName])
+}
+
+model CollateralTransaction {
+  id                    String                       @id @default(uuid())
+  userId                String
+  type                  CollateralTransactionType
+  status                CollateralTransactionStatus  @default(PENDING)
+
+  // Valores
+  amount                Float                        // Valor solicitado/esperado
+  actualAmount          Float?                       // Valor real recebido (pode diferir em Depix)
+  fee                   Float?                       // Taxa cobrada (R$0.99 para PIX)
+  netAmount             Float?                       // Valor líquido após taxa
+
+  // Para depósitos PIX
+  pixQrCode             String?                      // QR code PIX (copia e cola)
+  pixQrCodeImage        String?                      // QR code imagem base64
+  pixTransactionId      String?                      // ID da transação no sistema
+  eulenId               String?                      // ID do Eulen
+
+  // Para depósitos Depix/LWK
+  depixAddress          String?                      // Endereço Liquid gerado
+  depixTxId             String?                      // Transaction ID blockchain
+  addressIndex          Int?                         // Índice do endereço derivado do xpub
+  pollingStartedAt      DateTime?                    // Início do polling
+  pollingExpiresAt      DateTime?                    // Expiração do polling (10 min)
+
+  // Para saques
+  liquidAddress         String?                      // Endereço de destino do saque
+  approvedBy            String?                      // Admin que aprovou
+  approvedAt            DateTime?
+  rejectedBy            String?                      // Admin que rejeitou
+  rejectedAt            DateTime?
+  adminNotes            String?                      // Notas do admin
+  coldwalletTxId        String?                      // ID da tx do saque
+
+  // Controle de excesso (quando Depix > 6000)
+  excessAmount          Float?                       // Valor que excedeu o limite
+  excessWithdrawalRequested Boolean @default(false)  // Se já solicitou saque do excesso
+  excessWalletAddress   String?                      // Carteira para receber excesso
+
+  // Histórico de saldo
+  previousBalance       Float                        // Saldo antes da transação
+  newBalance            Float                        // Saldo após a transação
+
+  // Timestamps
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  processedAt           DateTime?                    // Quando foi processada
+
+  // Relação
+  user                  User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([pixTransactionId])
+  @@index([eulenId])
+  @@index([depixAddress])
+  @@index([addressIndex])
 }

@@ -1,10 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, VERSION_NEUTRAL } from '@nestjs/common';
 import { HealthService } from './health.service';
 import { Public } from '../common/decorators/public.decorator';
+import { CacheService } from '../common/services/cache.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
-@Controller('health')
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
-	constructor(private readonly healthService: HealthService) {}
+	constructor(
+		private readonly healthService: HealthService,
+		private readonly cacheService: CacheService,
+		private readonly prisma: PrismaService,
+	) {}
 
 	@Get()
 	@Public()
@@ -13,13 +20,13 @@ export class HealthController {
 	}
 
 	@Get('detailed')
-	@Public()
+	@UseGuards(AdminGuard)
 	async detailed() {
 		return this.healthService.detailedCheck();
 	}
 
 	@Get('metrics')
-	@Public()
+	@UseGuards(AdminGuard)
 	async metrics() {
 		return this.healthService.getMetrics();
 	}
@@ -39,54 +46,36 @@ export class HealthController {
 	@Get('status')
 	@Public()
 	async status() {
-		// Return data in format expected by frontend status page
+		const CACHE_KEY = 'health:status:page';
+		const cached = await this.cacheService.get<any>(CACHE_KEY);
+		if (cached) {
+			cached.data.lastUpdated = new Date().toISOString();
+			return cached;
+		}
+
 		const detailedCheck = await this.healthService.detailedCheck();
 
-		// Map service status to match frontend expectations
-		const services = detailedCheck.services.map(service => ({
-			name: service.name === 'Database' ? 'Banco de Dados' :
-				  service.name === 'Cache' ? 'Cache' :
-				  service.name === 'Payment Service' ? 'Processamento PIX' : service.name,
-			status: service.status === 'up' ? 'operational' :
-					service.status === 'down' ? 'down' : 'degraded',
-			responseTime: service.responseTime || 0,
-			uptime: 99.99, // Calculate from actual uptime data
-			icon: service.name === 'Database' ? 'Database' :
-				  service.name === 'Cache' ? 'Server' :
-				  service.name === 'Payment Service' ? 'Activity' : 'Wifi'
-		}));
+		// Map service names to Portuguese and assign icons
+		const nameMap: Record<string, { name: string; icon: string }> = {
+			'Database': { name: 'Banco de Dados', icon: 'Database' },
+			'Cache': { name: 'Cache', icon: 'Server' },
+			'Payment Service': { name: 'Processamento PIX', icon: 'Activity' },
+			'API Gateway': { name: 'API Gateway', icon: 'Server' },
+			'Dashboard': { name: 'Dashboard', icon: 'Wifi' },
+			'Webhooks': { name: 'Webhooks', icon: 'RefreshCw' },
+			'Authentication': { name: 'Autenticação', icon: 'Shield' },
+		};
 
-		// Add additional services that frontend expects
-		services.push(
-			{
-				name: 'API Gateway',
-				status: 'operational',
-				responseTime: 45,
-				uptime: 99.99,
-				icon: 'Server'
-			},
-			{
-				name: 'Dashboard',
-				status: 'operational',
-				responseTime: 89,
-				uptime: 99.95,
-				icon: 'Wifi'
-			},
-			{
-				name: 'Webhooks',
-				status: 'operational',
-				responseTime: 156,
-				uptime: 99.90,
-				icon: 'RefreshCw'
-			},
-			{
-				name: 'Autenticação',
-				status: 'operational',
-				responseTime: 67,
-				uptime: 100,
-				icon: 'Shield'
-			}
-		);
+		const services = detailedCheck.services.map(service => {
+			const mapping = nameMap[service.name] || { name: service.name, icon: 'Activity' };
+			return {
+				name: mapping.name,
+				status: service.status === 'up' ? 'operational' :
+						service.status === 'down' ? 'down' : 'degraded',
+				responseTime: service.responseTime || 0,
+				icon: mapping.icon,
+			};
+		});
 
 		const overallStatus = services.some(s => s.status === 'down') ? 'down' :
 							  services.some(s => s.status === 'degraded') ? 'degraded' : 'operational';
@@ -94,7 +83,10 @@ export class HealthController {
 		// Get active incidents
 		const incidents = await this.healthService.getActiveIncidents();
 
-		return {
+		// Get uptime history (last 7 days)
+		const uptimeHistory = await this.healthService.getUptimeHistory(7);
+
+		const result = {
 			success: true,
 			data: {
 				overallStatus,
@@ -102,6 +94,7 @@ export class HealthController {
 				lastUpdated: new Date().toISOString(),
 				uptime: detailedCheck.status.uptime,
 				metrics: detailedCheck.metrics,
+				uptimeHistory,
 				incidents: incidents.map(incident => ({
 					id: incident.id,
 					title: incident.title,
@@ -116,5 +109,18 @@ export class HealthController {
 				}))
 			}
 		};
+
+		// Cache for 15 seconds
+		await this.cacheService.set(CACHE_KEY, result, { ttl: 15 });
+
+		return result;
+	}
+
+	@Get('support-widget-key')
+	@Public()
+	async getSupportWidgetKey(@Query('context') context: string) {
+		const key = context === 'logged' ? 'SUPPORT_WIDGET_KEY_LOGGED' : 'SUPPORT_WIDGET_KEY_UNLOGGED';
+		const setting = await this.prisma.systemSettings.findUnique({ where: { key } });
+		return { key: setting?.value || '' };
 	}
 }

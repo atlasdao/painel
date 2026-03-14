@@ -17,16 +17,19 @@ import {
   Globe,
   AlertCircle,
   History,
-  Store,
-  Heart,
-  Copy
+  Copy,
+  Gift,
+  Wallet,
+  Gem
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/app/lib/api';
-import { apiKeyRequestService } from '@/app/lib/services';
+import { apiKeyRequestService, referralService, collateralService, withdrawalService } from '@/app/lib/services';
 import { toast, Toaster } from 'react-hot-toast';
+import WithdrawalReceipt from '@/app/components/WithdrawalReceipt';
 
 enum WithdrawalStatus {
+  AWAITING_DEPOSIT = 'AWAITING_DEPOSIT',
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
@@ -34,6 +37,7 @@ enum WithdrawalStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
 }
 
 interface WithdrawalRequest {
@@ -54,6 +58,14 @@ interface WithdrawalRequest {
   fullName?: string;
   adminNotes?: string;
   coldwalletTxId?: string;
+  receivedAmount?: number;
+  excessAmount?: number;
+  eulenWithdrawalId?: string;
+  eulenDepositAddress?: string;
+  eulenDepositAmountCents?: number;
+  eulenPayoutAmountCents?: number;
+  eulenStatus?: string;
+  receiptData?: any;
   user: {
     id: string;
     email: string;
@@ -82,65 +94,61 @@ interface ApiKeyRequest {
   approvedBy?: string;
 }
 
-interface CommerceApplication {
+interface CommissionPayout {
   id: string;
+  referredUserId: string;
   userId: string;
+  amount: number;
+  liquidAddress?: string;
+  status: 'AVAILABLE' | 'REQUESTED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
+  statusReason?: string;
+  requestedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  adminNotes?: string;
+  coldwalletTxId?: string;
+  createdAt: string;
+  updatedAt: string;
+  referredUserEmail?: string;
   user: {
     id: string;
-    username: string;
     email: string;
+    username: string;
   };
-  businessName: string;
-  productOrService: string;  // Qual produto ou serviço você vende?
-  averagePrices: string;  // Quais são os valores médios dos seus produtos ou serviços?
-  monthlyPixSales: string;  // Qual a quantidade e volume mensal médio de vendas via Pix?
-  marketTime: string;  // Quanto tempo de mercado você/sua empresa tem?
-  references: string;  // Você tem grupos, comunidades ou páginas de referência?
-  refundRate: string;  // Qual é sua taxa de reembolso?
-  refundProcess?: string;  // Como você resolve reembolsos e disputas (MEDs)?
-  businessProof?: string;  // Como podemos comprovar que este negócio pertence a você?
-  contactInfo?: string;  // Tem Telegram ou SimpleX para contato mais rápido?
-  businessObjective?: string;  // Legacy field
-  status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DEPOSIT_PENDING' | 'ACTIVE';
-  depositAmount?: number;
-  depositPaid: boolean;
-  depositPaidAt?: string;
-  reviewedBy?: string;
-  reviewedAt?: string;
-  reviewNotes?: string;
-  rejectionReason?: string;
-  transactionCount: number;
-  commerceActivatedAt?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
-interface Donation {
+interface CollateralWithdrawal {
   id: string;
-  userId?: string;
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-  };
-  donorName?: string;
+  userId: string;
+  type: 'WITHDRAWAL';
+  status: 'AWAITING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
   amount: number;
-  currency: string;
-  paymentMethod: string;
-  message?: string;
-  transactionId?: string;
-  status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
-  confirmedAt?: string;
+  liquidAddress?: string;
+  previousBalance: number;
+  newBalance: number;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  adminNotes?: string;
+  coldwalletTxId?: string;
   createdAt: string;
-  updatedAt: string;
+  processedAt?: string;
+  user: {
+    id: string;
+    email: string;
+    username: string;
+  };
 }
 
 export default function AdminRequestsPage() {
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'api' | 'commerce' | 'donations'>('withdrawals');
-  const [withdrawalView, setWithdrawalView] = useState<'pending' | 'history'>('pending');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'api' | 'commissions' | 'collateral'>('withdrawals');
+  const [withdrawalView, setWithdrawalView] = useState<'pending' | 'processing' | 'history'>('pending');
   const [apiView, setApiView] = useState<'pending' | 'history'>('pending');
-  const [commerceView, setCommerceView] = useState<'pending' | 'history'>('pending');
-  const [donationView, setDonationView] = useState<'pending' | 'history'>('pending');
+  const [commissionView, setCommissionView] = useState<'pending' | 'history'>('pending');
+  const [collateralView, setCollateralView] = useState<'pending' | 'history'>('pending');
 
   // Tab scroll indicators
   const [showLeftGradient, setShowLeftGradient] = useState(false);
@@ -150,19 +158,34 @@ export default function AdminRequestsPage() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalRequest[]>([]);
   const [apiRequests, setApiRequests] = useState<ApiKeyRequest[]>([]);
   const [apiHistory, setApiHistory] = useState<ApiKeyRequest[]>([]);
-  const [commerceApplications, setCommerceApplications] = useState<CommerceApplication[]>([]);
-  const [commerceHistory, setCommerceHistory] = useState<CommerceApplication[]>([]);
-  const [donations, setDonations] = useState<Donation[]>([]);
-  const [donationHistory, setDonationHistory] = useState<Donation[]>([]);
+  const [commissions, setCommissions] = useState<CommissionPayout[]>([]);
+  const [commissionHistory, setCommissionHistory] = useState<CommissionPayout[]>([]);
+  const [collateralWithdrawals, setCollateralWithdrawals] = useState<CollateralWithdrawal[]>([]);
+  const [collateralHistory, setCollateralHistory] = useState<CollateralWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
   const [selectedApiRequest, setSelectedApiRequest] = useState<ApiKeyRequest | null>(null);
-  const [selectedCommerceApplication, setSelectedCommerceApplication] = useState<CommerceApplication | null>(null);
-  const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null);
+  const [selectedCommission, setSelectedCommission] = useState<CommissionPayout | null>(null);
+  const [selectedCollateralWithdrawal, setSelectedCollateralWithdrawal] = useState<CollateralWithdrawal | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showApiDetailsModal, setShowApiDetailsModal] = useState(false);
-  const [showCommerceDetailsModal, setShowCommerceDetailsModal] = useState(false);
-  const [showDonationDetailsModal, setShowDonationDetailsModal] = useState(false);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [showCommissionRejectModal, setShowCommissionRejectModal] = useState(false);
+  const [showCommissionCompleteModal, setShowCommissionCompleteModal] = useState(false);
+  const [showCollateralApproveModal, setShowCollateralApproveModal] = useState(false);
+  const [showCollateralRejectModal, setShowCollateralRejectModal] = useState(false);
+  const [showEulenModal, setShowEulenModal] = useState(false);
+  const [showWithdrawalRejectModal, setShowWithdrawalRejectModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const [eulenData, setEulenData] = useState<{ address: string; amountBRL: number; amountCents: number } | null>(null);
+  const [processingWithdrawals, setProcessingWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [withdrawalRejectReason, setWithdrawalRejectReason] = useState('');
+  const [commissionRejectReason, setCommissionRejectReason] = useState('');
+  const [collateralRejectReason, setCollateralRejectReason] = useState('');
+  const [collateralTxId, setCollateralTxId] = useState('');
+  const [collateralAdminNotes, setCollateralAdminNotes] = useState('');
+  const [commissionTxId, setCommissionTxId] = useState('');
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -184,12 +207,10 @@ export default function AdminRequestsPage() {
   // Filters for history
   const [statusFilter, setStatusFilter] = useState<WithdrawalStatus | 'ALL'>('ALL');
   const [apiStatusFilter, setApiStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED'>('ALL');
-  const [commerceStatusFilter, setCommerceStatusFilter] = useState<'ALL' | 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DEPOSIT_PENDING' | 'ACTIVE'>('ALL');
-  const [donationStatusFilter, setDonationStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED'>('ALL');
+  const [commissionStatusFilter, setCommissionStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'REQUESTED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED'>('ALL');
+  const [collateralStatusFilter, setCollateralStatusFilter] = useState<'ALL' | 'AWAITING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [apiCurrentPage, setApiCurrentPage] = useState(1);
-  const [commerceCurrentPage, setCommerceCurrentPage] = useState(1);
-  const [donationCurrentPage, setDonationCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
@@ -200,6 +221,8 @@ export default function AdminRequestsPage() {
     if (activeTab === 'withdrawals') {
       if (withdrawalView === 'pending') {
         fetchWithdrawals();
+      } else if (withdrawalView === 'processing') {
+        fetchProcessingWithdrawals();
       } else {
         fetchWithdrawalHistory();
       }
@@ -209,20 +232,20 @@ export default function AdminRequestsPage() {
       } else {
         fetchApiHistory();
       }
-    } else if (activeTab === 'commerce') {
-      if (commerceView === 'pending') {
-        fetchCommerceApplications();
+    } else if (activeTab === 'commissions') {
+      if (commissionView === 'pending') {
+        fetchCommissions();
       } else {
-        fetchCommerceHistory();
+        fetchCommissionHistory();
       }
-    } else if (activeTab === 'donations') {
-      if (donationView === 'pending') {
-        fetchDonations();
+    } else if (activeTab === 'collateral') {
+      if (collateralView === 'pending') {
+        fetchCollateralWithdrawals();
       } else {
-        fetchDonationHistory();
+        fetchCollateralHistory();
       }
     }
-  }, [activeTab, withdrawalView, apiView, commerceView, donationView, statusFilter, apiStatusFilter, commerceStatusFilter, donationStatusFilter, currentPage, apiCurrentPage, commerceCurrentPage, donationCurrentPage]);
+  }, [activeTab, withdrawalView, apiView, commissionView, collateralView, statusFilter, apiStatusFilter, collateralStatusFilter, currentPage, apiCurrentPage]);
 
   // Scroll detection for tab navigation gradients
   useEffect(() => {
@@ -262,38 +285,17 @@ export default function AdminRequestsPage() {
   }, [loading]); // Re-run when loading completes
 
   const fetchWithdrawals = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-
+    if (isFetching) return;
     try {
       setIsFetching(true);
       setLoading(true);
-      console.log('🔄 Fetching withdrawals from /withdrawals/admin/pending');
-      const response = await api.get('/withdrawals/admin/pending');
-      console.log('✅ Fetched withdrawals:', response.data);
-      setWithdrawals(response.data || []);
+      const data = await withdrawalService.adminGetPending();
+      setWithdrawals(data || []);
     } catch (error: any) {
-      console.error('❌ Error fetching withdrawals:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        config: {
-          url: error.config?.url,
-          baseURL: error.config?.baseURL,
-          headers: error.config?.headers
-        }
-      });
-
-      // More specific error messages
       if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
+        toast.error('Sessao expirada. Por favor, faca login novamente.');
       } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
-      } else if (error.response?.status === 429) {
-        toast.error('Muitas requisições. Por favor, aguarde um momento.');
+        toast.error('Acesso negado. Voce precisa ser um administrador.');
       } else {
         toast.error(error.response?.data?.message || 'Erro ao carregar saques');
       }
@@ -303,37 +305,32 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const fetchWithdrawalHistory = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-
+  const fetchProcessingWithdrawals = async () => {
+    if (isFetching) return;
     try {
       setIsFetching(true);
       setLoading(true);
-      console.log('🔄 Fetching withdrawal history from /withdrawals/admin/all');
-
-      const params: any = {};
-      if (statusFilter !== 'ALL') {
-        params.status = statusFilter;
-      }
-
-      const response = await api.get('/withdrawals/admin/all', { params });
-      console.log('✅ Fetched withdrawal history:', response.data);
-      setWithdrawalHistory(response.data || []);
-      setTotalItems(response.data?.length || 0);
+      const data = await withdrawalService.adminGetProcessing();
+      setProcessingWithdrawals(data || []);
     } catch (error: any) {
-      console.error('❌ Error fetching withdrawal history:', error);
+      toast.error(error.response?.data?.message || 'Erro ao carregar saques em processamento');
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  };
 
-      if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
-      } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
-      } else {
-        toast.error(error.response?.data?.message || 'Erro ao carregar histórico de saques');
-      }
+  const fetchWithdrawalHistory = async () => {
+    if (isFetching) return;
+    try {
+      setIsFetching(true);
+      setLoading(true);
+      const params = statusFilter !== 'ALL' ? statusFilter : undefined;
+      const data = await withdrawalService.adminGetAll(params);
+      setWithdrawalHistory(data || []);
+      setTotalItems(data?.length || 0);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao carregar historico de saques');
     } finally {
       setLoading(false);
       setIsFetching(false);
@@ -399,35 +396,21 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const fetchCommerceApplications = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-
+  const fetchCommissions = async () => {
+    if (isFetching) return;
     try {
       setIsFetching(true);
       setLoading(true);
-      console.log('🔄 Fetching commerce applications from /admin/requests');
-      const response = await api.get('/admin/requests');
-      console.log('✅ Fetched commerce applications:', response.data);
-
-      // Extract applications array from response data
-      const applications = response.data.data || response.data || [];
-
-      // Filter only pending requests
-      const pendingOnly = applications.filter((app: CommerceApplication) => app.status === 'PENDING');
-      setCommerceApplications(pendingOnly);
+      const response = await referralService.getPendingPayouts();
+      setCommissions(response || []);
     } catch (error: any) {
-      console.error('❌ Error fetching commerce applications:', error);
-
+      console.error('Error fetching commissions:', error);
       if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
+        toast.error('Sessao expirada. Por favor, faca login novamente.');
       } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
+        toast.error('Acesso negado. Voce precisa ser um administrador.');
       } else {
-        toast.error(error.response?.data?.message || 'Erro ao carregar aplicações de comércio');
+        toast.error(error.response?.data?.message || 'Erro ao carregar comissoes');
       }
     } finally {
       setLoading(false);
@@ -435,218 +418,222 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const fetchCommerceHistory = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-
+  const fetchCommissionHistory = async () => {
+    if (isFetching) return;
     try {
       setIsFetching(true);
       setLoading(true);
-      console.log('🔄 Fetching commerce application history');
-
-      const response = await api.get('/admin/requests', {
-        params: commerceStatusFilter !== 'ALL' ? { status: commerceStatusFilter } : {}
-      });
-
-      console.log('✅ Fetched commerce application history:', response.data);
-
-      // Extract applications array from response data
-      const applications = response.data.data || response.data || [];
-      setCommerceHistory(applications);
+      const response = await referralService.getPayoutHistory();
+      setCommissionHistory(response || []);
     } catch (error: any) {
-      console.error('❌ Error fetching commerce application history:', error);
-
-      if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
-      } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
-      } else {
-        toast.error(error.response?.data?.message || 'Erro ao carregar histórico de aplicações de comércio');
-      }
+      console.error('Error fetching commission history:', error);
+      toast.error(error.response?.data?.message || 'Erro ao carregar historico de comissoes');
     } finally {
       setLoading(false);
       setIsFetching(false);
     }
   };
 
-  const fetchDonations = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-    try {
-      setIsFetching(true);
-      setLoading(true);
-      console.log('🔄 Fetching pending donations from /donations/admin');
-
-      const response = await api.get('/donations/admin', {
-        params: {
-          status: 'PENDING', // Always filter for PENDING donations in the "Pendentes" view
-          page: donationCurrentPage,
-          limit: itemsPerPage
-        }
-      });
-
-      console.log('✅ Pending donations fetched successfully:', response.data);
-      setDonations(response.data.data?.donations || []);
-    } catch (error: any) {
-      console.error('❌ Error fetching donations:', error);
-      if (error.response?.status === 429) {
-        toast.error('Muitas requisições. Por favor, aguarde um momento.');
-      } else if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
-      } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
-      } else {
-        toast.error(error.response?.data?.message || 'Erro ao carregar doações');
-      }
-    } finally {
-      setLoading(false);
-      setIsFetching(false);
-    }
-  };
-
-  const fetchDonationHistory = async () => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('⏳ Already fetching, skipping duplicate request');
-      return;
-    }
-    try {
-      setIsFetching(true);
-      setLoading(true);
-      console.log('🔄 Fetching donation history from /donations/admin');
-
-      const response = await api.get('/donations/admin', {
-        params: {
-          status: donationStatusFilter !== 'ALL' ? donationStatusFilter : undefined,
-          page: donationCurrentPage,
-          limit: itemsPerPage,
-          includeHistory: true
-        }
-      });
-
-      console.log('✅ Donation history fetched successfully:', response.data);
-      setDonationHistory(response.data.data?.donations || []);
-    } catch (error: any) {
-      console.error('❌ Error fetching donation history:', error);
-      if (error.response?.status === 429) {
-        toast.error('Muitas requisições. Por favor, aguarde um momento.');
-      } else if (error.response?.status === 401) {
-        toast.error('Sessão expirada. Por favor, faça login novamente.');
-      } else if (error.response?.status === 403) {
-        toast.error('Acesso negado. Você precisa ser um administrador.');
-      } else {
-        toast.error(error.response?.data?.message || 'Erro ao carregar histórico de doações');
-      }
-    } finally {
-      setLoading(false);
-      setIsFetching(false);
-    }
-  };
-
-  const approveDonation = async (id: string) => {
-    // Store original state for rollback if needed
-    const originalDonations = [...donations];
-    const originalHistory = [...donationHistory];
-
+  const approveCommission = async (id: string, coldwalletTxId?: string) => {
     try {
       setIsProcessing(true);
-
-      // Optimistic update - remove the donation immediately
-      if (donationView === 'pending') {
-        setDonations(prev => prev.filter(d => d.id !== id));
+      await referralService.approvePayout(id, { coldwalletTxId });
+      toast.success('Comissao aprovada com sucesso!');
+      setSelectedCommission(null);
+      if (commissionView === 'pending') {
+        fetchCommissions();
       } else {
-        setDonationHistory(prev => prev.filter(d => d.id !== id));
+        fetchCommissionHistory();
       }
-
-      await api.patch(`/donations/admin/${id}/approve`);
-      toast.success('Doação aprovada com sucesso');
-
     } catch (error: any) {
-      console.error('❌ Error approving donation:', error);
-      toast.error(error.response?.data?.message || 'Erro ao aprovar doação');
-
-      // Rollback on error
-      if (donationView === 'pending') {
-        setDonations(originalDonations);
-      } else {
-        setDonationHistory(originalHistory);
-      }
+      toast.error(error.response?.data?.message || 'Erro ao aprovar comissao');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const rejectDonation = async (id: string, reason?: string) => {
-    // Store original state for rollback if needed
-    const originalDonations = [...donations];
-    const originalHistory = [...donationHistory];
-
+  const completeCommission = async (id: string, coldwalletTxId: string) => {
     try {
       setIsProcessing(true);
-
-      // Optimistic update - remove the donation immediately
-      if (donationView === 'pending') {
-        setDonations(prev => prev.filter(d => d.id !== id));
-      } else {
-        setDonationHistory(prev => prev.filter(d => d.id !== id));
-      }
-
-      await api.patch(`/donations/admin/${id}/reject`, {
-        rejectionReason: reason
-      });
-      toast.success('Doação rejeitada');
-
+      await referralService.completePayout(id, coldwalletTxId);
+      toast.success('Pagamento concluido!');
+      setSelectedCommission(null);
+      fetchCommissionHistory();
     } catch (error: any) {
-      console.error('❌ Error rejecting donation:', error);
-      toast.error(error.response?.data?.message || 'Erro ao rejeitar doação');
-
-      // Rollback on error
-      if (donationView === 'pending') {
-        setDonations(originalDonations);
-      } else {
-        setDonationHistory(originalHistory);
-      }
+      toast.error(error.response?.data?.message || 'Erro ao concluir pagamento');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleWithdrawalApproval = async () => {
-    if (!selectedWithdrawal || !approvalAction) return;
+  const rejectCommission = async (id: string, reason: string) => {
+    try {
+      setIsProcessing(true);
+      await referralService.rejectPayout(id, { statusReason: reason });
+      toast.success('Comissao rejeitada');
+      setSelectedCommission(null);
+      if (commissionView === 'pending') {
+        fetchCommissions();
+      } else {
+        fetchCommissionHistory();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao rejeitar comissao');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
+  // ==================== COLLATERAL FUNCTIONS ====================
+
+  const fetchCollateralWithdrawals = async () => {
+    if (isFetching) return;
+    try {
+      setIsFetching(true);
+      setLoading(true);
+      const response = await collateralService.getPendingWithdrawals();
+      setCollateralWithdrawals(response || []);
+    } catch (error: any) {
+      console.error('Error fetching collateral withdrawals:', error);
+      toast.error(error.response?.data?.message || 'Erro ao carregar saques de colateral');
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const fetchCollateralHistory = async () => {
+    if (isFetching) return;
+    try {
+      setIsFetching(true);
+      setLoading(true);
+      const statusParam = collateralStatusFilter === 'ALL' ? undefined : collateralStatusFilter;
+      const response = await collateralService.getWithdrawalHistory(statusParam);
+      setCollateralHistory(response || []);
+    } catch (error: any) {
+      console.error('Error fetching collateral history:', error);
+      toast.error(error.response?.data?.message || 'Erro ao carregar histórico de colateral');
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const approveCollateralWithdrawal = async (id: string, coldwalletTxId?: string, adminNotes?: string) => {
+    try {
+      setIsProcessing(true);
+      await collateralService.approveWithdrawal(id, { coldwalletTxId, adminNotes });
+      toast.success('Saque de colateral aprovado com sucesso!');
+      setSelectedCollateralWithdrawal(null);
+      setShowCollateralApproveModal(false);
+      setCollateralTxId('');
+      setCollateralAdminNotes('');
+      if (collateralView === 'pending') {
+        fetchCollateralWithdrawals();
+      } else {
+        fetchCollateralHistory();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao aprovar saque de colateral');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const rejectCollateralWithdrawal = async (id: string, adminNotes: string) => {
+    try {
+      setIsProcessing(true);
+      await collateralService.rejectWithdrawal(id, { adminNotes });
+      toast.success('Saque de colateral rejeitado');
+      setSelectedCollateralWithdrawal(null);
+      setShowCollateralRejectModal(false);
+      setCollateralRejectReason('');
+      if (collateralView === 'pending') {
+        fetchCollateralWithdrawals();
+      } else {
+        fetchCollateralHistory();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao rejeitar saque de colateral');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleWithdrawalApprove = async (withdrawal: WithdrawalRequest) => {
     setIsProcessing(true);
     try {
-      if (approvalAction === 'approve') {
-        await api.post(`/withdrawals/admin/approve/${selectedWithdrawal.id}`, {
-          adminNotes: approvalNotes,
-          coldwalletTxId: coldwalletTxId || undefined,
-        });
-        toast.success('Saque aprovado com sucesso');
-      } else {
-        await api.post(`/withdrawals/admin/reject/${selectedWithdrawal.id}`, {
-          adminNotes: approvalNotes,
-          rejectionReason: rejectionReason,
-        });
-        toast.success('Saque rejeitado');
-      }
-
-      setShowApprovalModal(false);
-      setSelectedWithdrawal(null);
-      setApprovalNotes('');
-      setRejectionReason('');
-      setColdwalletTxId('');
+      const result = await withdrawalService.adminApprove(withdrawal.id);
+      setSelectedWithdrawal(result);
+      setEulenData({
+        address: result.eulenDepositAddress,
+        amountBRL: result.eulenDepositAmountCents / 100,
+        amountCents: result.eulenDepositAmountCents,
+      });
+      setShowEulenModal(true);
+      toast.success('Saque aprovado! Envie o DePix para a Eulen.');
       fetchWithdrawals();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao processar saque');
+      toast.error(error.response?.data?.message || 'Erro ao aprovar saque');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleConfirmEulenSend = async () => {
+    if (!selectedWithdrawal) return;
+    setIsProcessing(true);
+    try {
+      await withdrawalService.adminConfirmSend(selectedWithdrawal.id);
+      toast.success('Envio confirmado! Monitorando status da Eulen...');
+      setShowEulenModal(false);
+      setSelectedWithdrawal(null);
+      setEulenData(null);
+      fetchWithdrawals();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao confirmar envio');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleWithdrawalReject = async () => {
+    if (!selectedWithdrawal) return;
+    setIsProcessing(true);
+    try {
+      await withdrawalService.adminReject(selectedWithdrawal.id, withdrawalRejectReason);
+      toast.success('Saque rejeitado');
+      setShowWithdrawalRejectModal(false);
+      setSelectedWithdrawal(null);
+      setWithdrawalRejectReason('');
+      fetchWithdrawals();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao rejeitar saque');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleViewReceipt = async (withdrawal: WithdrawalRequest) => {
+    try {
+      const result = await withdrawalService.adminGetReceipt(withdrawal.id);
+      setReceiptData(result);
+      setSelectedWithdrawal(withdrawal);
+      setShowReceiptModal(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao carregar comprovante');
+    }
+  };
+
+  // Legacy handler for backward compatibility
+  const handleWithdrawalApproval = async () => {
+    if (!selectedWithdrawal || !approvalAction) return;
+    if (approvalAction === 'approve') {
+      await handleWithdrawalApprove(selectedWithdrawal);
+    } else {
+      setShowWithdrawalRejectModal(true);
+    }
+    setShowApprovalModal(false);
   };
 
   const handleApiRequestApproval = async () => {
@@ -678,58 +665,6 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const handleCommerceApplicationApproval = async () => {
-    if (!selectedCommerceApplication || !approvalAction) return;
-
-    setIsProcessing(true);
-    try {
-      const endpoint = approvalAction === 'approve'
-        ? `/admin/requests/${selectedCommerceApplication.id}/approve`
-        : `/admin/requests/${selectedCommerceApplication.id}/reject`;
-
-      const payload = {
-        reviewNotes: approvalNotes,
-        ...(approvalAction === 'reject' && { rejectionReason })
-      };
-
-      await api.post(endpoint, payload);
-
-      if (approvalAction === 'approve') {
-        toast.success('Aplicação de comércio aprovada');
-      } else {
-        toast.success('Aplicação de comércio rejeitada');
-      }
-
-      setShowApprovalModal(false);
-      setSelectedCommerceApplication(null);
-      setApprovalNotes('');
-      setRejectionReason('');
-      // Refresh both pending and history lists
-      fetchCommerceApplications();
-      fetchCommerceHistory();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao processar aplicação');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleMarkDepositPaid = async (applicationId: string, notes?: string) => {
-    setIsProcessing(true);
-    try {
-      await api.post(`/admin/requests/${applicationId}/mark-deposit-paid`, {
-        notes: notes || 'Depósito confirmado via admin'
-      });
-
-      toast.success('Depósito marcado como pago e Modo Comércio ativado');
-      fetchCommerceHistory(); // Refresh the history to show updated status
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao marcar depósito como pago');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const openWithdrawalApproval = (withdrawal: WithdrawalRequest, action: 'approve' | 'reject') => {
     setSelectedWithdrawal(withdrawal);
     setSelectedApiRequest(null);
@@ -740,76 +675,97 @@ export default function AdminRequestsPage() {
   const openApiRequestApproval = (request: ApiKeyRequest, action: 'approve' | 'reject') => {
     setSelectedApiRequest(request);
     setSelectedWithdrawal(null);
-    setSelectedCommerceApplication(null);
-    setApprovalAction(action);
-    setShowApprovalModal(true);
-  };
-
-  const openCommerceApplicationApproval = (application: CommerceApplication, action: 'approve' | 'reject') => {
-    setSelectedCommerceApplication(application);
-    setSelectedWithdrawal(null);
-    setSelectedApiRequest(null);
     setApprovalAction(action);
     setShowApprovalModal(true);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'text-yellow-400';
-      case 'APPROVED': return 'text-green-400';
-      case 'REJECTED': return 'text-red-400';
-      case 'PROCESSING': return 'text-blue-400';
-      case 'COMPLETED': return 'text-green-500';
-      case 'FAILED': return 'text-red-500';
-      case 'CANCELLED': return 'text-gray-500';
-      default: return 'text-gray-400';
+      case 'AWAITING_DEPOSIT': return 'text-cyan-600 dark:text-cyan-400';
+      case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
+      case 'APPROVED': return 'text-green-600 dark:text-green-400';
+      case 'REJECTED': return 'text-red-600 dark:text-red-400';
+      case 'PROCESSING': return 'text-blue-600 dark:text-blue-400';
+      case 'COMPLETED': return 'text-green-700 dark:text-green-500';
+      case 'FAILED': return 'text-red-700 dark:text-red-500';
+      case 'CANCELLED': return 'text-[var(--text-muted)]';
+      case 'EXPIRED': return 'text-orange-600 dark:text-orange-400';
+      default: return 'text-[var(--text-muted)]';
     }
   };
 
   const getStatusBgColor = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'bg-yellow-500/20';
-      case 'APPROVED': return 'bg-green-500/20';
-      case 'REJECTED': return 'bg-red-500/20';
-      case 'PROCESSING': return 'bg-blue-500/20';
-      case 'COMPLETED': return 'bg-green-600/20';
-      case 'FAILED': return 'bg-red-600/20';
-      case 'CANCELLED': return 'bg-gray-500/20';
-      default: return 'bg-gray-500/20';
+      case 'AWAITING_DEPOSIT': return 'bg-cyan-100 dark:bg-cyan-500/20';
+      case 'PENDING': return 'bg-yellow-100 dark:bg-yellow-500/20';
+      case 'APPROVED': return 'bg-green-100 dark:bg-green-500/20';
+      case 'REJECTED': return 'bg-red-100 dark:bg-red-500/20';
+      case 'PROCESSING': return 'bg-blue-100 dark:bg-blue-500/20';
+      case 'COMPLETED': return 'bg-green-100 dark:bg-green-600/20';
+      case 'FAILED': return 'bg-red-100 dark:bg-red-600/20';
+      case 'CANCELLED': return 'bg-[var(--bg-elevated)]/20';
+      case 'EXPIRED': return 'bg-orange-100 dark:bg-orange-500/20';
+      default: return 'bg-[var(--bg-elevated)]/20';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'AWAITING_DEPOSIT': return 'Aguardando Deposito';
       case 'PENDING': return 'Pendente';
       case 'APPROVED': return 'Aprovado';
       case 'REJECTED': return 'Rejeitado';
       case 'PROCESSING': return 'Processando';
-      case 'COMPLETED': return 'Concluído';
+      case 'COMPLETED': return 'Concluido';
       case 'FAILED': return 'Falhou';
       case 'CANCELLED': return 'Cancelado';
+      case 'EXPIRED': return 'Expirado';
       case 'REVOKED': return 'Revogado';
       default: return status;
     }
   };
 
+  const getEulenStatusLabel = (status: string) => {
+    switch (status) {
+      case 'unsent': return 'Nao enviado';
+      case 'sending': return 'Enviando';
+      case 'sent': return 'Enviado';
+      case 'error': return 'Erro';
+      case 'canceled': return 'Cancelado';
+      case 'refunded': return 'Reembolsado';
+      default: return status || '-';
+    }
+  };
+
+  const getEulenStatusColor = (status: string) => {
+    switch (status) {
+      case 'unsent': return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-500/20';
+      case 'sending': return 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/20';
+      case 'sent': return 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/20';
+      case 'error': return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/20';
+      case 'canceled': return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-500/20';
+      case 'refunded': return 'text-[var(--accent)] bg-[var(--accent-soft)]';
+      default: return 'text-[var(--text-muted)] bg-[var(--bg-elevated)]/20';
+    }
+  };
+
   const getApiStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'text-yellow-400';
-      case 'APPROVED': return 'text-green-400';
-      case 'REJECTED': return 'text-red-400';
-      case 'REVOKED': return 'text-orange-400';
-      default: return 'text-gray-400';
+      case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
+      case 'APPROVED': return 'text-green-600 dark:text-green-400';
+      case 'REJECTED': return 'text-red-600 dark:text-red-400';
+      case 'REVOKED': return 'text-orange-600 dark:text-orange-400';
+      default: return 'text-[var(--text-muted)]';
     }
   };
 
   const getApiStatusBgColor = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'bg-yellow-500/20';
-      case 'APPROVED': return 'bg-green-500/20';
-      case 'REJECTED': return 'bg-red-500/20';
-      case 'REVOKED': return 'bg-orange-500/20';
-      default: return 'bg-gray-500/20';
+      case 'PENDING': return 'bg-yellow-100 dark:bg-yellow-500/20';
+      case 'APPROVED': return 'bg-green-100 dark:bg-green-500/20';
+      case 'REJECTED': return 'bg-red-100 dark:bg-red-500/20';
+      case 'REVOKED': return 'bg-orange-100 dark:bg-orange-500/20';
+      default: return 'bg-[var(--bg-elevated)]/20';
     }
   };
 
@@ -829,33 +785,33 @@ export default function AdminRequestsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Toaster position="top-right" />
-      <h1 className="text-3xl font-bold gradient-text mb-8 text-white">Gerenciamento de Solicitações</h1>
+      <h1 className="text-3xl font-bold gradient-text mb-8 text-[var(--text-primary)]">Gerenciamento de Solicitações</h1>
 
       {/* Main Tab Navigation */}
       <div className="mb-8 relative">
-        <div className="relative bg-gray-800/50 rounded-xl backdrop-blur-xl p-1">
+        <div className="relative bg-[var(--bg-card)]/50 rounded-xl backdrop-blur-xl p-1">
           {/* Left Gradient Indicator */}
           {showLeftGradient && (
-            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full animate-pulse" />
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[var(--bg-card)] via-[var(--bg-card)]/80 to-transparent pointer-events-none z-10 rounded-l-xl md:hidden flex items-center pl-2">
+              <div className="w-1.5 h-8 bg-[var(--accent)] rounded-full animate-pulse" />
             </div>
           )}
 
           {/* Right Gradient Indicator */}
           {showRightGradient && (
-            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-800 via-gray-800/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full animate-pulse" />
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[var(--bg-card)] via-[var(--bg-card)]/80 to-transparent pointer-events-none z-10 rounded-r-xl md:hidden flex items-center justify-end pr-2">
+              <div className="w-1.5 h-8 bg-[var(--accent)] rounded-full animate-pulse" />
             </div>
           )}
 
           <div ref={scrollContainerRef} className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2 min-w-max md:min-w-0 md:grid md:grid-cols-4">
+            <div className="flex gap-2 min-w-max md:min-w-0 md:grid md:grid-cols-6">
               <button
                 onClick={() => setActiveTab('withdrawals')}
                 className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
                   activeTab === 'withdrawals'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    ? 'bg-[var(--accent)] text-white shadow-lg'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <DollarSign size={20} />
@@ -869,8 +825,8 @@ export default function AdminRequestsPage() {
                 onClick={() => setActiveTab('api')}
                 className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
                   activeTab === 'api'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    ? 'bg-[var(--accent)] text-white shadow-lg'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <Key size={20} />
@@ -881,32 +837,32 @@ export default function AdminRequestsPage() {
               </button>
 
               <button
-                onClick={() => setActiveTab('commerce')}
+                onClick={() => setActiveTab('commissions')}
                 className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'commerce'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                  activeTab === 'commissions'
+                    ? 'bg-[var(--accent)] text-white shadow-lg'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Store size={20} />
+                <Gift size={20} />
                 <div className="text-left">
-                  <div className="text-sm">Comércio</div>
-                  <div className="text-xs opacity-80">{commerceApplications.length} pendentes</div>
+                  <div className="text-sm">Comissões</div>
+                  <div className="text-xs opacity-80">{commissions.length} pendentes</div>
                 </div>
               </button>
 
               <button
-                onClick={() => setActiveTab('donations')}
+                onClick={() => setActiveTab('collateral')}
                 className={`flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'donations'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                  activeTab === 'collateral'
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Heart size={20} />
+                <Gem size={20} />
                 <div className="text-left">
-                  <div className="text-sm">Doações</div>
-                  <div className="text-xs opacity-80">{donations.length} pendentes</div>
+                  <div className="text-sm">Colateral</div>
+                  <div className="text-xs opacity-80">{collateralWithdrawals.length} pendentes</div>
                 </div>
               </button>
             </div>
@@ -917,282 +873,240 @@ export default function AdminRequestsPage() {
       {/* Tab Content */}
       {activeTab === 'withdrawals' && (
         <div className="space-y-6">
-          {/* Secondary Navigation for Withdrawals */}
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
+          {/* Sub-tabs */}
+          <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-lg p-2">
             <div className="flex space-x-2">
-              <button
-                onClick={() => setWithdrawalView('pending')}
-                className={`px-4 py-2 rounded-md transition-all ${
-                  withdrawalView === 'pending'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                }`}
-              >
-                <Clock className="inline mr-2" size={16} />
-                Pendentes ({withdrawals.length})
+              <button onClick={() => setWithdrawalView('pending')} className={`px-4 py-2 rounded-md text-sm transition-all ${withdrawalView === 'pending' ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'}`}>
+                <Clock className="inline mr-1.5" size={14} />Pendentes ({withdrawals.length})
               </button>
-              <button
-                onClick={() => setWithdrawalView('history')}
-                className={`px-4 py-2 rounded-md transition-all ${
-                  withdrawalView === 'history'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                }`}
-              >
-                <History className="inline mr-2" size={16} />
-                Histórico
+              <button onClick={() => setWithdrawalView('processing')} className={`px-4 py-2 rounded-md text-sm transition-all ${withdrawalView === 'processing' ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'}`}>
+                <ArrowUpRight className="inline mr-1.5" size={14} />Em Processamento ({processingWithdrawals.length})
+              </button>
+              <button onClick={() => setWithdrawalView('history')} className={`px-4 py-2 rounded-md text-sm transition-all ${withdrawalView === 'history' ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'}`}>
+                <History className="inline mr-1.5" size={14} />Historico
               </button>
             </div>
             {withdrawalView === 'history' && (
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as WithdrawalStatus | 'ALL');
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500"
-              >
-                <option value="ALL">Todos os Status</option>
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as WithdrawalStatus | 'ALL'); setCurrentPage(1); }} className="px-3 py-1.5 text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500">
+                <option value="ALL">Todos</option>
+                <option value="AWAITING_DEPOSIT">Aguardando Deposito</option>
                 <option value="PENDING">Pendente</option>
                 <option value="APPROVED">Aprovado</option>
                 <option value="REJECTED">Rejeitado</option>
                 <option value="PROCESSING">Processando</option>
-                <option value="COMPLETED">Concluído</option>
+                <option value="COMPLETED">Concluido</option>
                 <option value="FAILED">Falhou</option>
                 <option value="CANCELLED">Cancelado</option>
+                <option value="EXPIRED">Expirado</option>
               </select>
             )}
           </div>
 
+          {/* PENDENTES */}
           {withdrawalView === 'pending' && (
-            <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Solicitações de Saque Pendentes</h2>
-              </div>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-12 text-[var(--text-muted)]">Carregando...</div>
+              ) : withdrawals.length === 0 ? (
+                <div className="text-center py-12 text-[var(--text-muted)]">Nenhum saque pendente</div>
+              ) : (
+                withdrawals.map((w) => (
+                  <div key={w.id} className="bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded-xl p-5 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <User size={16} className="text-[var(--text-muted)]" />
+                          <span className="font-medium text-[var(--text-primary)]">{w.user.username}</span>
+                          <span className="text-sm text-[var(--text-muted)]">{w.user.email}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-[var(--text-muted)]">Solicitado em {new Date(w.requestedAt).toLocaleString('pt-BR')}</div>
+                      </div>
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(w.status)} ${getStatusBgColor(w.status)}`}>
+                        {getStatusLabel(w.status)}
+                      </span>
+                    </div>
 
-              <div className="overflow-x-auto">
-                <table className="table-modern">
-                  <thead className="bg-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Usuário
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Valor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Método
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Destino
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Solicitado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-700">
-                    {loading ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                          Carregando...
-                        </td>
-                      </tr>
-                    ) : withdrawals.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                          Nenhum saque pendente
-                        </td>
-                      </tr>
-                    ) : (
-                      withdrawals.map((withdrawal) => (
-                        <tr key={withdrawal.id} className="hover:bg-gray-700/50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{withdrawal.user.username}</p>
-                              <p className="text-sm text-gray-400">{withdrawal.user.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{formatCurrency(withdrawal.amount)}</p>
-                              <p className="text-sm text-gray-400">Taxa: {formatCurrency(withdrawal.fee)}</p>
-                              <p className="text-sm text-green-400">Líquido: {formatCurrency(withdrawal.netAmount)}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">
-                              {withdrawal.method}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {withdrawal.method === 'PIX' ? (
-                              <div>
-                                <p className="text-sm text-gray-300">{withdrawal.pixKey}</p>
-                                <p className="text-xs text-gray-400">{withdrawal.pixKeyType}</p>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-300">{withdrawal.liquidAddress || '-'}</p>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              <p className="text-gray-300">{new Date(withdrawal.requestedAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(withdrawal.requestedAt).toLocaleTimeString('pt-BR')}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(withdrawal.status)} ${getStatusBgColor(withdrawal.status)}`}>
-                              {getStatusLabel(withdrawal.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => openWithdrawalApproval(withdrawal, 'approve')}
-                                className="text-green-400 hover:text-green-300"
-                                title="Aprovar"
-                              >
-                                <Check size={18} />
-                              </button>
-                              <button
-                                onClick={() => openWithdrawalApproval(withdrawal, 'reject')}
-                                className="text-red-400 hover:text-red-300"
-                                title="Rejeitar"
-                              >
-                                <X size={18} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Valor Bruto</p>
+                        <p className="text-[var(--text-primary)] font-medium">{formatCurrency(w.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Taxa Atlas</p>
+                        <p className="text-[var(--text-secondary)]">{formatCurrency(w.fee)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Valor Liquido PIX</p>
+                        <p className="text-blue-600 dark:text-blue-400 font-medium">{formatCurrency(w.netAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">DePix Recebido</p>
+                        <p className="text-[var(--text-primary)]">{w.receivedAmount ? `R$ ${w.receivedAmount.toFixed(2)}` : '-'}</p>
+                        {w.excessAmount && w.excessAmount > 0 && (
+                          <p className="text-xs text-orange-600 dark:text-orange-400">Excedente: R$ {w.excessAmount.toFixed(2)}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Chave PIX</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[var(--text-secondary)] font-mono text-xs">{w.pixKey || '-'}</p>
+                          {w.pixKey && (
+                            <button onClick={() => handleCopy(w.pixKey)} className="text-[var(--text-muted)] hover:text-blue-600 dark:hover:text-blue-400"><Copy size={12} /></button>
+                          )}
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)]">{w.pixKeyType}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">CPF/CNPJ</p>
+                        <p className="text-[var(--text-secondary)] text-xs">{w.cpfCnpj || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Nome</p>
+                        <p className="text-[var(--text-secondary)] text-xs">{w.fullName || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-[var(--border-default)]">
+                      <button
+                        onClick={() => handleWithdrawalApprove(w)}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors"
+                      >
+                        <Check size={14} />Aprovar
+                      </button>
+                      <button
+                        onClick={() => { setSelectedWithdrawal(w); setShowWithdrawalRejectModal(true); }}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/10 hover:bg-red-200 dark:hover:bg-red-500/20 disabled:opacity-50 rounded-lg transition-colors"
+                      >
+                        <X size={14} />Rejeitar
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* EM PROCESSAMENTO */}
+          {withdrawalView === 'processing' && (
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-12 text-[var(--text-muted)]">Carregando...</div>
+              ) : processingWithdrawals.length === 0 ? (
+                <div className="text-center py-12 text-[var(--text-muted)]">Nenhum saque em processamento</div>
+              ) : (
+                processingWithdrawals.map((w) => (
+                  <div key={w.id} className="bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded-xl p-5 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="font-medium text-[var(--text-primary)]">{w.user.username}</span>
+                        <span className="text-sm text-[var(--text-muted)] ml-2">{w.user.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(w.status)} ${getStatusBgColor(w.status)}`}>
+                          {getStatusLabel(w.status)}
+                        </span>
+                        {w.eulenStatus && (
+                          <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getEulenStatusColor(w.eulenStatus)}`}>
+                            Eulen: {getEulenStatusLabel(w.eulenStatus)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Valor PIX</p>
+                        <p className="text-blue-600 dark:text-blue-400 font-medium">{formatCurrency(w.netAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Chave PIX</p>
+                        <p className="text-[var(--text-secondary)] font-mono text-xs">{w.pixKey || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--text-muted)] text-xs">Eulen ID</p>
+                        <p className="text-[var(--text-secondary)] font-mono text-xs">{w.eulenWithdrawalId?.substring(0, 16) || '-'}...</p>
+                      </div>
+                    </div>
+                    {w.status === 'APPROVED' && w.eulenDepositAddress && (
+                      <div className="bg-[var(--bg-primary)]/50 rounded-lg p-3 space-y-2 border border-blue-500/20">
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Envie DePix para Eulen:</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-[var(--text-secondary)] break-all">{w.eulenDepositAddress}</span>
+                          <button onClick={() => handleCopy(w.eulenDepositAddress)} className="text-[var(--text-muted)] hover:text-blue-600 dark:hover:text-blue-400 shrink-0"><Copy size={12} /></button>
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)]">Valor: R$ {w.eulenDepositAmountCents ? (w.eulenDepositAmountCents / 100).toFixed(2) : '-'}</p>
+                        <button
+                          onClick={() => { setSelectedWithdrawal(w); handleConfirmEulenSend(); }}
+                          disabled={isProcessing}
+                          className="mt-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors"
+                        >
+                          Confirmar Envio para Eulen
+                        </button>
+                      </div>
                     )}
-                  </tbody>
-                </table>
+                  </div>
+                ))
+              )}
+              <div className="text-center pt-2">
+                <button onClick={() => fetchProcessingWithdrawals()} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">Atualizar</button>
               </div>
             </div>
           )}
 
+          {/* HISTORICO */}
           {withdrawalView === 'history' && (
             <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Histórico de Saques</h2>
-              </div>
-
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Usuário
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Valor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Método
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Destino
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Solicitado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Processado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Detalhes
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Usuario</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Valor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Chave PIX</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Data</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase">Acoes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {loading ? (
-                      <tr>
-                        <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
-                          Carregando...
-                        </td>
-                      </tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-[var(--text-muted)]">Carregando...</td></tr>
                     ) : paginatedHistory.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
-                          Nenhum saque encontrado
-                        </td>
-                      </tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-[var(--text-muted)]">Nenhum saque encontrado</td></tr>
                     ) : (
-                      paginatedHistory.map((withdrawal) => (
-                        <tr key={withdrawal.id} className="hover:bg-gray-700/50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{withdrawal.user.username}</p>
-                              <p className="text-sm text-gray-400">{withdrawal.user.email}</p>
-                            </div>
+                      paginatedHistory.map((w) => (
+                        <tr key={w.id} className="hover:bg-[var(--bg-elevated)]">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{w.user.username}</p>
+                            <p className="text-xs text-[var(--text-muted)]">{w.user.email}</p>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{formatCurrency(withdrawal.amount)}</p>
-                              <p className="text-sm text-gray-400">Taxa: {formatCurrency(withdrawal.fee)}</p>
-                              <p className="text-sm text-green-400">Líquido: {formatCurrency(withdrawal.netAmount)}</p>
-                            </div>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-sm text-[var(--text-primary)]">{formatCurrency(w.amount)}</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400">Liq: {formatCurrency(w.netAmount)}</p>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">
-                              {withdrawal.method}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-xs font-mono text-[var(--text-secondary)]">{w.pixKey || '-'}</p>
+                            <p className="text-xs text-[var(--text-muted)]">{w.pixKeyType}</p>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(w.status)} ${getStatusBgColor(w.status)}`}>
+                              {getStatusLabel(w.status)}
                             </span>
+                            {w.statusReason && <p className="text-xs text-[var(--text-muted)] mt-1 max-w-[150px] truncate" title={w.statusReason}>{w.statusReason}</p>}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {withdrawal.method === 'PIX' ? (
-                              <div>
-                                <p className="text-sm text-gray-300">{withdrawal.pixKey}</p>
-                                <p className="text-xs text-gray-400">{withdrawal.pixKeyType}</p>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-300">{withdrawal.liquidAddress || '-'}</p>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-[var(--text-secondary)]">
+                            {new Date(w.requestedAt).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {w.status === 'COMPLETED' && (
+                              <button onClick={() => handleViewReceipt(w)} className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-xs flex items-center gap-1">
+                                <FileText size={14} />Comprovante
+                              </button>
                             )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(withdrawal.status)} ${getStatusBgColor(withdrawal.status)}`}>
-                              {getStatusLabel(withdrawal.status)}
-                            </span>
-                            {withdrawal.statusReason && (
-                              <p className="text-xs text-gray-400 mt-1" title={withdrawal.statusReason}>
-                                {withdrawal.statusReason.substring(0, 30)}...
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              <p className="text-gray-300">{new Date(withdrawal.requestedAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(withdrawal.requestedAt).toLocaleTimeString('pt-BR')}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {withdrawal.processedAt ? (
-                              <div className="text-sm">
-                                <p className="text-gray-300">{new Date(withdrawal.processedAt).toLocaleDateString('pt-BR')}</p>
-                                <p className="text-gray-400">{new Date(withdrawal.processedAt).toLocaleTimeString('pt-BR')}</p>
-                              </div>
-                            ) : (
-                              <span className="text-gray-500 text-sm">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => setSelectedWithdrawal(withdrawal)}
-                              className="text-blue-400 hover:text-blue-300"
-                              title="Ver detalhes"
-                            >
-                              <Eye size={18} />
-                            </button>
                           </td>
                         </tr>
                       ))
@@ -1200,45 +1114,12 @@ export default function AdminRequestsPage() {
                   </tbody>
                 </table>
               </div>
-
-              {/* Pagination */}
               {totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-700 flex justify-between items-center">
-                  <div className="text-sm text-gray-400">
-                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, withdrawalHistory.length)} de {withdrawalHistory.length} registros
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
-                    >
-                      Anterior
-                    </button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const pageNum = currentPage - 2 + i;
-                      if (pageNum < 1 || pageNum > totalPages) return null;
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`px-4 py-2 rounded-lg ${
-                            pageNum === currentPage
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 text-white hover:bg-gray-600'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    }).filter(Boolean)}
-                    <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
-                    >
-                      Próximo
-                    </button>
+                <div className="px-4 py-3 border-t border-[var(--border-default)] flex justify-between items-center">
+                  <span className="text-xs text-[var(--text-muted)]">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, withdrawalHistory.length)} de {withdrawalHistory.length}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 text-xs bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded disabled:opacity-50 hover:bg-[var(--bg-elevated)]">Anterior</button>
+                    <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 text-xs bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded disabled:opacity-50 hover:bg-[var(--bg-elevated)]">Proximo</button>
                   </div>
                 </div>
               )}
@@ -1247,17 +1128,93 @@ export default function AdminRequestsPage() {
         </div>
       )}
 
+      {/* Eulen Modal */}
+      {showEulenModal && eulenData && selectedWithdrawal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-[var(--bg-card)] rounded-xl border border-[var(--border-hover)] shadow-2xl">
+            <div className="p-5 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Enviar DePix para Eulen</h3>
+              <p className="text-sm text-[var(--text-muted)] mt-1">Saque de {selectedWithdrawal.user.username} - {formatCurrency(selectedWithdrawal.netAmount)} via PIX</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs text-[var(--text-muted)] block mb-1">Endereco Eulen (copie e envie DePix)</label>
+                <div className="flex items-center gap-2 bg-[var(--bg-elevated)] rounded-lg p-3 border border-[var(--border-hover)]">
+                  <span className="text-xs font-mono text-[var(--text-primary)] break-all flex-1">{eulenData.address}</span>
+                  <button onClick={() => handleCopy(eulenData.address)} className="text-[var(--text-muted)] hover:text-blue-600 dark:hover:text-blue-400 shrink-0"><Copy size={16} /></button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--text-muted)] block mb-1">Valor DePix a enviar</label>
+                <div className="flex items-center gap-2 bg-[var(--bg-elevated)] rounded-lg p-3 border border-[var(--border-hover)]">
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">R$ {eulenData.amountBRL.toFixed(2)}</span>
+                  <button onClick={() => handleCopy(eulenData.amountBRL.toFixed(2))} className="text-[var(--text-muted)] hover:text-blue-600 dark:hover:text-blue-400 ml-auto"><Copy size={16} /></button>
+                </div>
+              </div>
+            </div>
+            <div className="p-5 border-t border-[var(--border-default)] flex gap-3">
+              <button onClick={() => { setShowEulenModal(false); setEulenData(null); }} className="flex-1 px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] rounded-lg transition-colors">
+                Fechar
+              </button>
+              <button onClick={handleConfirmEulenSend} disabled={isProcessing} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg transition-colors">
+                {isProcessing ? 'Confirmando...' : 'Confirmar Envio'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showWithdrawalRejectModal && selectedWithdrawal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-[var(--bg-card)] rounded-xl border border-[var(--border-hover)] shadow-2xl">
+            <div className="p-5 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Rejeitar Saque</h3>
+              <p className="text-sm text-[var(--text-muted)] mt-1">{selectedWithdrawal.user.username} - {formatCurrency(selectedWithdrawal.amount)}</p>
+            </div>
+            <div className="p-5">
+              <label className="text-xs text-[var(--text-muted)] block mb-1.5">Motivo da rejeicao</label>
+              <textarea
+                value={withdrawalRejectReason}
+                onChange={(e) => setWithdrawalRejectReason(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none"
+                rows={3}
+                placeholder="Informe o motivo..."
+              />
+            </div>
+            <div className="p-5 border-t border-[var(--border-default)] flex gap-3">
+              <button onClick={() => { setShowWithdrawalRejectModal(false); setWithdrawalRejectReason(''); }} className="flex-1 px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] rounded-lg transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleWithdrawalReject} disabled={isProcessing} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg transition-colors">
+                {isProcessing ? 'Rejeitando...' : 'Confirmar Rejeicao'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Modal */}
+      {showReceiptModal && receiptData && (
+        <WithdrawalReceipt
+          isOpen={showReceiptModal}
+          onClose={() => { setShowReceiptModal(false); setReceiptData(null); }}
+          receiptData={receiptData.receiptData}
+          withdrawal={receiptData.withdrawal}
+        />
+      )}
+
       {activeTab === 'api' && (
         <div className="space-y-6">
           {/* Secondary Navigation for API Keys */}
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
+          <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-lg p-2">
             <div className="flex space-x-2">
               <button
                 onClick={() => setApiView('pending')}
                 className={`px-4 py-2 rounded-md transition-all ${
                   apiView === 'pending'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
                 }`}
               >
                 <Clock className="inline mr-2" size={16} />
@@ -1267,8 +1224,8 @@ export default function AdminRequestsPage() {
                 onClick={() => setApiView('history')}
                 className={`px-4 py-2 rounded-md transition-all ${
                   apiView === 'history'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
                 }`}
               >
                 <History className="inline mr-2" size={16} />
@@ -1282,7 +1239,7 @@ export default function AdminRequestsPage() {
                   setApiStatusFilter(e.target.value as any);
                   setApiCurrentPage(1);
                 }}
-                className="px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500"
+                className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500"
               >
                 <option value="ALL">Todos os Status</option>
                 <option value="PENDING">Pendente</option>
@@ -1295,95 +1252,95 @@ export default function AdminRequestsPage() {
 
           {apiView === 'pending' && (
             <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Solicitações de API Key Pendentes</h2>
+              <div className="px-6 py-4 border-b border-[var(--border-default)]">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Solicitações de API Key Pendentes</h2>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Usuário
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Motivo de Uso
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         URL do Serviço
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Volume Est.
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Tipo
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Solicitado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Carregando...
                         </td>
                       </tr>
                     ) : apiRequests.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Nenhuma solicitação de API pendente
                         </td>
                       </tr>
                     ) : (
                       apiRequests.map((request) => (
-                        <tr key={request.id} className="hover:bg-gray-700/50">
+                        <tr key={request.id} className="hover:bg-[var(--bg-elevated)]">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <p className="font-medium text-white">{request.user?.username}</p>
-                              <p className="text-sm text-gray-400">{request.user?.email}</p>
+                              <p className="font-medium text-[var(--text-primary)]">{request.user?.username}</p>
+                              <p className="text-sm text-[var(--text-muted)]">{request.user?.email}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-300">{request.usageReason}</p>
+                            <p className="text-sm text-[var(--text-secondary)]">{request.usageReason}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <a href={request.serviceUrl} target="_blank" rel="noopener noreferrer"
-                               className="text-blue-400 hover:underline flex items-center gap-1">
+                               className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
                               <Globe size={14} />
                               {request.serviceUrl}
                             </a>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-300">{request.estimatedVolume}</p>
+                            <p className="text-sm text-[var(--text-secondary)]">{request.estimatedVolume}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-400">
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
                               {request.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm">
-                              <p className="text-gray-300">{new Date(request.createdAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(request.createdAt).toLocaleTimeString('pt-BR')}</p>
+                              <p className="text-[var(--text-secondary)]">{new Date(request.createdAt).toLocaleDateString('pt-BR')}</p>
+                              <p className="text-[var(--text-muted)]">{new Date(request.createdAt).toLocaleTimeString('pt-BR')}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => openApiRequestApproval(request, 'approve')}
-                                className="text-green-400 hover:text-green-300"
+                                className="text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300"
                                 title="Aprovar"
                               >
                                 <Check size={18} />
                               </button>
                               <button
                                 onClick={() => openApiRequestApproval(request, 'reject')}
-                                className="text-red-400 hover:text-red-300"
+                                className="text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300"
                                 title="Rejeitar"
                               >
                                 <X size={18} />
@@ -1401,77 +1358,77 @@ export default function AdminRequestsPage() {
 
           {apiView === 'history' && (
             <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Histórico de API Keys</h2>
+              <div className="px-6 py-4 border-b border-[var(--border-default)]">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Histórico de API Keys</h2>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Usuário
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Motivo de Uso
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         URL do Serviço
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Tipo
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Solicitado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Processado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Detalhes
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={8} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Carregando...
                         </td>
                       </tr>
                     ) : paginatedApiHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={8} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Nenhuma solicitação de API encontrada
                         </td>
                       </tr>
                     ) : (
                       paginatedApiHistory.map((request) => (
-                        <tr key={request.id} className="hover:bg-gray-700/50">
+                        <tr key={request.id} className="hover:bg-[var(--bg-elevated)]">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <p className="font-medium text-white">{request.user?.username}</p>
-                              <p className="text-sm text-gray-400">{request.user?.email}</p>
+                              <p className="font-medium text-[var(--text-primary)]">{request.user?.username}</p>
+                              <p className="text-sm text-[var(--text-muted)]">{request.user?.email}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-300" title={request.usageReason}>
+                            <p className="text-sm text-[var(--text-secondary)]" title={request.usageReason}>
                               {request.usageReason.substring(0, 50)}
                               {request.usageReason.length > 50 && '...'}
                             </p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <a href={request.serviceUrl} target="_blank" rel="noopener noreferrer"
-                               className="text-blue-400 hover:underline flex items-center gap-1">
+                               className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
                               <Globe size={14} />
                               {request.serviceUrl.substring(0, 30)}...
                             </a>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-400">
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
                               {request.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
                             </span>
                           </td>
@@ -1482,23 +1439,23 @@ export default function AdminRequestsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm">
-                              <p className="text-gray-300">{new Date(request.createdAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(request.createdAt).toLocaleTimeString('pt-BR')}</p>
+                              <p className="text-[var(--text-secondary)]">{new Date(request.createdAt).toLocaleDateString('pt-BR')}</p>
+                              <p className="text-[var(--text-muted)]">{new Date(request.createdAt).toLocaleTimeString('pt-BR')}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {request.approvedAt ? (
                               <div className="text-sm">
-                                <p className="text-gray-300">{new Date(request.approvedAt).toLocaleDateString('pt-BR')}</p>
-                                <p className="text-gray-400">{new Date(request.approvedAt).toLocaleTimeString('pt-BR')}</p>
+                                <p className="text-[var(--text-secondary)]">{new Date(request.approvedAt).toLocaleDateString('pt-BR')}</p>
+                                <p className="text-[var(--text-muted)]">{new Date(request.approvedAt).toLocaleTimeString('pt-BR')}</p>
                               </div>
                             ) : request.rejectedAt ? (
                               <div className="text-sm">
-                                <p className="text-gray-300">{new Date(request.rejectedAt).toLocaleDateString('pt-BR')}</p>
-                                <p className="text-gray-400">{new Date(request.rejectedAt).toLocaleTimeString('pt-BR')}</p>
+                                <p className="text-[var(--text-secondary)]">{new Date(request.rejectedAt).toLocaleDateString('pt-BR')}</p>
+                                <p className="text-[var(--text-muted)]">{new Date(request.rejectedAt).toLocaleTimeString('pt-BR')}</p>
                               </div>
                             ) : (
-                              <span className="text-gray-500 text-sm">-</span>
+                              <span className="text-[var(--text-muted)] text-sm">-</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -1507,7 +1464,7 @@ export default function AdminRequestsPage() {
                                 setSelectedApiRequest(request);
                                 setShowApiDetailsModal(true);
                               }}
-                              className="text-blue-400 hover:text-blue-300"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                               title="Ver detalhes"
                             >
                               <Eye size={18} />
@@ -1522,15 +1479,15 @@ export default function AdminRequestsPage() {
 
               {/* Pagination */}
               {totalApiPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-700 flex justify-between items-center">
-                  <div className="text-sm text-gray-400">
+                <div className="px-6 py-4 border-t border-[var(--border-default)] flex justify-between items-center">
+                  <div className="text-sm text-[var(--text-muted)]">
                     Mostrando {((apiCurrentPage - 1) * itemsPerPage) + 1} a {Math.min(apiCurrentPage * itemsPerPage, apiHistory.length)} de {apiHistory.length} registros
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setApiCurrentPage(apiCurrentPage - 1)}
                       disabled={apiCurrentPage === 1}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
+                      className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-elevated)]"
                     >
                       Anterior
                     </button>
@@ -1544,7 +1501,7 @@ export default function AdminRequestsPage() {
                           className={`px-4 py-2 rounded-lg ${
                             pageNum === apiCurrentPage
                               ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 text-white hover:bg-gray-600'
+                              : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
                           }`}
                         >
                           {pageNum}
@@ -1554,7 +1511,7 @@ export default function AdminRequestsPage() {
                     <button
                       onClick={() => setApiCurrentPage(apiCurrentPage + 1)}
                       disabled={apiCurrentPage === totalApiPages}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
+                      className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-elevated)]"
                     >
                       Próximo
                     </button>
@@ -1570,71 +1527,71 @@ export default function AdminRequestsPage() {
       {selectedWithdrawal && !showApprovalModal && withdrawalView === 'history' && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
           <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
-              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10">
-                <h2 className="text-2xl font-bold text-white">Detalhes do Saque</h2>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-hover)] rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
+              <div className="sticky top-0 bg-[var(--bg-card)] px-6 pt-6 pb-4 border-b border-[var(--border-default)] z-10">
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Saque</h2>
               </div>
 
             <div className="p-6 overflow-y-auto">
             <div className="space-y-4">
               {/* User Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Usuário</h3>
-                <p className="text-white">Username: {selectedWithdrawal.user.username}</p>
-                <p className="text-gray-300">Email: {selectedWithdrawal.user.email}</p>
-                <p className="text-gray-300">ID: {selectedWithdrawal.user.id}</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Informações do Usuário</h3>
+                <p className="text-[var(--text-primary)]">Username: {selectedWithdrawal.user.username}</p>
+                <p className="text-[var(--text-secondary)]">Email: {selectedWithdrawal.user.email}</p>
+                <p className="text-[var(--text-secondary)]">ID: {selectedWithdrawal.user.id}</p>
               </div>
 
               {/* Amount Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Valores</h3>
-                <p className="text-white">Valor Solicitado: {formatCurrency(selectedWithdrawal.amount)}</p>
-                <p className="text-gray-300">Taxa: {formatCurrency(selectedWithdrawal.fee)}</p>
-                <p className="text-green-400">Valor Líquido: {formatCurrency(selectedWithdrawal.netAmount)}</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Valores</h3>
+                <p className="text-[var(--text-primary)]">Valor Solicitado: {formatCurrency(selectedWithdrawal.amount)}</p>
+                <p className="text-[var(--text-secondary)]">Taxa: {formatCurrency(selectedWithdrawal.fee)}</p>
+                <p className="text-green-600 dark:text-green-400">Valor Líquido: {formatCurrency(selectedWithdrawal.netAmount)}</p>
               </div>
 
               {/* Payment Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Informações de Pagamento</h3>
-                <p className="text-white">Método: {selectedWithdrawal.method}</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Informações de Pagamento</h3>
+                <p className="text-[var(--text-primary)]">Método: {selectedWithdrawal.method}</p>
                 {selectedWithdrawal.method === 'PIX' ? (
                   <>
-                    <p className="text-gray-300">Chave PIX: {selectedWithdrawal.pixKey}</p>
-                    <p className="text-gray-300">Tipo de Chave: {selectedWithdrawal.pixKeyType}</p>
-                    {selectedWithdrawal.cpfCnpj && <p className="text-gray-300">CPF/CNPJ: {selectedWithdrawal.cpfCnpj}</p>}
-                    {selectedWithdrawal.fullName && <p className="text-gray-300">Nome Completo: {selectedWithdrawal.fullName}</p>}
+                    <p className="text-[var(--text-secondary)]">Chave PIX: {selectedWithdrawal.pixKey}</p>
+                    <p className="text-[var(--text-secondary)]">Tipo de Chave: {selectedWithdrawal.pixKeyType}</p>
+                    {selectedWithdrawal.cpfCnpj && <p className="text-[var(--text-secondary)]">CPF/CNPJ: {selectedWithdrawal.cpfCnpj}</p>}
+                    {selectedWithdrawal.fullName && <p className="text-[var(--text-secondary)]">Nome Completo: {selectedWithdrawal.fullName}</p>}
                   </>
                 ) : (
-                  <p className="text-gray-300">Endereço Liquid: {selectedWithdrawal.liquidAddress}</p>
+                  <p className="text-[var(--text-secondary)]">Endereço Liquid: {selectedWithdrawal.liquidAddress}</p>
                 )}
               </div>
 
               {/* Status Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Status</h3>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Status</h3>
                 <p className="mb-2">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedWithdrawal.status)} ${getStatusBgColor(selectedWithdrawal.status)}`}>
                     {getStatusLabel(selectedWithdrawal.status)}
                   </span>
                 </p>
                 {selectedWithdrawal.statusReason && (
-                  <p className="text-gray-300">Motivo: {selectedWithdrawal.statusReason}</p>
+                  <p className="text-[var(--text-secondary)]">Motivo: {selectedWithdrawal.statusReason}</p>
                 )}
                 {selectedWithdrawal.adminNotes && (
-                  <p className="text-gray-300">Notas Admin: {selectedWithdrawal.adminNotes}</p>
+                  <p className="text-[var(--text-secondary)]">Notas Admin: {selectedWithdrawal.adminNotes}</p>
                 )}
                 {selectedWithdrawal.coldwalletTxId && (
-                  <p className="text-gray-300">TX ID: {selectedWithdrawal.coldwalletTxId}</p>
+                  <p className="text-[var(--text-secondary)]">TX ID: {selectedWithdrawal.coldwalletTxId}</p>
                 )}
               </div>
 
               {/* Dates */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Datas</h3>
-                <p className="text-gray-300">Solicitado: {new Date(selectedWithdrawal.requestedAt).toLocaleString('pt-BR')}</p>
-                <p className="text-gray-300">Agendado para: {new Date(selectedWithdrawal.scheduledFor).toLocaleString('pt-BR')}</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Datas</h3>
+                <p className="text-[var(--text-secondary)]">Solicitado: {new Date(selectedWithdrawal.requestedAt).toLocaleString('pt-BR')}</p>
+                <p className="text-[var(--text-secondary)]">Agendado para: {new Date(selectedWithdrawal.scheduledFor).toLocaleString('pt-BR')}</p>
                 {selectedWithdrawal.processedAt && (
-                  <p className="text-gray-300">Processado: {new Date(selectedWithdrawal.processedAt).toLocaleString('pt-BR')}</p>
+                  <p className="text-[var(--text-secondary)]">Processado: {new Date(selectedWithdrawal.processedAt).toLocaleString('pt-BR')}</p>
                 )}
               </div>
             </div>
@@ -1642,7 +1599,7 @@ export default function AdminRequestsPage() {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setSelectedWithdrawal(null)}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
               >
                 Fechar
               </button>
@@ -1657,75 +1614,75 @@ export default function AdminRequestsPage() {
       {showApiDetailsModal && selectedApiRequest && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
           <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
-              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10 rounded-t-xl">
-                <h2 className="text-2xl font-bold text-white">Detalhes da Solicitação de API Key</h2>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-hover)] rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
+              <div className="sticky top-0 bg-[var(--bg-card)] px-6 pt-6 pb-4 border-b border-[var(--border-default)] z-10 rounded-t-xl">
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes da Solicitação de API Key</h2>
               </div>
 
             <div className="p-6 overflow-y-auto">
             <div className="space-y-4">
               {/* User Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Usuário</h3>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Informações do Usuário</h3>
                 <div className="flex items-center gap-2">
-                  <p className="text-white">Username: {selectedApiRequest.user?.username}</p>
-                  <button onClick={() => handleCopy(selectedApiRequest.user?.username)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                  <p className="text-[var(--text-primary)]">Username: {selectedApiRequest.user?.username}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.user?.username)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="text-gray-300">Email: {selectedApiRequest.user?.email}</p>
-                  <button onClick={() => handleCopy(selectedApiRequest.user?.email)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                  <p className="text-[var(--text-secondary)]">Email: {selectedApiRequest.user?.email}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.user?.email)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="text-gray-300">ID: {selectedApiRequest.userId}</p>
-                  <button onClick={() => handleCopy(selectedApiRequest.userId)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                  <p className="text-[var(--text-secondary)]">ID: {selectedApiRequest.userId}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.userId)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
               </div>
 
               {/* Request Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Informações da Solicitação</h3>
-                <p className="text-white">Motivo de Uso:</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Informações da Solicitação</h3>
+                <p className="text-[var(--text-primary)]">Motivo de Uso:</p>
                 <div className="flex items-start gap-2 ml-2">
-                  <p className="text-gray-300">{selectedApiRequest.usageReason}</p>
-                  <button onClick={() => handleCopy(selectedApiRequest.usageReason)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                  <p className="text-[var(--text-secondary)]">{selectedApiRequest.usageReason}</p>
+                  <button onClick={() => handleCopy(selectedApiRequest.usageReason)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
-                <p className="text-white mt-2">URL do Serviço:</p>
+                <p className="text-[var(--text-primary)] mt-2">URL do Serviço:</p>
                 <div className="flex items-center gap-2 ml-2">
                   <a href={selectedApiRequest.serviceUrl} target="_blank" rel="noopener noreferrer"
-                     className="text-blue-400 hover:underline">
+                     className="text-blue-600 dark:text-blue-400 hover:underline">
                     {selectedApiRequest.serviceUrl}
                   </a>
-                  <button onClick={() => handleCopy(selectedApiRequest.serviceUrl)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                  <button onClick={() => handleCopy(selectedApiRequest.serviceUrl)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <p className="text-white">Volume Estimado: <span className="text-gray-300">{selectedApiRequest.estimatedVolume}</span></p>
-                  <button onClick={() => handleCopy(selectedApiRequest.estimatedVolume)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                  <p className="text-[var(--text-primary)]">Volume Estimado: <span className="text-[var(--text-secondary)]">{selectedApiRequest.estimatedVolume}</span></p>
+                  <button onClick={() => handleCopy(selectedApiRequest.estimatedVolume)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <p className="text-white">Tipo de Uso: <span className="text-gray-300">
+                  <p className="text-[var(--text-primary)]">Tipo de Uso: <span className="text-[var(--text-secondary)]">
                     {selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
                   </span></p>
-                  <button onClick={() => handleCopy(selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs')} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                  <button onClick={() => handleCopy(selectedApiRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                     <Copy size={14} />
                   </button>
                 </div>
               </div>
 
               {/* Status Info */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Status</h3>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Status</h3>
                 <p className="mb-2">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getApiStatusColor(selectedApiRequest.status)} ${getApiStatusBgColor(selectedApiRequest.status)}`}>
                     {getStatusLabel(selectedApiRequest.status)}
@@ -1733,16 +1690,16 @@ export default function AdminRequestsPage() {
                 </p>
                 {selectedApiRequest.approvalNotes && (
                   <div className="flex items-start gap-2">
-                    <p className="text-gray-300">Notas: {selectedApiRequest.approvalNotes}</p>
-                    <button onClick={() => handleCopy(selectedApiRequest.approvalNotes)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Copiar">
+                    <p className="text-[var(--text-secondary)]">Notas: {selectedApiRequest.approvalNotes}</p>
+                    <button onClick={() => handleCopy(selectedApiRequest.approvalNotes)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0" title="Copiar">
                       <Copy size={14} />
                     </button>
                   </div>
                 )}
                 {selectedApiRequest.approvedBy && (
                   <div className="flex items-center gap-2">
-                    <p className="text-gray-300">Aprovado por: {selectedApiRequest.approvedBy}</p>
-                    <button onClick={() => handleCopy(selectedApiRequest.approvedBy)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
+                    <p className="text-[var(--text-secondary)]">Aprovado por: {selectedApiRequest.approvedBy}</p>
+                    <button onClick={() => handleCopy(selectedApiRequest.approvedBy)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar">
                       <Copy size={14} />
                     </button>
                   </div>
@@ -1750,12 +1707,12 @@ export default function AdminRequestsPage() {
                 {selectedApiRequest.generatedApiKey && selectedApiRequest.status === 'APPROVED' && (
                   <div className="mt-2">
                     <div className="flex items-center gap-2">
-                      <p className="text-white">API Key:</p>
-                      <button onClick={() => handleCopy(selectedApiRequest.generatedApiKey)} className="text-gray-400 hover:text-white transition-colors" title="Copiar API Key">
+                      <p className="text-[var(--text-primary)]">API Key:</p>
+                      <button onClick={() => handleCopy(selectedApiRequest.generatedApiKey)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Copiar API Key">
                         <Copy size={14} />
                       </button>
                     </div>
-                    <code className="text-xs text-green-400 bg-gray-800 p-2 rounded block mt-1 break-all">
+                    <code className="text-xs text-green-600 dark:text-green-400 bg-[var(--bg-card)] p-2 rounded block mt-1 break-all">
                       {selectedApiRequest.generatedApiKey}
                     </code>
                   </div>
@@ -1763,14 +1720,14 @@ export default function AdminRequestsPage() {
               </div>
 
               {/* Dates */}
-              <div className="p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Datas</h3>
-                <p className="text-gray-300">Solicitado: {new Date(selectedApiRequest.createdAt).toLocaleString('pt-BR')}</p>
+              <div className="p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <h3 className="text-sm font-medium text-[var(--text-muted)] mb-2">Datas</h3>
+                <p className="text-[var(--text-secondary)]">Solicitado: {new Date(selectedApiRequest.createdAt).toLocaleString('pt-BR')}</p>
                 {selectedApiRequest.approvedAt && (
-                  <p className="text-gray-300">Aprovado: {new Date(selectedApiRequest.approvedAt).toLocaleString('pt-BR')}</p>
+                  <p className="text-[var(--text-secondary)]">Aprovado: {new Date(selectedApiRequest.approvedAt).toLocaleString('pt-BR')}</p>
                 )}
                 {selectedApiRequest.rejectedAt && (
-                  <p className="text-gray-300">Rejeitado: {new Date(selectedApiRequest.rejectedAt).toLocaleString('pt-BR')}</p>
+                  <p className="text-[var(--text-secondary)]">Rejeitado: {new Date(selectedApiRequest.rejectedAt).toLocaleString('pt-BR')}</p>
                 )}
               </div>
             </div>
@@ -1781,7 +1738,7 @@ export default function AdminRequestsPage() {
                   setShowApiDetailsModal(false);
                   setSelectedApiRequest(null);
                 }}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
               >
                 Fechar
               </button>
@@ -1796,9 +1753,9 @@ export default function AdminRequestsPage() {
       {showApprovalModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
           <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-lg w-full shadow-2xl relative max-h-[85vh] flex flex-col">
-              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10 rounded-t-xl">
-                <h2 className="text-2xl font-bold text-white">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-hover)] rounded-xl max-w-lg w-full shadow-2xl relative max-h-[85vh] flex flex-col">
+              <div className="sticky top-0 bg-[var(--bg-card)] px-6 pt-6 pb-4 border-b border-[var(--border-default)] z-10 rounded-t-xl">
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">
                   {approvalAction === 'approve' ? 'Aprovar' : 'Rejeitar'} Solicitação
                 </h2>
               </div>
@@ -1806,33 +1763,24 @@ export default function AdminRequestsPage() {
             <div className="p-6 overflow-y-auto">
 
             {selectedWithdrawal && (
-              <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
-                <p className="text-sm text-gray-400">Usuário: {selectedWithdrawal.user.username}</p>
-                <p className="text-sm text-gray-400">Valor: {formatCurrency(selectedWithdrawal.amount)}</p>
-                <p className="text-sm text-gray-400">Método: {selectedWithdrawal.method}</p>
+              <div className="mb-4 p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <p className="text-sm text-[var(--text-muted)]">Usuário: {selectedWithdrawal.user.username}</p>
+                <p className="text-sm text-[var(--text-muted)]">Valor: {formatCurrency(selectedWithdrawal.amount)}</p>
+                <p className="text-sm text-[var(--text-muted)]">Método: {selectedWithdrawal.method}</p>
               </div>
             )}
 
             {selectedApiRequest && (
-              <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
-                <p className="text-sm text-gray-400">Usuário: {selectedApiRequest.user?.username}</p>
-                <p className="text-sm text-gray-400">Uso: {selectedApiRequest.usageReason}</p>
-                <p className="text-sm text-gray-400">URL: {selectedApiRequest.serviceUrl}</p>
-              </div>
-            )}
-
-            {selectedCommerceApplication && (
-              <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
-                <p className="text-sm text-gray-400">Usuário: {selectedCommerceApplication.user.username}</p>
-                <p className="text-sm text-gray-400">Negócio: {selectedCommerceApplication.businessName}</p>
-                <p className="text-sm text-gray-400">Produto/Serviço: {selectedCommerceApplication.productOrService}</p>
-                <p className="text-sm text-gray-400">Volume: {selectedCommerceApplication.monthlyPixSales}</p>
+              <div className="mb-4 p-4 bg-[var(--bg-elevated)] rounded-lg">
+                <p className="text-sm text-[var(--text-muted)]">Usuário: {selectedApiRequest.user?.username}</p>
+                <p className="text-sm text-[var(--text-muted)]">Uso: {selectedApiRequest.usageReason}</p>
+                <p className="text-sm text-[var(--text-muted)]">URL: {selectedApiRequest.serviceUrl}</p>
               </div>
             )}
 
             {approvalAction === 'approve' && selectedWithdrawal && selectedWithdrawal.method === 'DEPIX' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-gray-300">
+                <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
                   Coldwallet Transaction ID
                 </label>
                 <input
@@ -1840,35 +1788,35 @@ export default function AdminRequestsPage() {
                   value={coldwalletTxId}
                   onChange={(e) => setColdwalletTxId(e.target.value)}
                   placeholder="ID da transação (opcional)"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-white"
+                  className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
                 />
               </div>
             )}
 
             {approvalAction === 'reject' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-gray-300">
+                <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
                   Motivo da Rejeição *
                 </label>
                 <textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Explique o motivo da rejeição"
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 h-24 text-white"
+                  className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 h-24 text-[var(--text-primary)]"
                   required
                 />
               </div>
             )}
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
                 Notas Administrativas
               </label>
               <textarea
                 value={approvalNotes}
                 onChange={(e) => setApprovalNotes(e.target.value)}
                 placeholder="Notas internas (opcional)"
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 h-20 text-white"
+                className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 h-20 text-[var(--text-primary)]"
               />
             </div>
 
@@ -1882,7 +1830,7 @@ export default function AdminRequestsPage() {
                   setRejectionReason('');
                   setColdwalletTxId('');
                 }}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
                 disabled={isProcessing}
               >
                 Cancelar
@@ -1893,11 +1841,9 @@ export default function AdminRequestsPage() {
                     handleWithdrawalApproval();
                   } else if (selectedApiRequest) {
                     handleApiRequestApproval();
-                  } else if (selectedCommerceApplication) {
-                    handleCommerceApplicationApproval();
                   }
                 }}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors text-white ${
+                className={`px-6 py-2 rounded-lg font-medium transition-colors text-[var(--text-primary)] ${
                   approvalAction === 'approve'
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-red-600 hover:bg-red-700'
@@ -1913,140 +1859,596 @@ export default function AdminRequestsPage() {
         </div>
       )}
 
-      {activeTab === 'commerce' && (
+      {/* Commissions Tab Content */}
+      {activeTab === 'commissions' && (
         <div className="space-y-6">
-          {/* Secondary Navigation for Commerce */}
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
+          {/* Secondary Navigation for Commissions */}
+          <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-lg p-2">
             <div className="flex space-x-2">
               <button
-                onClick={() => setCommerceView('pending')}
+                onClick={() => setCommissionView('pending')}
                 className={`px-4 py-2 rounded-md transition-all ${
-                  commerceView === 'pending'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                  commissionView === 'pending'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
                 }`}
               >
                 <Clock className="inline mr-2" size={16} />
-                Pendentes ({commerceApplications.length})
+                Pendentes ({commissions.length})
               </button>
               <button
-                onClick={() => setCommerceView('history')}
+                onClick={() => setCommissionView('history')}
                 className={`px-4 py-2 rounded-md transition-all ${
-                  commerceView === 'history'
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                  commissionView === 'history'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
                 }`}
               >
                 <History className="inline mr-2" size={16} />
                 Histórico
               </button>
             </div>
-            {commerceView === 'history' && (
+            {commissionView === 'history' && (
               <select
-                value={commerceStatusFilter}
-                onChange={(e) => {
-                  setCommerceStatusFilter(e.target.value as any);
-                  setCommerceCurrentPage(1);
-                }}
-                className="px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500"
+                value={commissionStatusFilter}
+                onChange={(e) => setCommissionStatusFilter(e.target.value as any)}
+                className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500"
               >
                 <option value="ALL">Todos os Status</option>
-                <option value="PENDING">Pendente</option>
-                <option value="UNDER_REVIEW">Em Análise</option>
-                <option value="APPROVED">Aprovado</option>
+                <option value="AVAILABLE">Disponível</option>
+                <option value="REQUESTED">Solicitado</option>
+                <option value="PROCESSING">Processando</option>
+                <option value="COMPLETED">Concluído</option>
                 <option value="REJECTED">Rejeitado</option>
-                <option value="DEPOSIT_PENDING">Aguardando Depósito</option>
-                <option value="ACTIVE">Ativo</option>
               </select>
             )}
           </div>
 
-          {commerceView === 'pending' && (
+          {commissionView === 'pending' && (
             <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Aplicações de Comércio Pendentes</h2>
+              <div className="px-6 py-4 border-b border-[var(--border-default)]">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Comissões Pendentes de Pagamento</h2>
+                <p className="text-[var(--text-muted)] text-sm mt-1">Saques de comissão do programa de indicação aguardando processamento</p>
+              </div>
+              {commissions.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Gift className="mx-auto text-[var(--text-muted)] mb-4" size={48} />
+                  <p className="text-[var(--text-muted)]">Nenhuma comissão pendente</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[var(--bg-card)]/50">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Indicador</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Indicado</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Valor</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Endereço Liquid</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Solicitado em</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-default)]">
+                      {commissions.map((commission) => (
+                        <tr key={commission.id} className="hover:bg-[var(--bg-elevated)]/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-[var(--text-primary)] font-medium">{commission.user?.username || 'N/A'}</span>
+                              <span className="text-[var(--text-muted)] text-sm">{commission.user?.email || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-[var(--text-secondary)]">{commission.referredUserEmail || 'N/A'}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(commission.amount)}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[var(--text-secondary)] font-mono text-xs truncate max-w-[200px]">
+                                {commission.liquidAddress || 'Não informado'}
+                              </span>
+                              {commission.liquidAddress && (
+                                <button
+                                  onClick={() => handleCopy(commission.liquidAddress)}
+                                  className="p-1 hover:bg-[var(--bg-elevated)] rounded"
+                                >
+                                  <Copy size={14} className="text-[var(--text-muted)]" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              commission.status === 'REQUESTED'
+                                ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                : commission.status === 'PROCESSING'
+                                ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400'
+                                : 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                            }`}>
+                              {commission.status === 'REQUESTED' ? 'Solicitado' :
+                               commission.status === 'PROCESSING' ? 'Processando' : commission.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-[var(--text-muted)] text-sm">
+                            {commission.requestedAt ? new Date(commission.requestedAt).toLocaleString('pt-BR') : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {commission.status === 'REQUESTED' && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCommission(commission);
+                                      setShowCommissionModal(true);
+                                    }}
+                                    className="p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                                    title="Aprovar"
+                                  >
+                                    <Check size={16} className="text-white" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCommission(commission);
+                                      setShowCommissionRejectModal(true);
+                                    }}
+                                    className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                                    title="Rejeitar"
+                                  >
+                                    <X size={16} className="text-white" />
+                                  </button>
+                                </>
+                              )}
+                              {commission.status === 'PROCESSING' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedCommission(commission);
+                                    setShowCommissionCompleteModal(true);
+                                  }}
+                                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white text-sm"
+                                >
+                                  Concluir
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {commissionView === 'history' && (
+            <div className="glass-card overflow-hidden">
+              <div className="px-6 py-4 border-b border-[var(--border-default)]">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Histórico de Comissões</h2>
+              </div>
+              {commissionHistory.length === 0 ? (
+                <div className="p-8 text-center">
+                  <History className="mx-auto text-[var(--text-muted)] mb-4" size={48} />
+                  <p className="text-[var(--text-muted)]">Nenhum histórico encontrado</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[var(--bg-card)]/50">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Indicador</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Indicado</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Valor</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">TX ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-default)]">
+                      {commissionHistory
+                        .filter(c => commissionStatusFilter === 'ALL' || c.status === commissionStatusFilter)
+                        .map((commission) => (
+                        <tr key={commission.id} className="hover:bg-[var(--bg-elevated)]/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-[var(--text-primary)] font-medium">{commission.user?.username || 'N/A'}</span>
+                              <span className="text-[var(--text-muted)] text-sm">{commission.user?.email || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-[var(--text-secondary)]">{commission.referredUserEmail || 'N/A'}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(commission.amount)}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              commission.status === 'COMPLETED'
+                                ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                                : commission.status === 'REJECTED'
+                                ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
+                                : commission.status === 'PROCESSING'
+                                ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400'
+                                : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                            }`}>
+                              {commission.status === 'COMPLETED' ? 'Concluído' :
+                               commission.status === 'REJECTED' ? 'Rejeitado' :
+                               commission.status === 'PROCESSING' ? 'Processando' :
+                               commission.status === 'REQUESTED' ? 'Solicitado' :
+                               commission.status === 'AVAILABLE' ? 'Disponível' : commission.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {commission.coldwalletTxId ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[var(--text-secondary)] font-mono text-xs truncate max-w-[150px]">
+                                  {commission.coldwalletTxId}
+                                </span>
+                                <button
+                                  onClick={() => handleCopy(commission.coldwalletTxId)}
+                                  className="p-1 hover:bg-[var(--bg-elevated)] rounded"
+                                >
+                                  <Copy size={14} className="text-[var(--text-muted)]" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[var(--text-muted)]">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-[var(--text-muted)] text-sm">
+                            {commission.updatedAt ? new Date(commission.updatedAt).toLocaleString('pt-BR') : 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Commission Approve Modal */}
+      {showCommissionModal && selectedCommission && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-hover)]">
+            <div className="p-6 border-b border-[var(--border-default)]">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)]">Aprovar Pagamento de Comissão</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Indicador:</span>
+                  <span className="text-[var(--text-primary)]">{selectedCommission.user?.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Valor:</span>
+                  <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(selectedCommission.amount)}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[var(--text-muted)]">Endereço Liquid:</span>
+                  <span className="text-[var(--text-primary)] font-mono text-sm break-all">{selectedCommission.liquidAddress}</span>
+                </div>
+              </div>
+              <p className="text-[var(--text-muted)] text-sm">
+                Ao aprovar, o status será alterado para &quot;Processando&quot;.
+                Após realizar o pagamento, clique em &quot;Concluir&quot; e informe o TX ID.
+              </p>
+            </div>
+            <div className="p-6 border-t border-[var(--border-default)] flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCommissionModal(false);
+                  setSelectedCommission(null);
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (selectedCommission) {
+                    await approveCommission(selectedCommission.id);
+                    setShowCommissionModal(false);
+                    setSelectedCommission(null);
+                  }
+                }}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? 'Aprovando...' : 'Aprovar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commission Reject Modal */}
+      {showCommissionRejectModal && selectedCommission && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-hover)]">
+            <div className="p-6 border-b border-[var(--border-default)]">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)]">Rejeitar Pagamento de Comissão</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Indicador:</span>
+                  <span className="text-[var(--text-primary)]">{selectedCommission.user?.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Valor:</span>
+                  <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(selectedCommission.amount)}</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  Motivo da rejeição *
+                </label>
+                <textarea
+                  value={commissionRejectReason}
+                  onChange={(e) => setCommissionRejectReason(e.target.value)}
+                  placeholder="Informe o motivo da rejeição..."
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-[var(--border-default)] flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCommissionRejectModal(false);
+                  setSelectedCommission(null);
+                  setCommissionRejectReason('');
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (selectedCommission && commissionRejectReason.trim()) {
+                    await rejectCommission(selectedCommission.id, commissionRejectReason);
+                    setShowCommissionRejectModal(false);
+                    setSelectedCommission(null);
+                    setCommissionRejectReason('');
+                  }
+                }}
+                disabled={isProcessing || !commissionRejectReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? 'Rejeitando...' : 'Rejeitar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commission Complete Modal */}
+      {showCommissionCompleteModal && selectedCommission && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-hover)]">
+            <div className="p-6 border-b border-[var(--border-default)]">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)]">Concluir Pagamento</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Indicador:</span>
+                  <span className="text-[var(--text-primary)]">{selectedCommission.user?.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Valor:</span>
+                  <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(selectedCommission.amount)}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[var(--text-muted)]">Endereço Liquid:</span>
+                  <span className="text-[var(--text-primary)] font-mono text-sm break-all">{selectedCommission.liquidAddress}</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  TX ID (Coldwallet) *
+                </label>
+                <input
+                  type="text"
+                  value={commissionTxId}
+                  onChange={(e) => setCommissionTxId(e.target.value)}
+                  placeholder="Informe o ID da transação..."
+                  className="w-full px-4 py-3 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-[var(--border-default)] flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCommissionCompleteModal(false);
+                  setSelectedCommission(null);
+                  setCommissionTxId('');
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (selectedCommission && commissionTxId.trim()) {
+                    await completeCommission(selectedCommission.id, commissionTxId);
+                    setShowCommissionCompleteModal(false);
+                    setSelectedCommission(null);
+                    setCommissionTxId('');
+                  }
+                }}
+                disabled={isProcessing || !commissionTxId.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? 'Concluindo...' : 'Concluir Pagamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== COLLATERAL TAB ==================== */}
+      {activeTab === 'collateral' && (
+        <div className="space-y-6">
+          {/* Secondary Navigation */}
+          <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-lg p-2">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCollateralView('pending')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  collateralView === 'pending'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
+                }`}
+              >
+                <Clock className="inline mr-2" size={16} />
+                Pendentes ({collateralWithdrawals.length})
+              </button>
+              <button
+                onClick={() => setCollateralView('history')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  collateralView === 'history'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
+                }`}
+              >
+                <History className="inline mr-2" size={16} />
+                Histórico
+              </button>
+            </div>
+            {collateralView === 'history' && (
+              <select
+                value={collateralStatusFilter}
+                onChange={(e) => setCollateralStatusFilter(e.target.value as any)}
+                className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">Todos os Status</option>
+                <option value="AWAITING_APPROVAL">Aguardando Aprovação</option>
+                <option value="APPROVED">Aprovado</option>
+                <option value="PROCESSING">Processando</option>
+                <option value="COMPLETED">Concluído</option>
+                <option value="REJECTED">Rejeitado</option>
+              </select>
+            )}
+          </div>
+
+          {/* Pending Collateral Withdrawals */}
+          {collateralView === 'pending' && (
+            <div className="glass-card overflow-hidden border-cyan-500/20">
+              <div className="px-6 py-4 border-b border-[var(--border-default)] bg-gradient-to-r from-cyan-500/10 to-transparent">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Gem className="text-cyan-600 dark:text-cyan-400" size={24} />
+                  Saques de Colateral Pendentes
+                </h2>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Usuário
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Nome do Negócio
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Valor
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Tipo de Negócio
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Carteira Liquid
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Volume Mensal
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Solicitado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={6} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Carregando...
                         </td>
                       </tr>
-                    ) : commerceApplications.length === 0 ? (
+                    ) : collateralWithdrawals.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                          Nenhuma aplicação de comércio pendente
+                        <td colSpan={6} className="px-6 py-8 text-center text-[var(--text-muted)]">
+                          Nenhum saque de colateral pendente
                         </td>
                       </tr>
                     ) : (
-                      commerceApplications.map((application) => (
-                        <tr key={application.id} className="hover:bg-gray-700/50">
+                      collateralWithdrawals.map((withdrawal) => (
+                        <tr key={withdrawal.id} className="hover:bg-[var(--bg-elevated)] transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{application.user.username}</p>
-                              <p className="text-sm text-gray-400">{application.user.email}</p>
+                            <div className="flex items-center">
+                              <User className="w-5 h-5 text-cyan-600 dark:text-cyan-400 mr-3" />
+                              <div>
+                                <div className="text-sm font-medium text-[var(--text-primary)]">
+                                  @{withdrawal.user?.username}
+                                </div>
+                                <div className="text-xs text-[var(--text-muted)]">
+                                  {withdrawal.user?.email}
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-white">{application.businessName}</p>
+                            <span className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+                              {formatCurrency(withdrawal.amount)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {withdrawal.liquidAddress && (
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs text-[var(--text-secondary)] bg-[var(--bg-card)] px-2 py-1 rounded max-w-[200px] truncate">
+                                  {withdrawal.liquidAddress}
+                                </code>
+                                <button
+                                  onClick={() => handleCopy(withdrawal.liquidAddress)}
+                                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                                  title="Copiar endereço"
+                                >
+                                  <Copy size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text-muted)]">
+                            {new Date(withdrawal.createdAt).toLocaleString('pt-BR')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-300">{application.productOrService}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-300">{application.monthlyPixSales}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              <p className="text-gray-300">{new Date(application.createdAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(application.createdAt).toLocaleTimeString('pt-BR')}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)} ${getStatusBgColor(application.status)}`}>
-                              {getStatusLabel(application.status)}
+                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
+                              Aguardando
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => {
-                                  setSelectedCommerceApplication(application);
-                                  setShowCommerceDetailsModal(true);
+                                  setSelectedCollateralWithdrawal(withdrawal);
+                                  setShowCollateralApproveModal(true);
                                 }}
-                                className="text-blue-400 hover:text-blue-300"
-                                title="Ver detalhes"
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
                               >
-                                <Eye size={18} />
+                                <Check size={14} />
+                                Aprovar
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedCollateralWithdrawal(withdrawal);
+                                  setShowCollateralRejectModal(true);
+                                }}
+                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                              >
+                                <X size={14} />
+                                Rejeitar
                               </button>
                             </div>
                           </td>
@@ -2059,117 +2461,136 @@ export default function AdminRequestsPage() {
             </div>
           )}
 
-          {commerceView === 'history' && (
-            <div className="glass-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-white">Histórico de Aplicações de Comércio</h2>
+          {/* Collateral History */}
+          {collateralView === 'history' && (
+            <div className="glass-card overflow-hidden border-cyan-500/20">
+              <div className="px-6 py-4 border-b border-[var(--border-default)] bg-gradient-to-r from-cyan-500/10 to-transparent">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <History className="text-cyan-600 dark:text-cyan-400" size={24} />
+                  Histórico de Saques de Colateral
+                </h2>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="table-modern">
-                  <thead className="bg-gray-700">
+                  <thead className="bg-[var(--bg-elevated)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Usuário
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Nome do Negócio
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Valor
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Status
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Carteira
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Solicitado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                         Processado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Depósito
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Detalhes
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        TX ID
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-700">
+                  <tbody className="divide-y divide-[var(--border-default)]">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
                           Carregando...
                         </td>
                       </tr>
-                    ) : commerceHistory.length === 0 ? (
+                    ) : collateralHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                          Nenhuma aplicação de comércio encontrada
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
+                          Nenhum registro encontrado
                         </td>
                       </tr>
                     ) : (
-                      commerceHistory.map((application) => (
-                        <tr key={application.id} className="hover:bg-gray-700/50">
+                      collateralHistory.map((withdrawal) => (
+                        <tr key={withdrawal.id} className="hover:bg-[var(--bg-elevated)] transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <p className="font-medium text-white">{application.user.username}</p>
-                              <p className="text-sm text-gray-400">{application.user.email}</p>
+                            <div className="text-sm font-medium text-[var(--text-primary)]">
+                              @{withdrawal.user?.username}
+                            </div>
+                            <div className="text-xs text-[var(--text-muted)]">
+                              {withdrawal.user?.email}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-white">{application.businessName}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)} ${getStatusBgColor(application.status)}`}>
-                              {getStatusLabel(application.status)}
+                            <span className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+                              {formatCurrency(withdrawal.amount)}
                             </span>
-                            {application.reviewNotes && (
-                              <p className="text-xs text-gray-400 mt-1" title={application.reviewNotes}>
-                                {application.reviewNotes.substring(0, 30)}...
-                              </p>
-                            )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              <p className="text-gray-300">{new Date(application.createdAt).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-gray-400">{new Date(application.createdAt).toLocaleTimeString('pt-BR')}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {application.reviewedAt ? (
-                              <div className="text-sm">
-                                <p className="text-gray-300">{new Date(application.reviewedAt).toLocaleDateString('pt-BR')}</p>
-                                <p className="text-gray-400">{new Date(application.reviewedAt).toLocaleTimeString('pt-BR')}</p>
+                          <td className="px-6 py-4">
+                            {withdrawal.liquidAddress && (
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs text-[var(--text-secondary)] bg-[var(--bg-card)] px-2 py-1 rounded max-w-[150px] truncate">
+                                  {withdrawal.liquidAddress}
+                                </code>
+                                <button
+                                  onClick={() => handleCopy(withdrawal.liquidAddress)}
+                                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                                >
+                                  <Copy size={14} />
+                                </button>
                               </div>
-                            ) : (
-                              <span className="text-gray-500 text-sm">-</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              {application.depositPaid ? (
-                                <span className="text-green-400">✓ Pago</span>
-                              ) : application.depositAmount ? (
-                                <span className="text-yellow-400">Pendente</span>
-                              ) : (
-                                <span className="text-gray-500">-</span>
-                              )}
-                              {application.depositAmount && (
-                                <p className="text-xs text-gray-400">{application.depositAmount} sats</p>
-                              )}
-                            </div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text-muted)]">
+                            {new Date(withdrawal.createdAt).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text-muted)]">
+                            {withdrawal.processedAt
+                              ? new Date(withdrawal.processedAt).toLocaleString('pt-BR')
+                              : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedCommerceApplication(application);
-                                  setShowCommerceDetailsModal(true);
-                                }}
-                                className="text-blue-400 hover:text-blue-300"
-                                title="Ver detalhes"
-                              >
-                                <Eye size={18} />
-                              </button>
-                            </div>
+                            {withdrawal.status === 'COMPLETED' && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-500/30">
+                                Concluído
+                              </span>
+                            )}
+                            {withdrawal.status === 'APPROVED' && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-500/30">
+                                Aprovado
+                              </span>
+                            )}
+                            {withdrawal.status === 'PROCESSING' && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30">
+                                Processando
+                              </span>
+                            )}
+                            {withdrawal.status === 'AWAITING_APPROVAL' && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
+                                Aguardando
+                              </span>
+                            )}
+                            {withdrawal.status === 'REJECTED' && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-500/30" title={withdrawal.adminNotes}>
+                                Rejeitado
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {withdrawal.coldwalletTxId && (
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs text-[var(--text-secondary)] bg-[var(--bg-card)] px-2 py-1 rounded max-w-[100px] truncate">
+                                  {withdrawal.coldwalletTxId}
+                                </code>
+                                <button
+                                  onClick={() => handleCopy(withdrawal.coldwalletTxId)}
+                                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                                >
+                                  <Copy size={14} />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -2182,757 +2603,166 @@ export default function AdminRequestsPage() {
         </div>
       )}
 
-      {/* Commerce Application Details Modal */}
-      {showCommerceDetailsModal && selectedCommerceApplication && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
-          <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
-              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10 rounded-t-xl">
-                <h2 className="text-2xl font-bold text-white">Detalhes da Aplicação de Comércio</h2>
-              </div>
-
-              <div className="p-6 overflow-y-auto">
-                <div className="space-y-6">
-                  {/* User Info */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Usuário</h3>
-                    <div className="flex items-center gap-2">
-                      <p className="text-white">Username: {selectedCommerceApplication.user.username}</p>
-                      <button onClick={() => handleCopy(selectedCommerceApplication.user.username)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-gray-300">Email: {selectedCommerceApplication.user.email}</p>
-                      <button onClick={() => handleCopy(selectedCommerceApplication.user.email)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-gray-300">ID: {selectedCommerceApplication.userId}</p>
-                      <button onClick={() => handleCopy(selectedCommerceApplication.userId)} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Business Info */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Negócio</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">Nome do Negócio:</p>
-                          {selectedCommerceApplication.businessName?.trim() && (
-                            <button onClick={() => handleCopy(selectedCommerceApplication.businessName?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                              <Copy size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.businessName?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.businessName?.length && selectedCommerceApplication.businessName.length < 10 && (
-                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">Produto ou Serviço:</p>
-                          {selectedCommerceApplication.productOrService?.trim() && (
-                            <button onClick={() => handleCopy(selectedCommerceApplication.productOrService?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                              <Copy size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.productOrService?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.productOrService?.length && selectedCommerceApplication.productOrService.length < 10 && (
-                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">Valores Médios:</p>
-                          {selectedCommerceApplication.averagePrices?.trim() && (
-                            <button onClick={() => handleCopy(selectedCommerceApplication.averagePrices?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                              <Copy size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.averagePrices?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.averagePrices?.length && selectedCommerceApplication.averagePrices.length < 10 && (
-                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">Volume Mensal de Vendas via Pix:</p>
-                          {selectedCommerceApplication.monthlyPixSales?.trim() && (
-                            <button onClick={() => handleCopy(selectedCommerceApplication.monthlyPixSales?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                              <Copy size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.monthlyPixSales?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.monthlyPixSales?.length && selectedCommerceApplication.monthlyPixSales.length < 10 && (
-                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">Tempo de Mercado:</p>
-                          {selectedCommerceApplication.marketTime?.trim() && (
-                            <button onClick={() => handleCopy(selectedCommerceApplication.marketTime?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                              <Copy size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-gray-300 break-words">
-                          {selectedCommerceApplication.marketTime?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                          {selectedCommerceApplication.marketTime?.length && selectedCommerceApplication.marketTime.length < 10 && (
-                            <span className="text-yellow-400 text-xs ml-2">⚠️ Resposta muito curta</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Grupos, Comunidades ou Páginas de Referência:</p>
-                        {selectedCommerceApplication.references?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.references?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-blue-500">
-                        <p className="text-gray-300 break-words whitespace-pre-wrap">
-                          {selectedCommerceApplication.references?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                        </p>
-                        {selectedCommerceApplication.references && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            {selectedCommerceApplication.references.length} caracteres
-                            {selectedCommerceApplication.references.length < 10 && (
-                              <span className="text-yellow-400 ml-2">⚠️ Resposta muito curta</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Taxa de Reembolso:</p>
-                        {selectedCommerceApplication.refundRate?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.refundRate?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-gray-300 break-words">
-                        {selectedCommerceApplication.refundRate?.trim() ||
-                          <span className="text-red-400 italic">Não informado</span>}
-                      </p>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Processo de Reembolso e Disputas (MEDs):</p>
-                        {selectedCommerceApplication.refundProcess?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.refundProcess?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-purple-500">
-                        <p className="text-gray-300 break-words whitespace-pre-wrap">
-                          {selectedCommerceApplication.refundProcess?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Comprovação de Propriedade do Negócio:</p>
-                        {selectedCommerceApplication.businessProof?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.businessProof?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-green-500">
-                        <p className="text-gray-300 break-words whitespace-pre-wrap">
-                          {selectedCommerceApplication.businessProof?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Contato (Telegram/SimpleX):</p>
-                        {selectedCommerceApplication.contactInfo?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.contactInfo?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-gray-300 break-words">
-                        {selectedCommerceApplication.contactInfo?.trim() ||
-                          <span className="text-red-400 italic">Não informado</span>}
-                      </p>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-medium">Objetivo do Negócio:</p>
-                        {selectedCommerceApplication.businessObjective?.trim() && (
-                          <button onClick={() => handleCopy(selectedCommerceApplication.businessObjective?.trim())} className="text-gray-400 hover:text-white transition-colors" title="Copiar">
-                            <Copy size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-1 p-3 bg-gray-800/50 rounded border-l-4 border-green-500">
-                        <p className="text-gray-300 break-words whitespace-pre-wrap">
-                          {selectedCommerceApplication.businessObjective?.trim() ||
-                            <span className="text-red-400 italic">Não informado</span>}
-                        </p>
-                        {selectedCommerceApplication.businessObjective && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            {selectedCommerceApplication.businessObjective.length} caracteres
-                            {selectedCommerceApplication.businessObjective.length < 50 && (
-                              <span className="text-yellow-400 ml-2">⚠️ Descrição muito curta</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status Info */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Status da Aplicação</h3>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedCommerceApplication.status)} ${getStatusBgColor(selectedCommerceApplication.status)}`}>
-                        {getStatusLabel(selectedCommerceApplication.status)}
-                      </span>
-                    </div>
-                    {selectedCommerceApplication.reviewNotes && (
-                      <div className="mt-2">
-                        <p className="text-white font-medium">Notas da Revisão:</p>
-                        <p className="text-gray-300">{selectedCommerceApplication.reviewNotes}</p>
-                      </div>
-                    )}
-                    {selectedCommerceApplication.rejectionReason && (
-                      <div className="mt-2">
-                        <p className="text-white font-medium">Motivo da Rejeição:</p>
-                        <p className="text-red-400">{selectedCommerceApplication.rejectionReason}</p>
-                      </div>
-                    )}
-                    {selectedCommerceApplication.reviewedBy && (
-                      <div className="mt-2">
-                        <p className="text-white font-medium">Revisado por:</p>
-                        <p className="text-gray-300">{selectedCommerceApplication.reviewedBy}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Deposit Info */}
-                  {selectedCommerceApplication.depositAmount && (
-                    <div className="p-4 bg-gray-700/50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Depósito</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-white font-medium">Valor do Depósito:</p>
-                          <p className="text-gray-300">{selectedCommerceApplication.depositAmount} satoshis</p>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">Status do Depósito:</p>
-                          <p className={selectedCommerceApplication.depositPaid ? "text-green-400" : "text-yellow-400"}>
-                            {selectedCommerceApplication.depositPaid ? "Pago" : "Pendente"}
-                          </p>
-                        </div>
-                      </div>
-                      {selectedCommerceApplication.depositPaidAt && (
-                        <div className="mt-2">
-                          <p className="text-white font-medium">Data do Pagamento:</p>
-                          <p className="text-gray-300">{new Date(selectedCommerceApplication.depositPaidAt).toLocaleString('pt-BR')}</p>
-                        </div>
-                      )}
-
-                      {/* Mark Deposit Paid Button - Only show if status is DEPOSIT_PENDING and not paid */}
-                      {selectedCommerceApplication.status === 'DEPOSIT_PENDING' && !selectedCommerceApplication.depositPaid && (
-                        <div className="mt-4 pt-4 border-t border-gray-600">
-                          <button
-                            onClick={() => handleMarkDepositPaid(selectedCommerceApplication.id)}
-                            disabled={isProcessing}
-                            className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                          >
-                            {isProcessing ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                Processando...
-                              </>
-                            ) : (
-                              <>
-                                <Check size={18} />
-                                Marcar Depósito como Pago
-                              </>
-                            )}
-                          </button>
-                          <p className="text-xs text-gray-400 mt-2 text-center">
-                            Isso ativará automaticamente o modo comércio para o usuário
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Commerce Activity */}
-                  {selectedCommerceApplication.status === 'ACTIVE' && (
-                    <div className="p-4 bg-gray-700/50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Atividade Comercial</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-white font-medium">Transações:</p>
-                          <p className="text-gray-300">{selectedCommerceApplication.transactionCount}</p>
-                        </div>
-                        {selectedCommerceApplication.commerceActivatedAt && (
-                          <div>
-                            <p className="text-white font-medium">Ativado em:</p>
-                            <p className="text-gray-300">{new Date(selectedCommerceApplication.commerceActivatedAt).toLocaleString('pt-BR')}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dates */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Datas</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-white font-medium">Criado:</p>
-                        <p className="text-gray-300">{new Date(selectedCommerceApplication.createdAt).toLocaleString('pt-BR')}</p>
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Atualizado:</p>
-                        <p className="text-gray-300">{new Date(selectedCommerceApplication.updatedAt).toLocaleString('pt-BR')}</p>
-                      </div>
-                      {selectedCommerceApplication.reviewedAt && (
-                        <div>
-                          <p className="text-white font-medium">Revisado:</p>
-                          <p className="text-gray-300">{new Date(selectedCommerceApplication.reviewedAt).toLocaleString('pt-BR')}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons for Pending Applications */}
-                  {selectedCommerceApplication.status === 'PENDING' && (
-                    <div className="flex gap-4 pt-4 border-t border-gray-700">
-                      <button
-                        onClick={() => {
-                          setShowCommerceDetailsModal(false);
-                          openCommerceApplicationApproval(selectedCommerceApplication, 'approve');
-                        }}
-                        className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        Aprovar Aplicação
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowCommerceDetailsModal(false);
-                          openCommerceApplicationApproval(selectedCommerceApplication, 'reject');
-                        }}
-                        className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        Rejeitar Aplicação
-                      </button>
-                    </div>
-                  )}
+      {/* Collateral Approve Modal */}
+      {showCollateralApproveModal && selectedCollateralWithdrawal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-cyan-500/30">
+            <div className="p-6 border-b border-[var(--border-default)] bg-gradient-to-r from-cyan-500/10 to-transparent">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
+                Aprovar Saque de Colateral
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Usuário:</span>
+                  <span className="text-[var(--text-primary)]">@{selectedCollateralWithdrawal.user?.username}</span>
                 </div>
-
-                <div className="flex justify-end mt-6 pt-4 border-t border-gray-700">
-                  <button
-                    onClick={() => {
-                      setShowCommerceDetailsModal(false);
-                      setSelectedCommerceApplication(null);
-                    }}
-                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-white"
-                  >
-                    Fechar
-                  </button>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Valor:</span>
+                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{formatCurrency(selectedCollateralWithdrawal.amount)}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[var(--text-muted)]">Carteira Liquid:</span>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[var(--text-primary)] font-mono text-sm break-all bg-[var(--bg-elevated)] px-2 py-1 rounded">
+                      {selectedCollateralWithdrawal.liquidAddress}
+                    </code>
+                    <button
+                      onClick={() => handleCopy(selectedCollateralWithdrawal.liquidAddress)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
+                    >
+                      <Copy size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  TX ID (Coldwallet)
+                </label>
+                <input
+                  type="text"
+                  value={collateralTxId}
+                  onChange={(e) => setCollateralTxId(e.target.value)}
+                  placeholder="Informe o ID da transação (opcional)..."
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  Notas do Admin
+                </label>
+                <textarea
+                  value={collateralAdminNotes}
+                  onChange={(e) => setCollateralAdminNotes(e.target.value)}
+                  placeholder="Notas internas (opcional)..."
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500"
+                  rows={2}
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-[var(--border-default)] flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCollateralApproveModal(false);
+                  setSelectedCollateralWithdrawal(null);
+                  setCollateralTxId('');
+                  setCollateralAdminNotes('');
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => approveCollateralWithdrawal(
+                  selectedCollateralWithdrawal.id,
+                  collateralTxId || undefined,
+                  collateralAdminNotes || undefined
+                )}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? 'Aprovando...' : 'Aprovar Saque'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {activeTab === 'donations' && (
-        <div className="space-y-6">
-          {/* Secondary Navigation for Donations */}
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
-            <div className="flex space-x-2">
+      {/* Collateral Reject Modal */}
+      {showCollateralRejectModal && selectedCollateralWithdrawal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-red-500/30">
+            <div className="p-6 border-b border-[var(--border-default)]">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <XCircle className="text-red-600 dark:text-red-400" size={24} />
+                Rejeitar Saque de Colateral
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[var(--bg-elevated)] p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Usuário:</span>
+                  <span className="text-[var(--text-primary)]">@{selectedCollateralWithdrawal.user?.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Valor:</span>
+                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{formatCurrency(selectedCollateralWithdrawal.amount)}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-lg">
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  ⚠️ Ao rejeitar, o valor será restaurado ao colateral do usuário.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  Motivo da rejeição *
+                </label>
+                <textarea
+                  value={collateralRejectReason}
+                  onChange={(e) => setCollateralRejectReason(e.target.value)}
+                  placeholder="Informe o motivo da rejeição..."
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-red-500"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-[var(--border-default)] flex justify-end gap-3">
               <button
-                onClick={() => setDonationView('pending')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  donationView === 'pending'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                }`}
+                onClick={() => {
+                  setShowCollateralRejectModal(false);
+                  setSelectedCollateralWithdrawal(null);
+                  setCollateralRejectReason('');
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
               >
-                Pendentes
+                Cancelar
               </button>
               <button
-                onClick={() => setDonationView('history')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  donationView === 'history'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                }`}
+                onClick={() => rejectCollateralWithdrawal(
+                  selectedCollateralWithdrawal.id,
+                  collateralRejectReason
+                )}
+                disabled={isProcessing || !collateralRejectReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
-                Histórico
+                {isProcessing ? 'Rejeitando...' : 'Rejeitar Saque'}
               </button>
-            </div>
-
-            {donationView === 'history' && (
-              <div className="flex items-center space-x-4">
-                <select
-                  value={donationStatusFilter}
-                  onChange={(e) => setDonationStatusFilter(e.target.value as 'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED')}
-                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
-                >
-                  <option value="ALL">Todos</option>
-                  <option value="PENDING">Pendente</option>
-                  <option value="CONFIRMED">Confirmada</option>
-                  <option value="REJECTED">Rejeitada</option>
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Donations Content */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {donationView === 'pending' && (
-                <>
-                  {donations.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Heart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">Nenhuma doação pendente</h3>
-                      <p className="text-gray-400">Não há doações aguardando aprovação no momento.</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4">
-                      {donations.map((donation) => (
-                        <div key={donation.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <User className="text-blue-400" size={20} />
-                                <div>
-                                  <p className="text-white font-medium">
-                                    {donation.user?.username || donation.donorName || 'Doador Anônimo'}
-                                  </p>
-                                  {donation.user?.email && (
-                                    <p className="text-gray-400 text-sm">{donation.user.email}</p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                  <p className="text-gray-400 text-sm">Valor</p>
-                                  <p className="text-white font-semibold">
-                                    {formatCurrency(donation.amount)} ({donation.paymentMethod})
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-400 text-sm">Data</p>
-                                  <p className="text-white">
-                                    {new Date(donation.createdAt).toLocaleString('pt-BR')}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {donation.message && (
-                                <div className="mb-4">
-                                  <p className="text-gray-400 text-sm">Mensagem</p>
-                                  <p className="text-gray-300 bg-gray-700/50 rounded-lg p-3">
-                                    {donation.message}
-                                  </p>
-                                </div>
-                              )}
-
-                              {donation.transactionId && (
-                                <div className="mb-4">
-                                  <p className="text-gray-400 text-sm">ID da Transação</p>
-                                  <p className="text-gray-300 font-mono text-sm">{donation.transactionId}</p>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex space-x-2 ml-4">
-                              <button
-                                onClick={() => approveDonation(donation.id)}
-                                disabled={isProcessing}
-                                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                              >
-                                <Check size={16} />
-                                Aprovar
-                              </button>
-                              <button
-                                onClick={() => rejectDonation(donation.id)}
-                                disabled={isProcessing}
-                                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                              >
-                                <X size={16} />
-                                Rejeitar
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {donationView === 'history' && (
-                <>
-                  {donationHistory.length === 0 ? (
-                    <div className="text-center py-12">
-                      <History className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-300 mb-2">Nenhuma doação no histórico</h3>
-                      <p className="text-gray-400">Não há doações processadas com os filtros atuais.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-700">
-                          <thead className="bg-gray-700">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Doador
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Valor
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Método
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Status
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Data
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                                Ações
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-gray-800 divide-y divide-gray-700">
-                            {donationHistory.map((donation) => (
-                              <tr key={donation.id} className="hover:bg-gray-700">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <User className="text-blue-400 mr-3" size={16} />
-                                    <div>
-                                      <div className="text-sm font-medium text-white">
-                                        {donation.user?.username || donation.donorName || 'Doador Anônimo'}
-                                      </div>
-                                      {donation.user?.email && (
-                                        <div className="text-sm text-gray-400">{donation.user.email}</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-white">{formatCurrency(donation.amount)}</div>
-                                  <div className="text-sm text-gray-400">{donation.currency}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-white">{donation.paymentMethod}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    donation.status === 'CONFIRMED'
-                                      ? 'bg-green-100 text-green-800'
-                                      : donation.status === 'REJECTED'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {donation.status === 'CONFIRMED' ? 'Confirmada' :
-                                     donation.status === 'REJECTED' ? 'Rejeitada' : 'Pendente'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-white">
-                                    {new Date(donation.createdAt).toLocaleDateString('pt-BR')}
-                                  </div>
-                                  <div className="text-sm text-gray-400">
-                                    {new Date(donation.createdAt).toLocaleTimeString('pt-BR')}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedDonation(donation);
-                                        setShowDonationDetailsModal(true);
-                                      }}
-                                      className="text-blue-400 hover:text-blue-300"
-                                      title="Ver detalhes"
-                                    >
-                                      <Eye size={18} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Donation Details Modal */}
-      {showDonationDetailsModal && selectedDonation && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-start justify-center z-50 overflow-y-auto">
-          <div className="min-h-screen w-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col">
-              <div className="sticky top-0 bg-gray-900 px-6 pt-6 pb-4 border-b border-gray-700 z-10 rounded-t-xl">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-white">Detalhes da Doação</h2>
-                  <button
-                    onClick={() => {
-                      setShowDonationDetailsModal(false);
-                      setSelectedDonation(null);
-                    }}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6 overflow-y-auto">
-                <div className="space-y-6">
-                  {/* Donor Info */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Informações do Doador</h3>
-                    <p className="text-white">Nome: {selectedDonation.user?.username || selectedDonation.donorName || 'Doador Anônimo'}</p>
-                    {selectedDonation.user?.email && (
-                      <p className="text-gray-300">Email: {selectedDonation.user.email}</p>
-                    )}
-                    {selectedDonation.user?.id && (
-                      <p className="text-gray-300">ID: {selectedDonation.user.id}</p>
-                    )}
-                  </div>
-
-                  {/* Donation Details */}
-                  <div className="p-4 bg-gray-700/50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Detalhes da Doação</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-white font-medium">Valor:</p>
-                        <p className="text-gray-300">{formatCurrency(selectedDonation.amount)} {selectedDonation.currency}</p>
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Método de Pagamento:</p>
-                        <p className="text-gray-300">{selectedDonation.paymentMethod}</p>
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Status:</p>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          selectedDonation.status === 'CONFIRMED'
-                            ? 'bg-green-100 text-green-800'
-                            : selectedDonation.status === 'REJECTED'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {selectedDonation.status === 'CONFIRMED' ? 'Confirmada' :
-                           selectedDonation.status === 'REJECTED' ? 'Rejeitada' : 'Pendente'}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Data:</p>
-                        <p className="text-gray-300">{new Date(selectedDonation.createdAt).toLocaleString('pt-BR')}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Message */}
-                  {selectedDonation.message && (
-                    <div className="p-4 bg-gray-700/50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Mensagem</h3>
-                      <p className="text-gray-300 whitespace-pre-wrap">{selectedDonation.message}</p>
-                    </div>
-                  )}
-
-                  {/* Transaction ID */}
-                  {selectedDonation.transactionId && (
-                    <div className="p-4 bg-gray-700/50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">ID da Transação</h3>
-                      <p className="text-gray-300 font-mono text-sm break-all">{selectedDonation.transactionId}</p>
-                    </div>
-                  )}
-
-                  {/* Confirmation Date */}
-                  {selectedDonation.confirmedAt && (
-                    <div className="p-4 bg-gray-700/50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">Data de Confirmação</h3>
-                      <p className="text-gray-300">{new Date(selectedDonation.confirmedAt).toLocaleString('pt-BR')}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="sticky bottom-0 bg-gray-900 px-6 py-4 border-t border-gray-700 rounded-b-xl">
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      setShowDonationDetailsModal(false);
-                      setSelectedDonation(null);
-                    }}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mt-8">
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Saques Pendentes</p>
-              <p className="text-2xl font-bold text-white">{withdrawals.length}</p>
+              <p className="text-sm text-[var(--text-muted)]">Saques Pendentes</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{withdrawals.length}</p>
             </div>
             <Clock className="text-yellow-500" size={24} />
           </div>
@@ -2941,8 +2771,8 @@ export default function AdminRequestsPage() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">API Keys Pendentes</p>
-              <p className="text-2xl font-bold text-white">{apiRequests.length}</p>
+              <p className="text-sm text-[var(--text-muted)]">API Keys Pendentes</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{apiRequests.length}</p>
             </div>
             <Clock className="text-blue-500" size={24} />
           </div>
@@ -2951,30 +2781,20 @@ export default function AdminRequestsPage() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Comércio Pendente</p>
-              <p className="text-2xl font-bold text-white">{commerceApplications.length}</p>
+              <p className="text-sm text-[var(--text-muted)]">Comissões Pendentes</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{commissions.length}</p>
             </div>
-            <Store className="text-green-500" size={24} />
+            <Gift className="text-[var(--accent)]" size={24} />
           </div>
         </div>
 
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Doações Pendentes</p>
-              <p className="text-2xl font-bold text-white">{donations.length}</p>
+              <p className="text-sm text-[var(--text-muted)]">Colateral Pendente</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{collateralWithdrawals.length}</p>
             </div>
-            <Heart className="text-red-500" size={24} />
-          </div>
-        </div>
-
-        <div className="stat-card col-span-full">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Total Pendente</p>
-              <p className="text-2xl font-bold text-white">{withdrawals.length + apiRequests.length + commerceApplications.length + donations.length}</p>
-            </div>
-            <FileText className="text-purple-500" size={24} />
+            <Gem className="text-cyan-500" size={24} />
           </div>
         </div>
       </div>

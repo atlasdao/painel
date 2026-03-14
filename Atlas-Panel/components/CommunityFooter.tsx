@@ -8,7 +8,7 @@ export default function CommunityFooter() {
           href="https://t.me/atlasdao_comunidade"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         >
           <svg
             className="w-3.5 h-3.5"

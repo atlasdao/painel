@@ -222,7 +222,10 @@ export class EulenClientService {
 				'Limite de taxa do Eulen API excedido. Tente novamente em alguns minutos.',
 				HttpStatus.TOO_MANY_REQUESTS,
 			);
-		} else if (status >= 500 || status === 520) {
+		} else if (status === 520 && eulenErrorMessage) {
+			// Status 520 with error message = business logic error from Eulen, pass through
+			throw new HttpException(eulenErrorMessage, HttpStatus.BAD_REQUEST);
+		} else if (status >= 500) {
 			throw new HttpException(
 				'Serviço Eulen temporariamente indisponível. Tente novamente em alguns minutos.',
 				HttpStatus.SERVICE_UNAVAILABLE,
@@ -438,30 +441,87 @@ export class EulenClientService {
 
 	// Legacy methods for compatibility - will map to real Eulen endpoints
 
+	/**
+	 * Create a withdraw (DePix to PIX conversion)
+	 * Sends DePix tokens and pays out via PIX to the specified key
+	 */
 	async createWithdraw(data: {
-		amount: number;
 		pixKey: string;
-		description?: string;
-	}): Promise<any> {
-		// Withdraw would be DePix to PIX (reverse of deposit)
-		// This endpoint may not exist yet in Eulen API
-		this.logger.warn('Withdraw endpoint not yet available in Eulen API');
-		return {
-			transactionId: `withdraw-${Date.now()}`,
-			status: 'PENDING',
-			amount: data.amount,
-			pixKey: data.pixKey,
-			message: 'Withdraw functionality coming soon',
-		};
+		payoutAmountInCents: number;
+	}): Promise<{
+		withdrawalId: string;
+		depositAddress: string;
+		depositAmountInCents: number;
+		payoutAmountInCents: number;
+	}> {
+		return this.rateLimiter.executeWithRateLimit('withdraw', async () => {
+			try {
+				this.logger.log(`💸 CREATING EULEN WITHDRAW`);
+				this.logger.log(`🔑 PIX Key: ${data.pixKey}`);
+				this.logger.log(`💵 Payout Amount (cents): ${data.payoutAmountInCents}`);
+
+				const response = await this.client.post('/withdraw', {
+					pixKey: data.pixKey,
+					payoutAmountInCents: data.payoutAmountInCents,
+				});
+
+				const result = response.data?.response || response.data;
+
+				this.logger.log(`✅ WITHDRAW CREATION SUCCESS`);
+				this.logger.log(`📋 Withdrawal ID: ${result.withdrawalId || result.id}`);
+				this.logger.log(`🏦 Deposit Address: ${result.depositAddress}`);
+				this.logger.log(`💰 Deposit Amount (cents): ${result.depositAmountInCents}`);
+
+				return {
+					withdrawalId: result.withdrawalId || result.id,
+					depositAddress: result.depositAddress,
+					depositAmountInCents: result.depositAmountInCents,
+					payoutAmountInCents: result.payoutAmountInCents || data.payoutAmountInCents,
+				};
+			} catch (error) {
+				this.logger.error(`❌ Eulen API createWithdraw failed: ${error.message}`);
+				throw error;
+			}
+		});
 	}
 
-	async getWithdrawStatus(transactionId: string): Promise<any> {
-		this.logger.warn('Withdraw status endpoint not yet available');
-		return {
-			transactionId,
-			status: 'PENDING',
-			message: 'Withdraw status check coming soon',
-		};
+	/**
+	 * Get withdraw status from Eulen
+	 * Returns current status and receipt data when completed
+	 */
+	async getWithdrawStatus(withdrawalId: string): Promise<{
+		status: string;
+		receiptUrl?: string;
+		payerName?: string;
+		payerTaxNumber?: string;
+		bankTxId?: string;
+		paidAt?: string;
+	}> {
+		return this.rateLimiter.executeWithRateLimit('withdraw-status', async () => {
+			try {
+				this.logger.log(`🔍 CHECKING WITHDRAW STATUS: ${withdrawalId}`);
+
+				const response = await this.client.get('/withdraw-status', {
+					params: { id: withdrawalId },
+				});
+
+				const result = response.data?.response || response.data;
+
+				this.logger.log(`📊 WITHDRAW STATUS: ${result.status}`);
+
+				return {
+					status: result.status,
+					receiptUrl: result.receiptUrl,
+					payerName: result.payerName,
+					payerTaxNumber: result.payerTaxNumber,
+					bankTxId: result.bankTxId,
+					paidAt: result.paidAt,
+				};
+			} catch (error) {
+				this.logger.error(`❌ Eulen API getWithdrawStatus failed: ${error.message}`);
+				throw error;
+			}
+		});
 	}
 
 	async getBalance(): Promise<any> {

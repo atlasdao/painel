@@ -74,7 +74,7 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 			try {
 				setContext(JSON.parse(savedContext));
 			} catch {
-				// Contexto inválido, usar padrão
+				// Contexto invalido, usar padrao
 			}
 		}
 	}
@@ -87,7 +87,6 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 			setContext(result.context);
 			setIsOpen(false);
 			onAccountSwitch?.();
-			// Recarregar a página para aplicar novo contexto
 			window.location.reload();
 		} catch (err) {
 			console.error('Erro ao trocar conta:', err);
@@ -106,13 +105,12 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 			onAccountSwitch?.();
 			window.location.reload();
 		} catch (err) {
-			console.error('Erro ao voltar para conta própria:', err);
+			console.error('Erro ao voltar para conta propria:', err);
 		} finally {
 			setSwitching(false);
 		}
 	}
 
-	// Se não tiver colaborações, não mostrar o switcher
 	if (!loading && (!accounts?.collaborations || accounts.collaborations.length === 0)) {
 		return null;
 	}
@@ -140,8 +138,8 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 				disabled={loading || switching}
 				className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
 					isCollaborating
-						? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30'
-						: 'bg-gray-700/50 border border-gray-600 text-gray-300 hover:bg-gray-700'
+						? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/15'
+						: 'bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
 				}`}
 			>
 				{loading ? (
@@ -172,48 +170,46 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 				ReactDOM.createPortal(
 					<div
 						ref={dropdownRef}
-						className="fixed bg-gray-800/95 backdrop-blur-xl rounded-lg shadow-2xl border border-gray-700/50 py-2 w-64"
+						className="fixed bg-[var(--bg-card)] rounded-xl shadow-lg border border-[var(--border-default)] py-1 w-64"
 						style={{
 							top: buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + 8 : 0,
 							left: buttonRef.current ? buttonRef.current.getBoundingClientRect().left : 0,
 							zIndex: 2147483647,
 						}}
 					>
-						<div className="px-3 py-2 border-b border-gray-700/50">
-							<p className="text-xs text-gray-400 uppercase tracking-wider">Trocar conta</p>
+						<div className="px-3 py-2 border-b border-[var(--border-default)]">
+							<p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Trocar conta</p>
 						</div>
 
-						{/* Conta própria */}
 						{accounts && (
 							<button
 								onClick={() => isCollaborating ? switchToOwn() : setIsOpen(false)}
 								disabled={switching}
 								className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
 									!isCollaborating
-										? 'bg-purple-500/20 text-purple-400'
-										: 'text-gray-300 hover:bg-gray-700/50'
+										? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+										: 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
 								}`}
 							>
-								<div className="w-8 h-8 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-400 text-sm font-semibold">
+								<div className="w-8 h-8 rounded-full bg-[var(--accent-soft)] flex items-center justify-center text-[var(--accent)] text-sm font-semibold">
 									{accounts.ownAccount.username.charAt(0).toUpperCase()}
 								</div>
 								<div className="flex-1 min-w-0">
 									<p className="text-sm font-medium truncate">{accounts.ownAccount.username}</p>
-									<p className="text-xs text-gray-500">Minha conta</p>
+									<p className="text-xs text-[var(--text-muted)]">Minha conta</p>
 								</div>
 								{!isCollaborating && (
-									<svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg className="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
 									</svg>
 								)}
 							</button>
 						)}
 
-						{/* Colaborações */}
 						{accounts?.collaborations && accounts.collaborations.length > 0 && (
 							<>
-								<div className="px-3 py-2 border-t border-gray-700/50 mt-1">
-									<p className="text-xs text-gray-500">Contas que tenho acesso</p>
+								<div className="px-3 py-2 border-t border-[var(--border-default)] mt-1">
+									<p className="text-xs text-[var(--text-muted)]">Contas que tenho acesso</p>
 								</div>
 								{accounts.collaborations.map((collab) => (
 									<button
@@ -222,19 +218,19 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 										disabled={switching}
 										className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
 											context?.collaboratorId === collab.collaboratorId
-												? 'bg-yellow-500/20 text-yellow-400'
-												: 'text-gray-300 hover:bg-gray-700/50'
+												? 'bg-yellow-500/10 text-yellow-500'
+												: 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
 										}`}
 									>
-										<div className="w-8 h-8 rounded-full bg-gray-600/50 flex items-center justify-center text-gray-400 text-sm font-semibold">
+										<div className="w-8 h-8 rounded-full bg-[var(--bg-elevated)] flex items-center justify-center text-[var(--text-muted)] text-sm font-semibold">
 											{collab.username.charAt(0).toUpperCase()}
 										</div>
 										<div className="flex-1 min-w-0">
 											<p className="text-sm font-medium truncate">{collab.username}</p>
-											<p className="text-xs text-gray-500">{getRoleLabel(collab.role)}</p>
+											<p className="text-xs text-[var(--text-muted)]">{getRoleLabel(collab.role)}</p>
 										</div>
 										{context?.collaboratorId === collab.collaboratorId && (
-											<svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
 											</svg>
 										)}
@@ -244,8 +240,8 @@ export default function AccountSwitcher({ currentUser, onAccountSwitch }: Accoun
 						)}
 
 						{switching && (
-							<div className="absolute inset-0 bg-gray-800/80 flex items-center justify-center rounded-lg">
-								<div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+							<div className="absolute inset-0 bg-[var(--bg-card)]/80 flex items-center justify-center rounded-xl">
+								<div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
 							</div>
 						)}
 					</div>,

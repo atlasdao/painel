@@ -246,14 +246,20 @@ export const authService = {
     return response.data;
   },
 
-  async register(username: string, email: string, password: string): Promise<AuthResponse> {
-    console.log('[Auth] Register attempt for:', email);
+  async register(username: string, email: string, password: string, referralCode?: string): Promise<AuthResponse> {
+    console.log('[Auth] Register attempt for:', email, referralCode ? `with referral: ${referralCode}` : '');
 
-    const response = await api.post<any>('/auth/register', {
+    const payload: any = {
       username,
       email,
       password,
-    });
+    };
+
+    if (referralCode) {
+      payload.referralCode = referralCode;
+    }
+
+    const response = await api.post<any>('/auth/register', payload);
     // Handle both camelCase (backend) and snake_case field names
     const accessToken = response.data.accessToken || response.data.access_token;
     const user = response.data.user;
@@ -302,6 +308,11 @@ export const authService = {
 
   async logout(): Promise<void> {
     console.log('[Auth] Logout initiated');
+
+    // Signal wallet to lock before logout
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('atlas-wallet-lock'));
+    }
 
     try {
       await api.post('/auth/logout');

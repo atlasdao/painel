@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authService } from '@/app/lib/auth';
 import toast, { Toaster } from 'react-hot-toast';
-import { Eye, EyeOff, UserPlus, Check, X, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Check, X, AlertCircle, Gift } from 'lucide-react';
+import Cookies from 'js-cookie';
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -24,6 +26,23 @@ export default function RegisterPage() {
     confirmPassword: false,
   });
   const [emailServerError, setEmailServerError] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  // Check for referral code on mount
+  useEffect(() => {
+    // Priority: URL param > Cookie > localStorage
+    const urlRef = searchParams?.get('ref');
+    const cookieRef = Cookies.get('referralCode');
+    const localRef = typeof window !== 'undefined' ? localStorage.getItem('referralCode') : null;
+
+    const code = urlRef || cookieRef || localRef;
+
+    if (code) {
+      setReferralCode(code);
+      // Ensure it's saved in cookie
+      Cookies.set('referralCode', code, { expires: 7, path: '/' });
+    }
+  }, [searchParams]);
 
   // Validações
   const validations = {
@@ -45,9 +64,9 @@ export default function RegisterPage() {
     },
   };
 
-  const isFormValid = 
-    validations.username.minLength && 
-    validations.username.maxLength && 
+  const isFormValid =
+    validations.username.minLength &&
+    validations.username.maxLength &&
     validations.username.format &&
     validations.email.format &&
     validations.password.minLength &&
@@ -96,8 +115,16 @@ export default function RegisterPage() {
       await authService.register(
         formData.username,
         formData.email,
-        formData.password
+        formData.password,
+        referralCode || undefined
       );
+
+      // Clear referral code after successful registration
+      if (referralCode) {
+        Cookies.remove('referralCode');
+        localStorage.removeItem('referralCode');
+      }
+
       toast.success('Cadastro realizado com sucesso!');
       router.push('/dashboard');
     } catch (error: any) {
@@ -143,16 +170,31 @@ export default function RegisterPage() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="card bg-gray-800 border-gray-700">
+      <div className="atlas-card">
+        {/* Referral Banner */}
+        {referralCode && (
+          <div className="mb-6 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <div className="flex items-center gap-3">
+              <Gift className="w-6 h-6 text-purple-400 flex-shrink-0" />
+              <div>
+                <p className="text-[var(--text-primary)] font-medium">Voce foi convidado!</p>
+                <p className="text-purple-400 text-sm">
+                  Ao se cadastrar, voce entra no programa de indicacoes da Atlas.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white">Criar Conta</h2>
-          <p className="text-gray-400 mt-2">Preencha os dados abaixo para se registrar</p>
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Criar Conta</h2>
+          <p className="text-[var(--text-secondary)] mt-2">Preencha os dados abaixo para se registrar</p>
         </div>
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           {/* Username Field */}
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-300">
+            <label htmlFor="username" className="block text-sm font-medium text-[var(--text-secondary)]">
               Nome de usuário
             </label>
             <input
@@ -161,29 +203,29 @@ export default function RegisterPage() {
               type="text"
               autoComplete="username"
               required
-              className={`input-field mt-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
-                touched.username && !validations.username.format ? 'border-red-500' : ''
+              className={`atlas-input mt-1 ${
+                touched.username && !validations.username.format ? 'border-red-500!' : ''
               } ${
-                touched.username && validations.username.format && validations.username.minLength && validations.username.maxLength ? 'border-green-500' : ''
+                touched.username && validations.username.format && validations.username.minLength && validations.username.maxLength ? 'border-green-500!' : ''
               }`}
               placeholder="johndoe"
               value={formData.username}
               onChange={handleChange}
               onBlur={() => handleBlur('username')}
             />
-            
+
             {/* Username Validations */}
             {touched.username && (
               <div className="mt-2 space-y-1">
-                <div className={`flex items-center text-xs ${validations.username.minLength ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.username.minLength ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.username.minLength ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Mínimo 3 caracteres
                 </div>
-                <div className={`flex items-center text-xs ${validations.username.maxLength ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.username.maxLength ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.username.maxLength ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Máximo 20 caracteres
                 </div>
-                <div className={`flex items-center text-xs ${validations.username.format ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.username.format ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.username.format ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Apenas letras, números e underscore
                 </div>
@@ -193,7 +235,7 @@ export default function RegisterPage() {
 
           {/* Email Field */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+            <label htmlFor="email" className="block text-sm font-medium text-[var(--text-secondary)]">
               Email
             </label>
             <input
@@ -202,30 +244,30 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               required
-              className={`input-field mt-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
-                emailServerError || (touched.email && !validations.email.format) ? 'border-red-500' : ''
+              className={`atlas-input mt-1 ${
+                emailServerError || (touched.email && !validations.email.format) ? 'border-red-500!' : ''
               } ${
-                !emailServerError && touched.email && validations.email.format ? 'border-green-500' : ''
+                !emailServerError && touched.email && validations.email.format ? 'border-green-500!' : ''
               }`}
               placeholder="seu@email.com"
               value={formData.email}
               onChange={handleChange}
               onBlur={() => handleBlur('email')}
             />
-            
+
             {/* Email Validation */}
             {emailServerError ? (
               <div className="mt-2 flex items-start gap-2">
-                <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-400">{emailServerError}</p>
+                <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-500">{emailServerError}</p>
               </div>
             ) : touched.email && !validations.email.format ? (
-              <div className="mt-2 flex items-center text-xs text-red-400">
+              <div className="mt-2 flex items-center text-xs text-red-500">
                 <X size={12} className="mr-1" />
                 Email inválido
               </div>
             ) : touched.email && validations.email.format ? (
-              <div className="mt-2 flex items-center text-xs text-green-400">
+              <div className="mt-2 flex items-center text-xs text-green-500">
                 <Check size={12} className="mr-1" />
                 Email válido
               </div>
@@ -234,7 +276,7 @@ export default function RegisterPage() {
 
           {/* Password Field */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--text-secondary)]">
               Senha
             </label>
             <div className="relative mt-1">
@@ -244,10 +286,10 @@ export default function RegisterPage() {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 required
-                className={`input-field pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
-                  touched.password && (!validations.password.minLength || !validations.password.hasNumber || !validations.password.hasLetter) ? 'border-red-500' : ''
+                className={`atlas-input pr-10 ${
+                  touched.password && (!validations.password.minLength || !validations.password.hasNumber || !validations.password.hasLetter) ? 'border-red-500!' : ''
                 } ${
-                  touched.password && validations.password.minLength && validations.password.hasNumber && validations.password.hasLetter ? 'border-green-500' : ''
+                  touched.password && validations.password.minLength && validations.password.hasNumber && validations.password.hasLetter ? 'border-green-500!' : ''
                 }`}
                 placeholder="••••••••"
                 value={formData.password}
@@ -260,25 +302,25 @@ export default function RegisterPage() {
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
+                  <EyeOff className="h-5 w-5 text-[var(--text-muted)]" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
+                  <Eye className="h-5 w-5 text-[var(--text-muted)]" />
                 )}
               </button>
             </div>
-            
+
             {/* Password Validations */}
             {touched.password && (
               <div className="mt-2 space-y-1">
-                <div className={`flex items-center text-xs ${validations.password.minLength ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.password.minLength ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.password.minLength ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Mínimo 8 caracteres
                 </div>
-                <div className={`flex items-center text-xs ${validations.password.hasNumber ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.password.hasNumber ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.password.hasNumber ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Pelo menos um número
                 </div>
-                <div className={`flex items-center text-xs ${validations.password.hasLetter ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center text-xs ${validations.password.hasLetter ? 'text-green-500' : 'text-red-500'}`}>
                   {validations.password.hasLetter ? <Check size={12} className="mr-1" /> : <X size={12} className="mr-1" />}
                   Pelo menos uma letra
                 </div>
@@ -288,7 +330,7 @@ export default function RegisterPage() {
 
           {/* Confirm Password Field */}
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--text-secondary)]">
               Confirmar senha
             </label>
             <input
@@ -297,26 +339,26 @@ export default function RegisterPage() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               required
-              className={`input-field mt-1 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
-                touched.confirmPassword && !validations.confirmPassword.matches ? 'border-red-500' : ''
+              className={`atlas-input mt-1 ${
+                touched.confirmPassword && !validations.confirmPassword.matches ? 'border-red-500!' : ''
               } ${
-                touched.confirmPassword && validations.confirmPassword.matches ? 'border-green-500' : ''
+                touched.confirmPassword && validations.confirmPassword.matches ? 'border-green-500!' : ''
               }`}
               placeholder="••••••••"
               value={formData.confirmPassword}
               onChange={handleChange}
               onBlur={() => handleBlur('confirmPassword')}
             />
-            
+
             {/* Confirm Password Validation */}
             {touched.confirmPassword && !validations.confirmPassword.matches && formData.confirmPassword.length > 0 && (
-              <div className="mt-2 flex items-center text-xs text-red-400">
+              <div className="mt-2 flex items-center text-xs text-red-500">
                 <X size={12} className="mr-1" />
                 As senhas não coincidem
               </div>
             )}
             {touched.confirmPassword && validations.confirmPassword.matches && (
-              <div className="mt-2 flex items-center text-xs text-green-400">
+              <div className="mt-2 flex items-center text-xs text-green-500">
                 <Check size={12} className="mr-1" />
                 Senhas coincidem
               </div>
@@ -325,9 +367,9 @@ export default function RegisterPage() {
 
           {/* Error Alert */}
           {!isFormValid && (touched.username || touched.email || touched.password || touched.confirmPassword) && (
-            <div className="bg-red-900/20 border border-red-500 rounded-lg p-3 flex items-start">
-              <AlertCircle className="text-red-400 mr-2 flex-shrink-0 mt-0.5" size={16} />
-              <div className="text-sm text-red-400">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start">
+              <AlertCircle className="text-[var(--color-error)] mr-2 flex-shrink-0 mt-0.5" size={16} />
+              <div className="text-sm text-[var(--color-error)]">
                 Por favor, corrija os erros acima antes de continuar
               </div>
             </div>
@@ -337,7 +379,7 @@ export default function RegisterPage() {
             <div className="text-sm">
               <Link
                 href="/login"
-                className="font-medium text-blue-400 hover:text-blue-300"
+                className="font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
               >
                 Já tem uma conta? Faça login
               </Link>
@@ -347,7 +389,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || !isFormValid}
-            className="btn-primary w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="atlas-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -361,5 +403,19 @@ export default function RegisterPage() {
         </form>
       </div>
     </>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="atlas-card">
+        <div className="flex items-center justify-center p-8">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   );
 }

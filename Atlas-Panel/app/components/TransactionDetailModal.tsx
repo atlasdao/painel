@@ -60,11 +60,11 @@ export default function TransactionDetailModal({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <CheckCircle className="text-blue-500" size={20} />; // Azul para Recebido
+        return <CheckCircle className="text-blue-500" size={20} />;
       case 'PENDING':
         return <Clock className="text-yellow-500" size={20} />;
       case 'PROCESSING':
-        return <CheckCircle className="text-green-500" size={20} />; // Verde para Pago
+        return <CheckCircle className="text-green-500" size={20} />;
       case 'IN_REVIEW':
         return <Search className="text-purple-500" size={20} />;
       case 'FAILED':
@@ -74,7 +74,7 @@ export default function TransactionDetailModal({
       case 'CANCELLED':
         return <XCircle className="text-gray-500" size={20} />;
       default:
-        return <AlertCircle className="text-gray-400" size={20} />;
+        return <AlertCircle className="text-gray-600 dark:text-gray-400" size={20} />;
     }
   };
 
@@ -87,17 +87,17 @@ export default function TransactionDetailModal({
       case 'COMPLETED':
         return 'Recebido em sua carteira';
       case 'PROCESSING':
-        return 'Pago. Liberação na próxima remessa';
+        return 'Pago. Liberacao na proxima remessa';
       case 'PENDING':
         return 'Aguardando pagamento';
       case 'IN_REVIEW':
         return 'Contate o suporte';
       case 'FAILED':
-        return 'Pagamento cancelado ou não concluído';
+        return 'Pagamento cancelado ou nao concluido';
       case 'EXPIRED':
         return 'Tempo limite excedido';
       case 'CANCELLED':
-        return 'Transação cancelada';
+        return 'Transacao cancelada';
       default:
         return '';
     }
@@ -119,11 +119,11 @@ export default function TransactionDetailModal({
   const getTransactionLabel = (type: string) => {
     switch (type) {
       case 'DEPOSIT':
-        return 'Depósito';
+        return 'Deposito';
       case 'WITHDRAW':
         return 'Saque';
       case 'TRANSFER':
-        return 'Transferência';
+        return 'Transferencia';
       default:
         return type;
     }
@@ -135,21 +135,19 @@ export default function TransactionDetailModal({
     try {
       const metadata = JSON.parse(transaction.metadata);
 
-      // Se tem paymentLinkId e shortCode, foi via Link de Pagamento
       if (metadata.paymentLinkId && metadata.shortCode) {
         return {
           type: 'link',
-          icon: <Link2 className="text-blue-400" size={18} />,
+          icon: <Link2 className="text-blue-600 dark:text-blue-400" size={18} />,
           label: 'Link de Pagamento',
           color: '#60a5fa'
         };
       }
 
-      // Se tem isQrCodePayment mas não tem paymentLinkId, foi QR Code direto da API
       if (metadata.isQrCodePayment && !metadata.paymentLinkId) {
         return {
           type: 'qrcode',
-          icon: <QrCode className="text-purple-400" size={18} />,
+          icon: <QrCode className="text-purple-600 dark:text-purple-400" size={18} />,
           label: 'QR Code (API)',
           color: '#c084fc'
         };
@@ -188,7 +186,6 @@ export default function TransactionDetailModal({
     }
   };
 
-  // Altura do header e footer
   const HEADER_HEIGHT = 70;
   const FOOTER_HEIGHT = 80;
 
@@ -201,7 +198,7 @@ export default function TransactionDetailModal({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -211,57 +208,52 @@ export default function TransactionDetailModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="bg-[var(--bg-card)] border border-[var(--border-default)]"
         style={{
           position: 'relative',
-          backgroundColor: '#1f2937',
           borderRadius: '16px',
           width: '100%',
           maxWidth: '900px',
           height: '90vh',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
           overflow: 'hidden'
         }}
       >
-        {/* HEADER - Position Absolute */}
-        <div style={{
+        {/* HEADER */}
+        <div className="bg-[var(--bg-card)] border-b border-[var(--border-default)]" style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           height: `${HEADER_HEIGHT}px`,
           padding: '20px 24px',
-          borderBottom: '1px solid #374151',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#1f2937',
           zIndex: 10
         }}>
-          <h2 style={{ color: 'white', fontSize: '22px', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-            Detalhes da Transação
+          <h2 className="text-[var(--text-primary)]" style={{ fontSize: '22px', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+            Detalhes da Transacao
           </h2>
           <button
             onClick={onClose}
+            className="bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)]"
             style={{
-              backgroundColor: '#374151',
               border: 'none',
               borderRadius: '8px',
               padding: '10px',
               cursor: 'pointer',
-              color: 'white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* CONTEÚDO SCROLLABLE - Com altura calculada */}
-        <div style={{
+        {/* SCROLLABLE CONTENT */}
+        <div className="bg-[var(--bg-card)] text-[var(--text-primary)]" style={{
           position: 'absolute',
           top: `${HEADER_HEIGHT}px`,
           left: 0,
@@ -270,23 +262,22 @@ export default function TransactionDetailModal({
           overflowY: 'scroll',
           overflowX: 'hidden',
           padding: '24px',
-          color: 'white',
-          backgroundColor: '#1f2937'
         }}>
           <div style={{ paddingBottom: '20px' }}>
-            {/* Tipo e Status */}
+            {/* Type and Status */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
               <div>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</div>
+                <div className="bg-[var(--bg-elevated)]" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', borderRadius: '10px' }}>
                   {getTransactionIcon(transaction.type)}
                   <span style={{ fontSize: '16px', fontWeight: '500' }}>{getTransactionLabel(transaction.type)}</span>
                 </div>
               </div>
               <div>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
                 <div
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px', cursor: 'help' }}
+                  className="bg-[var(--bg-elevated)]"
+                  style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', borderRadius: '10px', cursor: 'help' }}
                   title={getStatusTooltip(transaction.status)}
                 >
                   {getStatusIcon(transaction.status)}
@@ -295,29 +286,21 @@ export default function TransactionDetailModal({
               </div>
             </div>
 
-            {/* Nome do Cliente e Método de Pagamento */}
-            {(transaction.status === 'COMPLETED' && (transaction.buyerName || getPaymentMethod())) && (
+            {/* Client Name and Payment Method */}
+            {((transaction.status === 'COMPLETED' || transaction.status === 'PROCESSING') && (transaction.buyerName || getPaymentMethod())) && (
               <div style={{ display: 'grid', gridTemplateColumns: getPaymentMethod() && transaction.buyerName ? '1fr 1fr' : '1fr', gap: '24px', marginBottom: '24px' }}>
                 {transaction.buyerName && (
                   <div>
-                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</div>
-                    <div style={{
-                      backgroundColor: '#374151',
-                      padding: '14px',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
+                    <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</div>
+                    <div className="bg-[var(--bg-elevated)]" style={{ padding: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ fontSize: '16px', fontWeight: '500' }}>{transaction.buyerName}</span>
                     </div>
                   </div>
                 )}
                 {getPaymentMethod() && (
                   <div>
-                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Método de Pagamento</div>
-                    <div style={{
-                      backgroundColor: '#374151',
+                    <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Metodo de Pagamento</div>
+                    <div className="bg-[var(--bg-elevated)]" style={{
                       padding: '14px',
                       borderRadius: '10px',
                       display: 'flex',
@@ -333,9 +316,9 @@ export default function TransactionDetailModal({
               </div>
             )}
 
-            {/* Valor */}
+            {/* Amount */}
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor</div>
+              <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor</div>
               <div style={{
                 fontSize: '32px',
                 fontWeight: '700',
@@ -349,24 +332,23 @@ export default function TransactionDetailModal({
               </div>
             </div>
 
-            {/* ID da Transação */}
+            {/* Transaction ID */}
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID da Transação</div>
-              <div style={{
-                backgroundColor: '#374151',
+              <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID da Transacao</div>
+              <div className="bg-[var(--bg-elevated)]" style={{
                 padding: '14px',
                 borderRadius: '10px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1 }}>{transaction.id}</code>
+                <code style={{ fontSize: '14px', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-all', flex: 1 }}>{transaction.id}</code>
                 <button
                   onClick={() => copyToClipboard(transaction.id, 'ID')}
+                  className="text-[var(--accent)]"
                   style={{
                     backgroundColor: 'transparent',
                     border: 'none',
-                    color: '#60a5fa',
                     cursor: 'pointer',
                     padding: '8px',
                     marginLeft: '8px'
@@ -380,22 +362,21 @@ export default function TransactionDetailModal({
             {/* External ID */}
             {isAdmin && transaction.externalId && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID Externo (DePix)</div>
-                <div style={{
-                  backgroundColor: '#374151',
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID Externo (DePix)</div>
+                <div className="bg-[var(--bg-elevated)]" style={{
                   padding: '14px',
                   borderRadius: '10px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
-                  <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1 }}>{transaction.externalId}</code>
+                  <code style={{ fontSize: '14px', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-all', flex: 1 }}>{transaction.externalId}</code>
                   <button
                     onClick={() => copyToClipboard(transaction.externalId!, 'ID Externo')}
+                    className="text-[var(--accent)]"
                     style={{
                       backgroundColor: 'transparent',
                       border: 'none',
-                      color: '#60a5fa',
                       cursor: 'pointer',
                       padding: '8px',
                       marginLeft: '8px'
@@ -410,27 +391,18 @@ export default function TransactionDetailModal({
             {/* PIX Key */}
             {transaction.pixKey && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Carteira</div>
-                <div style={{
-                  backgroundColor: '#374151',
-                  padding: '14px',
-                  borderRadius: '10px'
-                }}>
-                  <code style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{transaction.pixKey}</code>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Carteira</div>
+                <div className="bg-[var(--bg-elevated)]" style={{ padding: '14px', borderRadius: '10px' }}>
+                  <code style={{ fontSize: '14px', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-all' }}>{transaction.pixKey}</code>
                 </div>
               </div>
             )}
 
-            {/* Descrição */}
+            {/* Description */}
             {transaction.description && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Descrição</div>
-                <div style={{
-                  backgroundColor: '#374151',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  lineHeight: '1.6'
-                }}>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Descricao</div>
+                <div className="bg-[var(--bg-elevated)]" style={{ padding: '14px', borderRadius: '10px', lineHeight: '1.6' }}>
                   {transaction.description}
                 </div>
               </div>
@@ -439,7 +411,7 @@ export default function TransactionDetailModal({
             {/* Error Message */}
             {transaction.errorMessage && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mensagem de Erro</div>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mensagem de Erro</div>
                 <div style={{
                   backgroundColor: 'rgba(239, 68, 68, 0.1)',
                   border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -453,25 +425,25 @@ export default function TransactionDetailModal({
               </div>
             )}
 
-            {/* Data de Criação */}
+            {/* Creation Date */}
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Criação</div>
-              <div style={{ fontSize: '16px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+              <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Criacao</div>
+              <div className="bg-[var(--bg-elevated)]" style={{ fontSize: '16px', padding: '14px', borderRadius: '10px' }}>
                 {formatDate(transaction.createdAt)}
               </div>
             </div>
 
-            {/* Data de Processamento */}
+            {/* Processing Date */}
             {transaction.processedAt && (
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Processamento</div>
-                <div style={{ fontSize: '16px', backgroundColor: '#374151', padding: '14px', borderRadius: '10px' }}>
+                <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data de Processamento</div>
+                <div className="bg-[var(--bg-elevated)]" style={{ fontSize: '16px', padding: '14px', borderRadius: '10px' }}>
                   {formatDate(transaction.processedAt)}
                 </div>
               </div>
             )}
 
-            {/* Pagamento Agendado (D+1) */}
+            {/* Scheduled Payment (D+1) */}
             {(() => {
               if (!transaction.metadata) return null;
               try {
@@ -485,7 +457,7 @@ export default function TransactionDetailModal({
 
                 return (
                   <div style={{ marginBottom: '24px' }}>
-                    <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <div className="text-[var(--text-muted)]" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Pagamento Agendado (D+1)
                     </div>
                     <div style={{
@@ -511,7 +483,7 @@ export default function TransactionDetailModal({
                           color: isPaid ? '#6ee7b7' : '#fcd34d',
                           marginTop: '4px'
                         }}>
-                          {isPaid ? '✓ Pagamento realizado' : isPending ? '⏳ Aguardando janela de pagamento' : '⏳ Processando...'}
+                          {isPaid ? 'Pagamento realizado' : isPending ? 'Aguardando janela de pagamento' : 'Processando...'}
                         </div>
                       </div>
                     </div>
@@ -522,24 +494,21 @@ export default function TransactionDetailModal({
               }
             })()}
 
-            {/* Espaço extra para garantir scroll */}
             <div style={{ height: '100px' }}></div>
           </div>
         </div>
 
-        {/* FOOTER - Position Absolute */}
-        <div style={{
+        {/* FOOTER */}
+        <div className="bg-[var(--bg-card)] border-t border-[var(--border-default)]" style={{
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
           height: `${FOOTER_HEIGHT}px`,
           padding: '20px 24px',
-          borderTop: '1px solid #374151',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#1f2937',
           zIndex: 10
         }}>
           <div>
@@ -547,14 +516,10 @@ export default function TransactionDetailModal({
               <button
                 onClick={checkTransactionStatus}
                 disabled={isChecking}
+                className="atlas-btn"
                 style={{
-                  background: isChecking ? '#6b7280' : 'linear-gradient(to right, #2563eb, #7c3aed)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '10px',
+                  opacity: isChecking ? 0.6 : 1,
                   cursor: isChecking ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
@@ -568,9 +533,8 @@ export default function TransactionDetailModal({
           </div>
           <button
             onClick={onClose}
+            className="bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)]"
             style={{
-              backgroundColor: '#374151',
-              color: 'white',
               border: 'none',
               padding: '12px 24px',
               borderRadius: '10px',
@@ -578,8 +542,6 @@ export default function TransactionDetailModal({
               fontWeight: '600',
               fontSize: '15px'
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
           >
             Fechar
           </button>

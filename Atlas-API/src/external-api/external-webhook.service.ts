@@ -328,17 +328,26 @@ export class ExternalWebhookService {
 
   /**
    * Trigger webhook for transaction payment
+   * Now includes settlement info for D+1 compatibility
    */
   async triggerTransactionPaid(
     transactionId: string,
     paymentData: any,
   ) {
+    // Build settlement object for D+1 compatibility
+    // type: "instant" (D+0) or "delayed" (D+1)
+    // scheduledAt: null for instant, ISO date for delayed
+    const settlement = paymentData.settlement || {
+      type: 'instant',
+      scheduledAt: null,
+    };
+
     return this.triggerTransactionWebhook(
       transactionId,
       ExternalWebhookEvent.TRANSACTION_PAID,
       {
         transactionId,
-        status: 'COMPLETED',
+        status: 'COMPLETED', // Always COMPLETED for backward compatibility
         amount: paymentData.amount,
         merchantOrderId: paymentData.merchantOrderId,
         paidAt: paymentData.processedAt || new Date().toISOString(),
@@ -346,6 +355,7 @@ export class ExternalWebhookService {
           name: paymentData.payerName,
           taxNumber: paymentData.payerTaxNumber,
         },
+        settlement, // New field: { type: "instant" | "delayed", scheduledAt: null | ISO date }
         metadata: paymentData.metadata,
       },
     );

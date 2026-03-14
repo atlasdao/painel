@@ -11,29 +11,20 @@ import {
   Check,
   Clock,
   Smartphone,
-  CreditCard,
   Shield,
   ArrowRight,
   Info,
   Zap,
   Lock,
-  TrendingUp,
   Sparkles,
   ChevronDown,
-  ChevronUp,
-  Star,
-  Award,
-  Users,
-  Banknote,
-  DollarSign,
   RotateCcw,
   X,
   AlertTriangle,
-  ExternalLink,
   Lightbulb
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { triggerConfetti } from '@/app/lib/confetti';
+
 import SalesClosed from '@/app/components/SalesClosed';
 
 interface PaymentClientProps {
@@ -482,10 +473,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
     if (isExpired) {
       return {
-        bgClass: 'bg-gradient-to-r from-red-900/30 to-red-800/30 border border-red-500/30',
-        textClass: 'text-red-400',
-        barClass: 'bg-gradient-to-r from-red-500 to-red-600',
-        iconClass: 'text-red-400',
+        bgClass: 'bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-500/30',
+        textClass: 'text-red-600 dark:text-red-400',
+        barClass: 'bg-red-500',
+        iconClass: 'text-red-600 dark:text-red-400',
         message: 'QR Code expirado',
         pulse: false
       };
@@ -493,10 +484,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
     if (timeLeft <= 5 * 60) { // < 5 minutos - VERMELHO pulsante
       return {
-        bgClass: 'bg-gradient-to-r from-red-900/30 to-red-800/30 border border-red-500/40',
-        textClass: 'text-red-400',
-        barClass: 'bg-gradient-to-r from-red-500 to-red-600',
-        iconClass: 'text-red-400 animate-pulse',
+        bgClass: 'bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-500/40',
+        textClass: 'text-red-600 dark:text-red-400',
+        barClass: 'bg-red-500',
+        iconClass: 'text-red-600 dark:text-red-400 animate-pulse',
         message: 'Quase expirando!',
         pulse: true
       };
@@ -504,10 +495,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
     if (timeLeft <= 10 * 60) { // 5-10 minutos - LARANJA
       return {
-        bgClass: 'bg-gradient-to-r from-orange-900/30 to-amber-800/30 border border-orange-500/40',
-        textClass: 'text-orange-400',
-        barClass: 'bg-gradient-to-r from-orange-500 to-amber-500',
-        iconClass: 'text-orange-400',
+        bgClass: 'bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-500/40',
+        textClass: 'text-orange-600 dark:text-orange-400',
+        barClass: 'bg-orange-500',
+        iconClass: 'text-orange-600 dark:text-orange-400',
         message: 'Pague agora para garantir',
         pulse: false
       };
@@ -515,10 +506,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
     if (timeLeft <= 20 * 60) { // 10-20 minutos - AMARELO
       return {
-        bgClass: 'bg-gradient-to-r from-amber-900/20 to-yellow-800/20 border border-amber-500/30',
-        textClass: 'text-amber-400',
-        barClass: 'bg-gradient-to-r from-amber-500 to-yellow-500',
-        iconClass: 'text-amber-400',
+        bgClass: 'bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30',
+        textClass: 'text-amber-600 dark:text-amber-400',
+        barClass: 'bg-amber-500',
+        iconClass: 'text-amber-600 dark:text-amber-400',
         message: 'Expira em breve',
         pulse: false
       };
@@ -526,11 +517,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
     // > 20 minutos - VERDE
     return {
-      bgClass: 'bg-gradient-to-r from-green-900/20 to-emerald-800/20 border border-green-500/30',
-      textClass: 'text-green-400',
-      barClass: 'bg-gradient-to-r from-green-500 to-emerald-500',
-      iconClass: 'text-green-400',
-      message: 'Tempo suficiente ✓',
+      bgClass: 'bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-500/30',
+      textClass: 'text-green-600 dark:text-green-400',
+      barClass: 'bg-green-500',
+      iconClass: 'text-green-600 dark:text-green-400',
+      message: 'Tempo suficiente',
       pulse: false
     };
   };
@@ -598,26 +589,26 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center">
           <div className="relative w-20 h-20 mx-auto mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-20 animate-ping" />
-            <div className="relative flex items-center justify-center w-full h-full bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full">
+            <div className="absolute inset-0 bg-[var(--accent)] rounded-full opacity-20 animate-ping" />
+            <div className="relative flex items-center justify-center w-full h-full bg-[var(--accent)] rounded-full">
               <Zap className="w-10 h-10 text-white" />
             </div>
           </div>
-          <h2 className="text-xl text-white font-semibold mb-4">Carregando pagamento</h2>
+          <h2 className="text-xl text-[var(--text-primary)] font-semibold mb-4">Carregando pagamento</h2>
 
           <div className="w-48 mx-auto">
-            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+                className="h-full bg-[var(--accent)] rounded-full"
                 style={{
                   animation: 'fastProgress 0.8s ease-out forwards'
                 }}
               />
             </div>
-            <p className="text-xs text-slate-500 mt-2 flex items-center justify-center gap-1">
+            <p className="text-xs text-[var(--text-muted)] mt-2 flex items-center justify-center gap-1">
               <Sparkles className="w-3 h-3" />
               Processamento ultra-rápido
             </p>
@@ -643,18 +634,17 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
         <div className="relative max-w-md w-full">
-          <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse" />
-          <div className="relative bg-slate-900/80 backdrop-blur-2xl border border-red-500/20 rounded-3xl p-6 sm:p-10 text-center shadow-2xl">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-red-400" />
+          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 sm:p-10 text-center shadow-lg">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-red-600 dark:text-red-400" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-3">Oops!</h1>
-            <p className="text-slate-300 mb-8 text-sm sm:text-base">{error}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">Oops!</h1>
+            <p className="text-[var(--text-secondary)] mb-8 text-sm sm:text-base">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-semibold rounded-2xl transition-all transform hover:scale-105 text-sm sm:text-base"
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] font-semibold rounded-xl transition-all border border-[var(--border-default)] text-sm sm:text-base"
             >
               Tentar novamente
             </button>
@@ -666,28 +656,22 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
   if (paymentSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
         <div className="relative max-w-md w-full">
-          <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 blur-3xl animate-pulse" />
-          <div className="relative bg-slate-900/80 backdrop-blur-2xl border border-green-500/20 rounded-3xl p-6 sm:p-10 text-center shadow-2xl">
-            <div className="relative">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-              </div>
-              <div className="absolute -top-4 -right-4 animate-pulse">
-                <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400" />
-              </div>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 sm:p-10 text-center shadow-lg">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-600 dark:text-green-400" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-3">Pagamento Confirmado!</h1>
-            <p className="text-slate-300 mb-4 text-sm sm:text-base">Transação realizada com sucesso</p>
-            <div className="inline-block px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl mb-6">
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">Pagamento Confirmado!</h1>
+            <p className="text-[var(--text-secondary)] mb-4 text-sm sm:text-base">Transação realizada com sucesso</p>
+            <div className="inline-block px-6 py-3 bg-green-100 dark:bg-green-900/20 rounded-2xl mb-6">
+              <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
               </p>
             </div>
-            <div className="p-4 bg-slate-800/50 rounded-2xl">
-              <p className="text-xs text-slate-400 mb-1">ID da transação</p>
-              <p className="text-white font-mono text-xs sm:text-sm">#{Date.now()}</p>
+            <div className="p-4 bg-[var(--bg-elevated)] rounded-2xl">
+              <p className="text-xs text-[var(--text-secondary)] mb-1">ID da transação</p>
+              <p className="text-[var(--text-primary)] font-mono text-xs sm:text-sm">#{Date.now()}</p>
             </div>
           </div>
         </div>
@@ -699,30 +683,30 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
   const timerStyles = getTimerStyles();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Opção 3: Modal de Exit Intent */}
       {showExitModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="relative w-full max-w-md bg-[var(--bg-card)] rounded-2xl border border-[var(--border-default)] shadow-2xl animate-in zoom-in-95 duration-300">
             {/* Close button */}
             <button
               onClick={handleContinuePayment}
-              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-white transition-colors"
+              className="absolute top-4 right-4 p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="p-6 text-center">
               {/* Warning Icon */}
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
-                <AlertTriangle className="w-8 h-8 text-amber-400" />
+              <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
 
-              <h3 className="text-xl font-bold text-white mb-2">
+              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
                 Seu pagamento ainda está ativo!
               </h3>
 
-              <p className="text-slate-400 text-sm mb-4">
+              <p className="text-[var(--text-secondary)] text-sm mb-4">
                 Se você sair agora, perderá esta sessão de pagamento e precisará gerar um novo QR Code.
               </p>
 
@@ -745,14 +729,14 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 </button>
                 <button
                   onClick={handleConfirmExit}
-                  className="w-full py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white font-medium rounded-xl transition-all text-sm"
+                  className="w-full py-3 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium rounded-xl transition-all text-sm"
                 >
                   Sair mesmo assim
                 </button>
               </div>
 
               {/* Trust indicator */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-slate-500 text-xs">
+              <div className="mt-4 flex items-center justify-center gap-2 text-[var(--text-muted)] text-xs">
                 <Shield className="w-3 h-3" />
                 <span>Pagamento seguro via PIX</span>
               </div>
@@ -764,20 +748,20 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       {/* Opção 8: Copy Feedback Modal Aprimorado */}
       {showCopyFeedback && (
         <div className="fixed bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 z-[90] animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-xl border border-green-500/30 shadow-2xl p-4 max-w-sm">
+          <div className="bg-[var(--bg-card)] backdrop-blur-xl rounded-xl border border-green-500/30 shadow-2xl p-4 max-w-sm">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <Check className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-white text-sm mb-1">Código copiado!</p>
-                <p className="text-slate-400 text-xs leading-relaxed">
+                <p className="font-semibold text-[var(--text-primary)] text-sm mb-1">Código copiado!</p>
+                <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
                   Agora abra seu app de banco e cole o código na área PIX para pagar.
                 </p>
               </div>
               <button
                 onClick={() => setShowCopyFeedback(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -785,7 +769,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => setShowCopyFeedback(false)}
-                className="flex-1 py-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all flex items-center justify-center gap-1"
+                className="flex-1 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs rounded-lg transition-all flex items-center justify-center gap-1"
               >
                 <Lightbulb className="w-3 h-3" />
                 Entendi
@@ -805,8 +789,8 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 {/* Logo and Branding */}
                 <div className="flex items-center gap-3 mb-8">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg blur-sm animate-pulse opacity-50" />
-                    <div className="relative p-0.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+                    <div className="hidden" />
+                    <div className="relative rounded-lg">
                       <Image
                         src="/atlas-logo.jpg"
                         alt="Atlas"
@@ -817,30 +801,30 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     </div>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                       Atlas Pay
-                      <span className="px-2 py-0.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full text-xs text-cyan-400 font-medium">
+                      <span className="px-2 py-0.5 bg-[var(--accent-soft)] rounded-full text-xs text-[var(--accent)] font-medium">
                         PRO
                       </span>
                     </h1>
                     <div className="flex items-center gap-1.5 mt-1">
                       <Lock className="w-3 h-3 text-green-400" />
-                      <span className="text-xs text-slate-400">Pagamento 100% Seguro</span>
+                      <span className="text-xs text-[var(--text-secondary)]">Pagamento 100% Seguro</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Payment Description */}
                 {paymentData?.description && (
-                  <div className="bg-slate-900/40 backdrop-blur rounded-xl p-5 mb-6 border border-slate-700/30">
-                    <h2 className="text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wide">Descrição</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed">{paymentData.description}</p>
+                  <div className="bg-[var(--bg-secondary)] backdrop-blur rounded-xl p-5 mb-6 border border-[var(--border-default)]">
+                    <h2 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Descrição</h2>
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{paymentData.description}</p>
                   </div>
                 )}
 
                 {/* Instructions */}
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-4 flex items-center gap-2 uppercase tracking-wide">
                     <Zap className="w-4 h-4 text-yellow-500" />
                     Pague em segundos
                   </h3>
@@ -851,54 +835,23 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       { icon: CheckCircle, text: 'Confirme o pagamento' }
                     ].map((item, index) => (
                       <div key={index} className="flex items-center gap-3 group cursor-default">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600/30 to-cyan-600/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-all border border-blue-500/20">
+                        <div className="w-10 h-10 bg-[var(--accent-soft)] rounded-lg flex items-center justify-center flex-shrink-0 transition-all border border-[var(--accent)]/20">
                           <span className="text-base text-blue-400 font-bold">{index + 1}</span>
                         </div>
                         <item.icon className="w-5 h-5 text-blue-400" />
-                        <p className="text-sm text-slate-300 flex-1">{item.text}</p>
+                        <p className="text-sm text-[var(--text-secondary)] flex-1">{item.text}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white mb-1">+500k</p>
-                    <p className="text-xs text-slate-500">transacionados</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white mb-1">100%</p>
-                    <p className="text-xs text-slate-500">Seguro</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white mb-1">24/7</p>
-                    <p className="text-xs text-slate-500">Suporte</p>
-                  </div>
-                </div>
-
-                {/* Trust Section */}
-                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-900/60 to-slate-800/60 backdrop-blur rounded-xl border border-slate-700/30">
-                  <div className="flex -space-x-2">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 border-2 border-slate-900 flex items-center justify-center">
-                        <Star className="w-3 h-3 text-white fill-white" />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-white">Avaliado com 5 estrelas</p>
-                    <p className="text-xs text-slate-500">Por centenas de usuários</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-yellow-400">5.0</p>
-                    <div className="flex gap-0.5">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                {/* Footer */}
+                <p className="text-xs text-[var(--text-muted)] text-center">
+                  Criado com{' '}
+                  <a href="/" className="text-[var(--accent)] hover:underline">
+                    Painel Atlas
+                  </a>
+                </p>
               </div>
             </div>
 
@@ -908,21 +861,21 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 {/* Header with Status */}
                 {showQrCode && (
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white">Pagamento via PIX</h2>
-                    <div className="px-3 py-1.5 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-full flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Pagamento via PIX</h2>
+                    <div className="px-3 py-1.5 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-500/30 rounded-full flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                       <span className="text-xs text-green-400 font-medium">Ativo</span>
                     </div>
                   </div>
                 )}
 
-                <div className="bg-slate-900/60 backdrop-blur-2xl border border-slate-700/30 rounded-2xl shadow-2xl p-6">
+                <div className="bg-[var(--bg-card)] backdrop-blur-2xl border border-[var(--border-default)] rounded-2xl shadow-2xl p-6">
                   {/* Payment Display */}
                   {showQrCode && (
                     <>
                       <div className="text-center mb-6">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Valor Total</p>
-                        <p className="text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Valor Total</p>
+                        <p className="text-4xl font-bold text-[var(--text-primary)]">
                           {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
                         </p>
                       </div>
@@ -931,7 +884,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       <div className="flex items-center justify-center mb-6">
                         {qrCodeDataUrl ? (
                           <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-2xl blur-xl animate-pulse" />
+                            <div className="hidden" />
                             <div className="relative bg-white rounded-2xl p-6 shadow-xl">
                               <div className="relative w-64 h-64">
                                 <Image
@@ -944,11 +897,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                 {isExpired && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-xl">
                                     <div className="text-center p-4">
-                                      <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                                      <div className="w-12 h-12 mx-auto mb-3 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
                                         <Clock className="w-6 h-6 text-amber-500" />
                                       </div>
-                                      <p className="text-slate-800 font-semibold text-sm mb-1">QR Code expirado</p>
-                                      <p className="text-slate-500 text-xs mb-4">Gere um novo em 1 clique</p>
+                                      <p className="text-zinc-800 dark:text-zinc-200 font-semibold text-sm mb-1">QR Code expirado</p>
+                                      <p className="text-[var(--text-muted)] text-xs mb-4">Gere um novo em 1 clique</p>
                                       <button
                                         onClick={handleManualReload}
                                         disabled={isGenerating}
@@ -961,7 +914,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                         )}
                                         {isGenerating ? 'Gerando...' : 'Gerar Novo QR Code'}
                                       </button>
-                                      <p className="text-slate-400 text-[10px] mt-3 flex items-center justify-center gap-1">
+                                      <p className="text-[var(--text-secondary)] text-[10px] mt-3 flex items-center justify-center gap-1">
                                         <Lightbulb className="w-3 h-3" />
                                         Dica: Deixe o app do banco aberto
                                       </p>
@@ -969,16 +922,16 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                   </div>
                                 )}
                               </div>
-                              <p className="text-center text-slate-700 text-sm font-medium mt-4 flex items-center justify-center gap-2">
+                              <p className="text-center text-zinc-700 dark:text-zinc-300 text-sm font-medium mt-4 flex items-center justify-center gap-2">
                                 <Smartphone className="w-4 h-4" />
                                 {isExpired ? 'QR Code expirado' : 'Escaneie para pagar'}
                               </p>
                             </div>
                           </div>
                         ) : (
-                          <div className="bg-slate-800/50 rounded-2xl p-10 text-center">
-                            <QrCode className="w-16 h-16 text-slate-600 mx-auto mb-3 animate-pulse" />
-                            <p className="text-sm text-slate-400">Gerando QR Code...</p>
+                          <div className="bg-[var(--bg-elevated)] rounded-2xl p-10 text-center">
+                            <QrCode className="w-16 h-16 text-[var(--text-muted)] mx-auto mb-3 animate-pulse" />
+                            <p className="text-sm text-[var(--text-secondary)]">Gerando QR Code...</p>
                           </div>
                         )}
                       </div>
@@ -988,18 +941,18 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         <div className="mb-4">
                           <button
                             onClick={() => setShowPixCode(!showPixCode)}
-                            className="w-full flex items-center justify-between p-3 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl transition-all group"
+                            className="w-full flex items-center justify-between p-3 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] rounded-xl transition-all group"
                           >
-                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                            <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                               Prefere copiar o código?
                             </span>
-                            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showPixCode ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${showPixCode ? 'rotate-180' : ''}`} />
                           </button>
 
                           {showPixCode && (
                             <div className="mt-3 space-y-3 animate-in slide-in-from-top-2">
-                              <div className="p-3 bg-slate-800/50 rounded-lg">
-                                <p className="text-xs text-slate-500 font-mono break-all line-clamp-2">
+                              <div className="p-3 bg-[var(--bg-elevated)] rounded-lg">
+                                <p className="text-xs text-[var(--text-muted)] font-mono break-all line-clamp-2">
                                   {qrCode}
                                 </p>
                               </div>
@@ -1038,7 +991,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                             {isExpired ? '00:00' : formatTime(timeLeft)}
                           </span>
                         </div>
-                        <div className="mt-2 h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-1000 ${timerStyles.barClass}`}
                             style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
@@ -1053,22 +1006,22 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     <div className="py-6">
                       <div className="space-y-5">
                         <div className="text-center">
-                          <h3 className="text-lg font-semibold text-white mb-2">Informe seu CPF/CNPJ</h3>
-                          <p className="text-sm text-slate-400">Obrigatório para valores acima de R$ 3.000</p>
+                          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Informe seu CPF/CNPJ</h3>
+                          <p className="text-sm text-[var(--text-secondary)]">Obrigatório para valores acima de R$ 3.000</p>
                         </div>
 
                         {/* Amount Display */}
-                        <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Valor do pagamento</p>
-                          <p className="text-3xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                        <div className="bg-[var(--bg-elevated)] rounded-xl p-4 text-center">
+                          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Valor do pagamento</p>
+                          <p className="text-3xl font-bold text-[var(--text-primary)]">
                             {formatCurrency(paymentData?.amount || 0)}
                           </p>
                         </div>
 
                         {/* CPF/CNPJ Input */}
                         <div className="relative group">
-                          <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
-                          <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                          <div className={`hidden ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                          <div className={`relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500' : 'border-[var(--border-default)] focus-within:border-[var(--accent)]'}`}>
                             <input
                               type="text"
                               value={taxNumber}
@@ -1077,7 +1030,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                 setTaxNumberError('');
                               }}
                               placeholder="CPF ou CNPJ"
-                              className="w-full px-4 py-3 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                              className="w-full px-4 py-3 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
                               maxLength={18}
                               style={{ fontSize: '16px' }}
                               autoFocus
@@ -1094,7 +1047,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                           disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
                           className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition-opacity" />
+                          <div className="hidden" />
                           <div className="relative flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all">
                             {isGenerating ? (
                               <Loader className="w-5 h-5 animate-spin" />
@@ -1109,11 +1062,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
                         {/* Trust indicators */}
                         <div className="flex items-center justify-center gap-4">
-                          <div className="flex items-center gap-1.5 text-slate-500">
+                          <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                             <Lock className="w-3 h-3" />
                             <span className="text-xs">Dados protegidos</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-slate-500">
+                          <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                             <Shield className="w-3 h-3" />
                             <span className="text-xs">Conexão segura</span>
                           </div>
@@ -1138,21 +1091,21 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         return (
                           <div className="space-y-5">
                             <div className="text-center">
-                              <h3 className="text-lg font-semibold text-white mb-2">Digite o valor</h3>
-                              <p className="text-sm text-slate-400">Escolha quanto você deseja pagar</p>
+                              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Digite o valor</h3>
+                              <p className="text-sm text-[var(--text-secondary)]">Escolha quanto você deseja pagar</p>
                             </div>
 
                             <div className="relative group">
-                              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
-                              <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
+                              <div className="hidden" />
+                              <div className="relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border border-[var(--border-default)] overflow-hidden">
                                 <div className="flex items-center p-4">
-                                  <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
+                                  <span className="text-2xl text-[var(--text-muted)] font-bold mr-2">R$</span>
                                   <input
                                     type="text"
                                     inputMode="decimal"
                                     value={customAmount}
                                     onChange={handleAmountInput}
-                                    className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
+                                    className="flex-1 bg-transparent text-3xl font-bold text-[var(--text-primary)] text-center placeholder-[var(--text-muted)] focus:outline-none"
                                     placeholder="0,00"
                                     autoFocus
                                   />
@@ -1165,12 +1118,12 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                             {(paymentData.minAmount || paymentData.maxAmount) && (
                               <div className="flex items-center justify-between px-2">
                                 {paymentData.minAmount && (
-                                  <span className="text-xs text-slate-400">
+                                  <span className="text-xs text-[var(--text-secondary)]">
                                     Mín: <span className="text-blue-400 font-semibold">{formatCurrency(paymentData.minAmount)}</span>
                                   </span>
                                 )}
                                 {paymentData.maxAmount && (
-                                  <span className="text-xs text-slate-400">
+                                  <span className="text-xs text-[var(--text-secondary)]">
                                     Máx: <span className="text-cyan-400 font-semibold">{formatCurrency(paymentData.maxAmount)}</span>
                                   </span>
                                 )}
@@ -1217,7 +1170,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                   <button
                                     key={amount}
                                     onClick={() => setCustomAmount(amount.toString())}
-                                    className="py-2.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:text-white rounded-lg transition-all text-sm font-medium"
+                                    className="py-2.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-all text-sm font-medium"
                                   >
                                     R$ {amount}
                                   </button>
@@ -1229,13 +1182,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                             {needsCpf && (
                               <div className="animate-in slide-in-from-top-2 duration-300">
                                 <div className="flex items-center gap-3 mb-3">
-                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                                  <span className="text-xs text-slate-500">Dados do pagador</span>
-                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent" />
+                                  <span className="text-xs text-[var(--text-muted)]">Dados do pagador</span>
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent" />
                                 </div>
                                 <div className="relative group">
-                                  <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
-                                  <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                                  <div className={`hidden ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                                  <div className={`relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500' : 'border-[var(--border-default)] focus-within:border-[var(--accent)]'}`}>
                                     <input
                                       type="text"
                                       value={taxNumber}
@@ -1244,7 +1197,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                         setTaxNumberError('');
                                       }}
                                       placeholder="CPF ou CNPJ"
-                                      className="w-full px-4 py-3 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                                      className="w-full px-4 py-3 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
                                       maxLength={18}
                                       style={{ fontSize: '16px' }}
                                     />
@@ -1261,7 +1214,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                               disabled={!canSubmit || isGenerating}
                               className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition-opacity" />
+                              <div className="hidden" />
                               <div className="relative flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl transition-all">
                                 {isGenerating ? (
                                   <Loader className="w-5 h-5 animate-spin" />
@@ -1277,11 +1230,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                             {/* Trust indicators - only show when CPF is visible */}
                             {needsCpf && (
                               <div className="flex items-center justify-center gap-4 animate-in fade-in duration-300">
-                                <div className="flex items-center gap-1.5 text-slate-500">
+                                <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                                   <Lock className="w-3 h-3" />
                                   <span className="text-xs">Dados protegidos</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-slate-500">
+                                <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                                   <Shield className="w-3 h-3" />
                                   <span className="text-xs">Conexão segura</span>
                                 </div>
@@ -1300,9 +1253,9 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       </div>
 
       {/* MOBILE LAYOUT - Complete Implementation */}
-      <div className="lg:hidden min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="lg:hidden min-h-screen flex flex-col bg-[var(--bg-primary)]">
         {/* Mobile Header */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
+        <div className="bg-[var(--bg-card)] backdrop-blur-xl border-b border-[var(--border-default)] sticky top-0 z-50">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1314,10 +1267,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   className="rounded-lg"
                 />
                 <div>
-                  <h1 className="text-lg font-bold text-white">Atlas Pay</h1>
+                  <h1 className="text-lg font-bold text-[var(--text-primary)]">Atlas Pay</h1>
                   <div className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-green-400" />
-                    <span className="text-[10px] text-slate-400">100% Seguro</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">100% Seguro</span>
                   </div>
                 </div>
               </div>
@@ -1338,14 +1291,14 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             <div className="space-y-2 mb-3">
               {/* Description - inline compact */}
               {paymentData?.description && (
-                <p className="text-xs text-slate-400 text-center truncate px-2">{paymentData.description}</p>
+                <p className="text-xs text-[var(--text-secondary)] text-center truncate px-2">{paymentData.description}</p>
               )}
 
               {/* Amount Display - more compact */}
-              <div className="bg-slate-900/60 backdrop-blur rounded-xl p-3 border border-slate-700/50">
+              <div className="bg-[var(--bg-card)] backdrop-blur rounded-xl p-3 border border-[var(--border-default)]">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400 uppercase tracking-wider">Valor Total</span>
-                  <span className="text-2xl font-bold text-white">
+                  <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Valor Total</span>
+                  <span className="text-2xl font-bold text-[var(--text-primary)]">
                     {formatCurrency(paymentData?.isCustomAmount ? parseAmount(customAmount) : (paymentData?.amount || 0))}
                   </span>
                 </div>
@@ -1367,11 +1320,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 {isExpired && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-lg">
                     <div className="text-center p-3">
-                      <div className="w-10 h-10 mx-auto mb-2 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center border border-amber-500/30">
+                      <div className="w-10 h-10 mx-auto mb-2 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
                         <Clock className="w-5 h-5 text-amber-500" />
                       </div>
-                      <p className="text-slate-800 font-semibold text-sm mb-1">QR Code expirado</p>
-                      <p className="text-slate-500 text-[11px] mb-3">Gere um novo em 1 clique</p>
+                      <p className="text-zinc-800 dark:text-zinc-200 font-semibold text-sm mb-1">QR Code expirado</p>
+                      <p className="text-[var(--text-muted)] text-[11px] mb-3">Gere um novo em 1 clique</p>
                       <button
                         onClick={handleManualReload}
                         disabled={isGenerating}
@@ -1384,7 +1337,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         )}
                         {isGenerating ? 'Gerando...' : 'Gerar Novo'}
                       </button>
-                      <p className="text-slate-400 text-[10px] mt-2 flex items-center justify-center gap-1">
+                      <p className="text-[var(--text-secondary)] text-[10px] mt-2 flex items-center justify-center gap-1">
                         <Lightbulb className="w-3 h-3" />
                         Deixe o app do banco aberto
                       </p>
@@ -1392,7 +1345,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   </div>
                 )}
               </div>
-              <p className="text-center text-slate-700 font-medium mt-2 text-xs flex items-center justify-center gap-1">
+              <p className="text-center text-zinc-700 dark:text-zinc-300 font-medium mt-2 text-xs flex items-center justify-center gap-1">
                 <Smartphone className="w-3.5 h-3.5" />
                 {isExpired ? 'QR Code expirado' : 'Escaneie com o app do banco'}
               </p>
@@ -1401,19 +1354,19 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
           {/* PIX Code for Mobile - more compact */}
           {showQrCode && qrCode && (
-            <div className="bg-slate-800/30 backdrop-blur rounded-lg border border-slate-700/50 overflow-hidden mb-3">
+            <div className="bg-[var(--bg-elevated)] backdrop-blur rounded-lg border border-[var(--border-default)] overflow-hidden mb-3">
               <button
                 onClick={() => setShowPixCode(!showPixCode)}
-                className="w-full flex items-center justify-between p-2.5 active:bg-slate-700/30"
+                className="w-full flex items-center justify-between p-2.5 active:bg-[var(--bg-elevated)]"
               >
-                <span className="text-xs text-white font-medium">Copiar código PIX</span>
+                <span className="text-xs text-[var(--text-primary)] font-medium">Copiar código PIX</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-blue-400 transition-transform ${showPixCode ? 'rotate-180' : ''}`} />
               </button>
 
               {showPixCode && (
                 <div className="p-2.5 pt-0 space-y-2">
-                  <div className="p-2 bg-slate-900/50 rounded">
-                    <p className="text-[10px] text-slate-500 font-mono break-all line-clamp-2">
+                  <div className="p-2 bg-[var(--bg-elevated)] rounded">
+                    <p className="text-[10px] text-[var(--text-muted)] font-mono break-all line-clamp-2">
                       {qrCode}
                     </p>
                   </div>
@@ -1453,7 +1406,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   {isExpired ? '00:00' : formatTime(timeLeft)}
                 </span>
               </div>
-              <div className="mt-1.5 h-1 bg-slate-800/50 rounded-full overflow-hidden">
+              <div className="mt-1.5 h-1 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-1000 ${timerStyles.barClass}`}
                   style={{ width: isExpired ? '100%' : `${(timeLeft / (29 * 60 + 50)) * 100}%` }}
@@ -1466,22 +1419,22 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           {needsTaxNumberForFixedAmount && !showQrCode && !paymentData?.isCustomAmount && (
             <div className="space-y-4">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-white mb-2">Informe seu CPF/CNPJ</h3>
-                <p className="text-sm text-slate-400">Obrigatório para valores acima de R$ 3.000</p>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Informe seu CPF/CNPJ</h3>
+                <p className="text-sm text-[var(--text-secondary)]">Obrigatório para valores acima de R$ 3.000</p>
               </div>
 
               {/* Amount Display */}
-              <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Valor do pagamento</p>
-                <p className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+              <div className="bg-[var(--bg-elevated)] rounded-xl p-4 text-center">
+                <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Valor do pagamento</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">
                   {formatCurrency(paymentData?.amount || 0)}
                 </p>
               </div>
 
               {/* CPF/CNPJ Input */}
               <div className="relative group">
-                <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
-                <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                <div className={`hidden ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                <div className={`relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500' : 'border-[var(--border-default)] focus-within:border-[var(--accent)]'}`}>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1491,7 +1444,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       setTaxNumberError('');
                     }}
                     placeholder="CPF ou CNPJ"
-                    className="w-full px-4 py-3.5 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                    className="w-full px-4 py-3.5 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
                     maxLength={18}
                     style={{ fontSize: '18px' }}
                     autoFocus
@@ -1508,7 +1461,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
                 className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
               >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-75" />
+                <div className="hidden" />
                 <div className="relative flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 active:from-blue-700 active:to-cyan-700 text-white font-bold rounded-xl transition-all active:scale-95">
                   {isGenerating ? (
                     <Loader className="w-5 h-5 animate-spin" />
@@ -1523,11 +1476,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
               {/* Trust indicators */}
               <div className="flex items-center justify-center gap-4">
-                <div className="flex items-center gap-1.5 text-slate-500">
+                <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                   <Lock className="w-3 h-3" />
                   <span className="text-[10px]">Dados protegidos</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-slate-500">
+                <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                   <Shield className="w-3 h-3" />
                   <span className="text-[10px]">Conexão segura</span>
                 </div>
@@ -1552,30 +1505,30 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   <>
                     {/* Payment Description for Mobile */}
                     {paymentData?.description && (
-                      <div className="bg-slate-900/60 backdrop-blur rounded-xl p-4 border border-slate-700/30">
+                      <div className="bg-[var(--bg-card)] backdrop-blur rounded-xl p-4 border border-[var(--border-default)]">
                         <div className="flex items-start gap-3">
                           <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-slate-400 leading-relaxed">{paymentData.description}</p>
+                          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{paymentData.description}</p>
                         </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-sm font-semibold text-slate-300 mb-3">
+                      <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-3">
                         Digite o valor do pagamento
                       </label>
 
                       <div className="relative group">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-30" />
-                        <div className="relative bg-slate-800/80 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
+                        <div className="hidden" />
+                        <div className="relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border border-[var(--border-default)] overflow-hidden">
                           <div className="flex items-center p-4">
-                            <span className="text-2xl text-slate-500 font-bold mr-2">R$</span>
+                            <span className="text-2xl text-[var(--text-muted)] font-bold mr-2">R$</span>
                             <input
                               type="text"
                               inputMode="decimal"
                               value={customAmount}
                               onChange={handleAmountInput}
-                              className="flex-1 bg-transparent text-3xl font-bold text-white text-center placeholder-slate-600 focus:outline-none"
+                              className="flex-1 bg-transparent text-3xl font-bold text-[var(--text-primary)] text-center placeholder-[var(--text-muted)] focus:outline-none"
                               placeholder="0,00"
                               autoFocus
                             />
@@ -1588,12 +1541,12 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       {(paymentData?.minAmount || paymentData?.maxAmount) && (
                         <div className="flex items-center justify-between mt-3 px-1">
                           {paymentData.minAmount && (
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-[var(--text-secondary)]">
                               Mín: <span className="text-blue-400 font-bold">{formatCurrency(paymentData.minAmount)}</span>
                             </span>
                           )}
                           {paymentData.maxAmount && (
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-[var(--text-secondary)]">
                               Máx: <span className="text-cyan-400 font-bold">{formatCurrency(paymentData.maxAmount)}</span>
                             </span>
                           )}
@@ -1641,7 +1594,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                           <button
                             key={amount}
                             onClick={() => setCustomAmount(amount.toString())}
-                            className="py-2 bg-slate-800/50 active:bg-slate-700/50 border border-slate-700/50 text-slate-400 active:text-white rounded-lg transition-all text-xs"
+                            className="py-2 bg-[var(--bg-elevated)] active:bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] active:text-[var(--text-primary)] rounded-lg transition-all text-xs"
                           >
                             R$ {amount}
                           </button>
@@ -1653,13 +1606,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     {needsCpf && (
                       <div className="animate-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                          <span className="text-xs text-slate-500">Dados do pagador</span>
-                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent" />
+                          <span className="text-xs text-[var(--text-muted)]">Dados do pagador</span>
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-default)] to-transparent" />
                         </div>
                         <div className="relative group">
-                          <div className={`absolute -inset-0.5 rounded-xl blur opacity-0 group-focus-within:opacity-30 transition-opacity ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
-                          <div className={`relative bg-slate-800/80 backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500/50' : 'border-slate-700/50 focus-within:border-blue-500/50'}`}>
+                          <div className={`hidden ${taxNumberError ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-600'}`} />
+                          <div className={`relative bg-[var(--bg-elevated)] backdrop-blur rounded-xl border overflow-hidden transition-colors ${taxNumberError ? 'border-red-500' : 'border-[var(--border-default)] focus-within:border-[var(--accent)]'}`}>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -1669,7 +1622,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                 setTaxNumberError('');
                               }}
                               placeholder="CPF ou CNPJ"
-                              className="w-full px-4 py-3.5 bg-transparent text-white text-center focus:outline-none placeholder-slate-500"
+                              className="w-full px-4 py-3.5 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
                               maxLength={18}
                               style={{ fontSize: '18px' }}
                             />
@@ -1686,7 +1639,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       disabled={!canSubmit || isGenerating}
                       className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
                     >
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl blur opacity-75" />
+                      <div className="hidden" />
                       <div className="relative flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 active:from-blue-700 active:to-cyan-700 text-white font-bold rounded-xl transition-all active:scale-95">
                         {isGenerating ? (
                           <Loader className="w-5 h-5 animate-spin" />
@@ -1702,11 +1655,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     {/* Trust indicators - only show when CPF is visible */}
                     {needsCpf && (
                       <div className="flex items-center justify-center gap-4 animate-in fade-in duration-300">
-                        <div className="flex items-center gap-1.5 text-slate-500">
+                        <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                           <Lock className="w-3 h-3" />
                           <span className="text-[10px]">Dados protegidos</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-slate-500">
+                        <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
                           <Shield className="w-3 h-3" />
                           <span className="text-[10px]">Conexão segura</span>
                         </div>
@@ -1720,8 +1673,8 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
 
           {/* Instructions for Mobile */}
           {showQrCode && (
-            <div className="mt-4 bg-slate-900/40 backdrop-blur rounded-xl p-4 border border-slate-700/30">
-              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <div className="mt-4 bg-[var(--bg-secondary)] backdrop-blur rounded-xl p-4 border border-[var(--border-default)]">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                 <Zap className="w-4 h-4 text-yellow-500" />
                 Como pagar
               </h3>
@@ -1732,11 +1685,11 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                   { icon: CheckCircle, text: 'Escaneie o QR Code' }
                 ].map((item, index) => (
                   <div key={index} className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-500/20">
+                    <div className="w-8 h-8 bg-[var(--accent-soft)] rounded-lg flex items-center justify-center flex-shrink-0 border border-[var(--accent)]/20">
                       <span className="text-sm text-blue-400 font-bold">{index + 1}</span>
                     </div>
                     <item.icon className="w-4 h-4 text-blue-400" />
-                    <p className="text-sm text-slate-300 flex-1">{item.text}</p>
+                    <p className="text-sm text-[var(--text-secondary)] flex-1">{item.text}</p>
                   </div>
                 ))}
               </div>
@@ -1745,7 +1698,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
         </div>
 
         {/* Opção 9: Mobile Footer com Sticky CTA */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 z-40">
+        <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] backdrop-blur-xl border-t border-[var(--border-default)] z-40">
           {/* Sticky CTA - Aparece quando QR code está ativo */}
           {showQrCode && qrCode && !isExpired && (
             <div className="px-4 pt-3 pb-2">
@@ -1784,7 +1737,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                 disabled={isGenerating}
                 className="w-full relative group"
               >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl blur opacity-60" />
+                <div className="hidden" />
                 <div className="relative flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 active:from-amber-600 active:to-orange-600 text-white font-bold rounded-xl transition-all active:scale-[0.98]">
                   {isGenerating ? (
                     <>
@@ -1802,25 +1755,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             </div>
           )}
 
-          {/* Trust badges */}
-          <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 px-4 py-2">
-            <span className="flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              SSL
-            </span>
-            <span className="flex items-center gap-1">
-              <Lock className="w-3 h-3" />
-              Protegido
-            </span>
-            <span className="flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" />
-              PIX BACEN
-            </span>
-            <span className="flex items-center gap-1">
-              <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-              5.0
-            </span>
-          </div>
+          {/* Footer */}
+          <p className="text-[10px] text-[var(--text-muted)] text-center px-4 py-2">
+            Criado com{' '}
+            <a href="/" className="text-[var(--accent)] active:underline">
+              Painel Atlas
+            </a>
+          </p>
         </div>
       </div>
 

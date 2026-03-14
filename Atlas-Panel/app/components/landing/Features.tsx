@@ -1,101 +1,89 @@
 'use client';
 
-import { Shield, Lock, Eye, EyeOff, Zap, CreditCard, Link2, BarChart3, HeadphonesIcon, UserX } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { Shield, BarChart3, Link2, Zap, CreditCard, Globe } from 'lucide-react';
+
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { threshold: 0.1 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, isVisible };
+}
 
 const features = [
   {
-    icon: EyeOff,
-    title: 'Anonimato Total',
-    description: 'Seus clientes pagam sem que seus dados pessoais sejam expostos. Privacidade para você e para quem compra.',
-    gradient: 'from-purple-400 to-purple-600'
+    icon: Link2,
+    title: 'Links de Pagamento',
+    desc: 'Crie links personalizados para cada produto ou servico. Compartilhe por WhatsApp, Instagram, email ou onde quiser. Seu cliente paga com um clique.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Painel de Vendas Completo',
+    desc: 'Acompanhe todas as transacoes em tempo real. Veja quanto vendeu hoje, esta semana ou no mes. Exporte relatorios e tenha controle total do seu fluxo.',
   },
   {
     icon: Shield,
-    title: 'Dados Protegidos',
-    description: 'Não compartilhamos suas informações com terceiros. Seus dados são seus e de mais ninguém.',
-    gradient: 'from-blue-400 to-blue-600'
-  },
-  {
-    icon: Lock,
-    title: 'Transações Seguras',
-    description: 'Criptografia de ponta a ponta em todas as operações. Segurança de nível bancário sem a burocracia.',
-    gradient: 'from-green-400 to-emerald-600'
+    title: 'Privacidade de Verdade',
+    desc: 'Seus dados pessoais e financeiros nunca sao vendidos ou compartilhados. Diferente de outros gateways, sua privacidade e prioridade, nao um detalhe.',
   },
   {
     icon: Zap,
-    title: 'PIX Instantâneo',
-    description: 'Receba pagamentos em segundos, 24 horas por dia, 7 dias por semana. Seu dinheiro na hora.',
-    gradient: 'from-yellow-400 to-orange-500'
+    title: 'Recebimento Rapido',
+    desc: 'Receba D+1 com a menor taxa (0,5%) ou instantaneamente (0,8%). Sem travas, sem retencao. O dinheiro e seu e chega rapido.',
   },
   {
-    icon: Link2,
-    title: 'Links de Pagamento',
-    description: 'Crie links personalizados e compartilhe com seus clientes. Simples, rápido e sem complicação.',
-    gradient: 'from-pink-400 to-rose-500'
+    icon: CreditCard,
+    title: 'Zero Custos Fixos',
+    desc: 'Sem mensalidade, sem taxa de adesao, sem surpresas. Voce so paga a taxa quando realmente recebe um pagamento. Comece sem investir nada.',
   },
   {
-    icon: UserX,
-    title: 'Sem Burocracia',
-    description: 'Comece a receber pagamentos imediatamente. Sem análise de crédito, sem documentação complexa.',
-    gradient: 'from-teal-400 to-cyan-500'
-  }
+    icon: Globe,
+    title: 'Suporte Humano e Rapido',
+    desc: 'Tempo medio de resposta inferior a 60 segundos. Atendimento humano e dedicado, sem filas e sem bots. Voce nunca fica sozinho.',
+  },
 ];
 
 export default function Features() {
+  const { ref, isVisible } = useScrollReveal();
+
   return (
-    <section id="features" className="py-20 px-4 bg-gray-800">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-purple-900/50 border border-purple-700/50 text-purple-400 px-4 py-2 rounded-full text-sm font-medium mb-4">
-            <Shield className="w-4 h-4" />
-            Privacidade como prioridade
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Liberdade financeira com
-            <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"> privacidade real</span>
+    <section
+      ref={ref}
+      className={`py-16 sm:py-24 md:py-32 transition-all duration-700 ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}
+    >
+      <div className="max-w-5xl mx-auto px-5 sm:px-6">
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-50">
+            Tudo que voce precisa para vender mais
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Em um mundo onde seus dados são o produto, oferecemos uma alternativa:
-            pagamentos seguros onde você mantém o controle.
+          <p className="text-zinc-400 mt-3 sm:mt-4 max-w-xl mx-auto text-sm sm:text-base">
+            Ferramentas simples e poderosas para comerciantes que querem
+            receber pagamentos sem complicacao.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => {
-            const Icon = feature.icon;
-            return (
-              <div
-                key={index}
-                className="group relative bg-gray-900 rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-purple-700/50"
-              >
-                {/* Gradient background on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                <div className="relative">
-                  {/* Icon with gradient background */}
-                  <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                    <Icon className="w-7 h-7 text-white" />
-                  </div>
-
-                  <h3 className="text-xl font-semibold text-white mb-3">
-                    {feature.title}
-                  </h3>
-
-                  <p className="text-gray-400 leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 sm:p-8 hover:border-zinc-700 active:border-zinc-600 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10 mb-4">
+                <f.icon className="w-5 h-5 text-blue-400" strokeWidth={1.5} />
               </div>
-            );
-          })}
-        </div>
-
-        {/* Bottom message */}
-        <div className="text-center mt-16">
-          <div className="inline-flex items-center gap-3 bg-gray-900 rounded-full px-6 py-3 border border-gray-700">
-            <Lock className="w-5 h-5 text-purple-400" />
-            <span className="text-gray-300">Privacidade tem seu valor. E nós oferecemos pelo preço justo.</span>
-          </div>
+              <h3 className="text-base sm:text-lg font-semibold text-zinc-50">{f.title}</h3>
+              <p className="text-zinc-400 text-sm mt-2 leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

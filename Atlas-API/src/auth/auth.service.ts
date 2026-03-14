@@ -6,6 +6,8 @@ import {
 	Logger,
 	HttpStatus,
 	HttpException,
+	Inject,
+	forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -27,6 +29,7 @@ import {
 	VerifyResetCodeDto,
 } from '../common/dto/auth.dto';
 import { User, UserRole } from '@prisma/client';
+import { ReferralService } from '../referral/referral.service';
 
 export interface JwtPayload {
 	sub: string;
@@ -47,6 +50,8 @@ export class AuthService {
 		private readonly emailService: EmailService,
 		private readonly encryptionUtil: EncryptionUtil,
 		private readonly prisma: PrismaService,
+		@Inject(forwardRef(() => ReferralService))
+		private readonly referralService: ReferralService,
 	) {
 		// Debug encryption util injection
 		this.logger.log('[INIT] AuthService initialized');
@@ -79,7 +84,7 @@ export class AuthService {
 	}
 
 	async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-		const { email, username, password } = registerDto;
+		const { email, username, password, referralCode } = registerDto;
 
 		// Check if user already exists
 		const existingEmail = await this.userRepository.findByEmail(email);
@@ -126,6 +131,17 @@ export class AuthService {
 		} catch (error) {
 			this.logger.error('Failed to send email verification:', error);
 			// Don't fail registration if email fails
+		}
+
+		// Track referral signup (non-blocking)
+		if (referralCode) {
+			try {
+				await this.referralService.trackReferralSignup(user.id, referralCode);
+				this.logger.log(`[REGISTER] Referral tracked for user ${user.email} with code ${referralCode}`);
+			} catch (error) {
+				this.logger.error('Failed to track referral:', error);
+				// Don't fail registration if referral tracking fails
+			}
 		}
 
 		return authResponse;
@@ -667,6 +683,8 @@ export class AuthService {
 			pixKeyType: user.pixKeyType || null,
 			notifyApprovedSales: user.notifyApprovedSales ?? true,
 			notifyReviewSales: user.notifyReviewSales ?? true,
+			marketingEmails: user.marketingEmails ?? false,
+			collateral: user.collateral ?? null,
 		};
 
 		this.logger.log(
@@ -677,7 +695,7 @@ export class AuthService {
 
 	async updateNotificationSettings(
 		userId: string,
-		settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean },
+		settings: { notifyApprovedSales?: boolean; notifyReviewSales?: boolean; marketingEmails?: boolean },
 	): Promise<any> {
 		this.logger.log(
 			`[AUTH] Updating notification settings for user: ${userId}`,
@@ -695,16 +713,20 @@ export class AuthService {
 		if (settings.notifyReviewSales !== undefined) {
 			updateData.notifyReviewSales = settings.notifyReviewSales;
 		}
+		if (settings.marketingEmails !== undefined) {
+			updateData.marketingEmails = settings.marketingEmails;
+		}
 
 		const updatedUser = await this.userRepository.update(userId, updateData);
 
 		this.logger.log(
-			`[AUTH] Notification settings updated - notifyApprovedSales: ${updatedUser.notifyApprovedSales}, notifyReviewSales: ${updatedUser.notifyReviewSales}`,
+			`[AUTH] Notification settings updated - notifyApprovedSales: ${updatedUser.notifyApprovedSales}, notifyReviewSales: ${updatedUser.notifyReviewSales}, marketingEmails: ${updatedUser.marketingEmails}`,
 		);
 
 		return {
 			notifyApprovedSales: updatedUser.notifyApprovedSales,
 			notifyReviewSales: updatedUser.notifyReviewSales,
+			marketingEmails: updatedUser.marketingEmails,
 		};
 	}
 

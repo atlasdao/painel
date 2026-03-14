@@ -126,30 +126,47 @@ api.interceptors.response.use(
 
     const originalRequest = error.config;
 
+    // Only handle 401 errors - network errors should NOT trigger logout
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = Cookies.get('refresh_token');
-        if (refreshToken) {
+        if (refreshToken && refreshToken.length > 0) {
           // Use the same API_URL which already includes version
           const response = await axios.post(`${API_URL}/auth/refresh`, {
             refreshToken: refreshToken,
           });
 
           const { accessToken } = response.data;
-          
+
           Cookies.set('access_token', accessToken);
           Cookies.set('refresh_token', refreshToken); // Keep the same refresh token
-          
+
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
+        } else {
+          // No refresh token, but only logout if this was a real 401 from the server
+          // (not a network error during API restart)
+          console.log('[API] 401 received with no refresh token - redirecting to login');
+          Cookies.remove('access_token');
+          Cookies.remove('refresh_token');
+          Cookies.remove('user');
+          window.location.href = '/login';
         }
-      } catch (refreshError) {
-        // Refresh failed, redirect to login
-        Cookies.remove('access_token');
-        Cookies.remove('refresh_token');
-        window.location.href = '/login';
+      } catch (refreshError: any) {
+        // Only logout if refresh endpoint actually responded with an error
+        // Network errors during API restart should not cause logout
+        if (refreshError.response) {
+          console.log('[API] Refresh token rejected by server - redirecting to login');
+          Cookies.remove('access_token');
+          Cookies.remove('refresh_token');
+          Cookies.remove('user');
+          window.location.href = '/login';
+        } else {
+          console.log('[API] Refresh failed due to network error - keeping session');
+          // Don't clear cookies on network error (API might be restarting)
+        }
       }
     }
 

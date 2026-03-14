@@ -77,7 +77,7 @@ export default function UserActionsDropdown({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="fixed bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-[9999] w-56 max-h-96 overflow-y-auto"
+          className="fixed bg-[var(--bg-card)] rounded-lg shadow-xl border border-[var(--border-default)] z-[9999] w-56 max-h-96 overflow-y-auto"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
@@ -86,16 +86,16 @@ export default function UserActionsDropdown({
           <div className="py-1">
             <button
               onClick={() => handleAction(() => onToggleStatus(user.id, user.isActive))}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center text-white"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-elevated)] flex items-center text-[var(--text-primary)]"
             >
               {user.isActive ? (
                 <>
-                  <Ban size={16} className="mr-2 text-red-400" />
+                  <Ban size={16} className="mr-2 text-red-600 dark:text-red-400" />
                   Desativar Conta
                 </>
               ) : (
                 <>
-                  <CheckCircle size={16} className="mr-2 text-green-400" />
+                  <CheckCircle size={16} className="mr-2 text-green-600 dark:text-green-400" />
                   Ativar Conta
                 </>
               )}
@@ -103,17 +103,17 @@ export default function UserActionsDropdown({
 
             <button
               onClick={() => handleAction(() => onChangeRole(user.id, user.role === UserRole.ADMIN ? UserRole.USER : UserRole.ADMIN))}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center text-white"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-elevated)] flex items-center text-[var(--text-primary)]"
             >
-              <Shield size={16} className="mr-2 text-purple-400" />
+              <Shield size={16} className="mr-2 text-[var(--accent)]" />
               {user.role === UserRole.ADMIN ? 'Remover Admin' : 'Tornar Admin'}
             </button>
 
             <button
               onClick={() => handleAction(() => onManageLimits(user))}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center text-white"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-elevated)] flex items-center text-[var(--text-primary)]"
             >
-              <DollarSign size={16} className="mr-2 text-yellow-400" />
+              <DollarSign size={16} className="mr-2 text-yellow-600 dark:text-yellow-400" />
               Ajustar Limites
             </button>
 
@@ -121,20 +121,20 @@ export default function UserActionsDropdown({
             {user.apiKey && (
               <button
                 onClick={() => handleAction(() => onRevokeApiKey(user.id))}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center text-white"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-elevated)] flex items-center text-[var(--text-primary)]"
               >
-                <Key size={16} className="mr-2 text-orange-400" />
+                <Key size={16} className="mr-2 text-orange-600 dark:text-orange-400" />
                 Revogar API Key
               </button>
             )}
 
-            <div className="border-t border-gray-700 my-1" />
+            <div className="border-t border-[var(--border-default)] my-1" />
 
             <button
               onClick={() => handleAction(() => onDeleteUser(user.id))}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center text-white"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-elevated)] flex items-center text-[var(--text-primary)]"
             >
-              <Trash2 size={16} className="mr-2 text-red-400" />
+              <Trash2 size={16} className="mr-2 text-red-600 dark:text-red-400" />
               Excluir Usuário
             </button>
           </div>
@@ -148,9 +148,9 @@ export default function UserActionsDropdown({
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+        className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors"
       >
-        <MoreVertical size={16} className="text-gray-400" />
+        <MoreVertical size={16} className="text-[var(--text-muted)]" />
       </button>
       {typeof window !== 'undefined' && createPortal(dropdownContent, document.body)}
     </>

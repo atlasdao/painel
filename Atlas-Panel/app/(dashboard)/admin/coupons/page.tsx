@@ -181,10 +181,10 @@ export default function AdminCouponsPage() {
   };
 
   const getStatusColor = (coupon: DiscountCoupon) => {
-    if (!coupon.isActive) return 'text-gray-400';
-    if (coupon.validUntil && new Date(coupon.validUntil) < new Date()) return 'text-red-400';
-    if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return 'text-yellow-400';
-    return 'text-green-400';
+    if (!coupon.isActive) return 'text-[var(--text-muted)]';
+    if (coupon.validUntil && new Date(coupon.validUntil) < new Date()) return 'text-red-600 dark:text-red-400';
+    if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-green-600 dark:text-green-400';
   };
 
   const getStatusText = (coupon: DiscountCoupon) => {
@@ -198,8 +198,8 @@ export default function AdminCouponsPage() {
     <div className="p-6">
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold mb-2 text-white">Cupons de Desconto</h1>
-          <p className="text-gray-400">Gerencie cupons de desconto para saques</p>
+          <h1 className="text-3xl font-bold mb-2 text-[var(--text-primary)]">Cupons de Desconto</h1>
+          <p className="text-[var(--text-muted)]">Gerencie cupons de desconto para saques</p>
         </div>
         <button
           onClick={() => {
@@ -207,7 +207,7 @@ export default function AdminCouponsPage() {
             setEditingCoupon(null);
             setShowCreateModal(true);
           }}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors flex items-center"
+          className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg font-medium transition-colors flex items-center text-white"
         >
           <Plus size={20} className="mr-2" />
           Novo Cupom
@@ -219,40 +219,40 @@ export default function AdminCouponsPage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Total de Cupons</span>
-              <Tag size={20} className="text-purple-400" />
+              <span className="text-[var(--text-muted)] text-sm">Total de Cupons</span>
+              <Tag size={20} className="text-[var(--accent)]" />
             </div>
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
+            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Cupons Ativos</span>
-              <CheckCircle size={20} className="text-green-400" />
+              <span className="text-[var(--text-muted)] text-sm">Cupons Ativos</span>
+              <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-white">{stats.active}</p>
+            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.active}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Expirados</span>
-              <XCircle size={20} className="text-red-400" />
+              <span className="text-[var(--text-muted)] text-sm">Expirados</span>
+              <XCircle size={20} className="text-red-600 dark:text-red-400" />
             </div>
-            <p className="text-2xl font-bold text-white">{stats.expired}</p>
+            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.expired}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Total de Usos</span>
-              <Users size={20} className="text-blue-400" />
+              <span className="text-[var(--text-muted)] text-sm">Total de Usos</span>
+              <Users size={20} className="text-blue-600 dark:text-blue-400" />
             </div>
             <p className="text-2xl font-bold">{stats.totalUsages}</p>
           </div>
 
           <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm">Total Descontado</span>
-              <DollarSign size={20} className="text-yellow-400" />
+              <span className="text-[var(--text-muted)] text-sm">Total Descontado</span>
+              <DollarSign size={20} className="text-yellow-600 dark:text-yellow-400" />
             </div>
             <p className="text-2xl font-bold">{formatCurrency(stats.totalDiscounts)}</p>
           </div>
@@ -261,71 +261,71 @@ export default function AdminCouponsPage() {
 
       {/* Error/Success Messages */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500 rounded-lg flex items-center">
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500 rounded-lg flex items-center">
           <AlertCircle size={20} className="text-red-500 mr-2" />
           <span className="text-red-500">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-3 bg-green-500/10 border border-green-500 rounded-lg">
+        <div className="mb-4 p-3 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500 rounded-lg">
           <span className="text-green-500">{success}</span>
         </div>
       )}
 
       {/* Coupons Table */}
       <div className="glass-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-700">
+        <div className="px-6 py-4 border-b border-[var(--border-default)]">
           <h2 className="text-xl font-semibold">Lista de Cupons</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="table-modern">
-            <thead className="bg-gray-700">
+            <thead className="bg-[var(--bg-elevated)]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Código
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Desconto
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Usos
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Validade
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Limites
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-[var(--border-default)]">
               {coupons.map((coupon) => (
-                <tr key={coupon.id} className="hover:bg-gray-700/50">
+                <tr key={coupon.id} className="hover:bg-[var(--bg-elevated)]">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <p className="font-medium">{coupon.code}</p>
                       {coupon.description && (
-                        <p className="text-sm text-gray-400">{coupon.description}</p>
+                        <p className="text-sm text-[var(--text-muted)]">{coupon.description}</p>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-lg font-semibold text-green-400">
+                    <span className="text-lg font-semibold text-green-600 dark:text-green-400">
                       {coupon.discountPercentage}%
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <p>{coupon.currentUses} / {coupon.maxUses || '∞'}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-[var(--text-muted)]">
                         Max por usuário: {coupon.maxUsesPerUser}
                       </p>
                     </div>
@@ -346,7 +346,7 @@ export default function AdminCouponsPage() {
                       {coupon.maxAmount && (
                         <p>Max: {formatCurrency(coupon.maxAmount)}</p>
                       )}
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-[var(--text-muted)]">
                         {coupon.allowedMethods.join(', ')}
                       </p>
                     </div>
@@ -360,13 +360,13 @@ export default function AdminCouponsPage() {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEdit(coupon)}
-                        className="text-blue-400 hover:text-blue-300"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                       >
                         <Edit size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(coupon.id)}
-                        className="text-red-400 hover:text-red-300"
+                        className="text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -376,7 +376,7 @@ export default function AdminCouponsPage() {
               ))}
               {coupons.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
                     Nenhum cupom encontrado
                   </td>
                 </tr>
@@ -405,7 +405,7 @@ export default function AdminCouponsPage() {
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     placeholder="DESCONTO10"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                     required
                   />
                 </div>
@@ -420,7 +420,7 @@ export default function AdminCouponsPage() {
                     max="100"
                     value={formData.discountPercentage}
                     onChange={(e) => setFormData({ ...formData, discountPercentage: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                     required
                   />
                 </div>
@@ -434,7 +434,7 @@ export default function AdminCouponsPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Cupom de boas-vindas"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -448,7 +448,7 @@ export default function AdminCouponsPage() {
                     value={formData.maxUses}
                     onChange={(e) => setFormData({ ...formData, maxUses: e.target.value })}
                     placeholder="Ilimitado"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -461,7 +461,7 @@ export default function AdminCouponsPage() {
                     min="1"
                     value={formData.maxUsesPerUser}
                     onChange={(e) => setFormData({ ...formData, maxUsesPerUser: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                     required
                   />
                 </div>
@@ -474,7 +474,7 @@ export default function AdminCouponsPage() {
                     type="date"
                     value={formData.validFrom}
                     onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                     required
                   />
                 </div>
@@ -487,7 +487,7 @@ export default function AdminCouponsPage() {
                     type="date"
                     value={formData.validUntil}
                     onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -502,7 +502,7 @@ export default function AdminCouponsPage() {
                     value={formData.minAmount}
                     onChange={(e) => setFormData({ ...formData, minAmount: e.target.value })}
                     placeholder="Sem mínimo"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -517,7 +517,7 @@ export default function AdminCouponsPage() {
                     value={formData.maxAmount}
                     onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
                     placeholder="Sem máximo"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -583,13 +583,13 @@ export default function AdminCouponsPage() {
                     setEditingCoupon(null);
                     resetForm();
                   }}
-                  className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+                  className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+                  className="px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg font-medium transition-colors text-white"
                 >
                   {editingCoupon ? 'Atualizar' : 'Criar'} Cupom
                 </button>

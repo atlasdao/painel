@@ -43,6 +43,15 @@ export class RegisterDto {
 	@IsString()
 	@MinLength(8)
 	password: string;
+
+	@ApiPropertyOptional({
+		description: 'Referral code from invitation link',
+		example: 'abc123',
+	})
+	@IsOptional()
+	@IsString()
+	@Transform(({ value }) => value?.toLowerCase().trim())
+	referralCode?: string;
 }
 
 export class LoginDto {

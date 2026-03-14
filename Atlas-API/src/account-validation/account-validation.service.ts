@@ -442,6 +442,10 @@ export class AccountValidationService {
 				verifiedTaxNumber: verifiedEUID, // Store the EUID from webhook as verified tax number
 				defaultWalletAddress: userLiquidAddress || null, // Store the liquid wallet address
 				defaultWalletType: userLiquidAddress ? "LIQUID" : null, // Set wallet type to LIQUID if address is provided
+				// Enable commerce mode automatically on validation
+				commerceMode: true,
+				paymentLinksEnabled: true,
+				commerceModeActivatedAt: new Date(),
 			},
 		});
 

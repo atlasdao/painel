@@ -33,7 +33,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 }) => {
   return (
     <div
-      className={`stat-card card-lift ${
+      className={`atlas-card ${
         isAnimated ? 'animate-slide-up' : ''
       }`}
       style={{ animationDelay: `${delay}ms` }}
@@ -42,15 +42,15 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <p className="text-sm text-gray-400 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-white">{value}</p>
+          <p className="text-sm text-[var(--text-muted)] mb-1">{title}</p>
+          <p className="text-3xl font-bold text-[var(--text-primary)]">{value}</p>
           {subtitle && (
-            <p className="text-xs text-gray-400 mt-2">{subtitle}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-2">{subtitle}</p>
           )}
           {trend && (
             <p
               className={`text-xs mt-2 flex items-center gap-1 ${
-                trend.isPositive ? 'text-green-400' : 'text-red-400'
+                trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}
             >
               {trend.value}
@@ -58,9 +58,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </div>
         <div
-          className={`w-14 h-14 ${iconBgColor} rounded-lg flex items-center justify-center transition-all duration-300 ${
-            isAnimated ? 'animate-float' : ''
-          }`}
+          className={`w-14 h-14 ${iconBgColor} rounded-xl flex items-center justify-center`}
         >
           <Icon className={`w-7 h-7 ${iconColor}`} />
         </div>

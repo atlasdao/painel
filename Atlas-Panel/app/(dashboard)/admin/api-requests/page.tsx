@@ -192,28 +192,28 @@ export default function AdminApiRequestsPage() {
     switch (status) {
       case 'PENDING':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900/50 text-yellow-400">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400">
             <Clock className="w-3 h-3 mr-1" />
             Pendente
           </span>
         );
       case 'APPROVED':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-400">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
             <CheckCircle className="w-3 h-3 mr-1" />
             Aprovado
           </span>
         );
       case 'REJECTED':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/50 text-red-400">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">
             <XCircle className="w-3 h-3 mr-1" />
             Rejeitado
           </span>
         );
       case 'REVOKED':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-400">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-muted)]">
             <XCircle className="w-3 h-3 mr-1" />
             Revogado
           </span>
@@ -226,14 +226,14 @@ export default function AdminApiRequestsPage() {
   const getUsageTypeBadge = (type: string) => {
     if (type === 'SINGLE_CPF') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900/50 text-blue-400">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400">
           <User className="w-3 h-3 mr-1" />
           CPF Único
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-900/50 text-purple-400">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--accent-soft)] text-[var(--accent)]">
         <CreditCard className="w-3 h-3 mr-1" />
         Múltiplos CPFs
       </span>
@@ -261,7 +261,7 @@ export default function AdminApiRequestsPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Carregando solicitações de API...</p>
+          <p className="text-[var(--text-muted)]">Carregando solicitações de API...</p>
         </div>
       </div>
     );
@@ -279,7 +279,7 @@ export default function AdminApiRequestsPage() {
               <Key className="mr-3" />
               Solicitações de API Key
             </h1>
-            <p className="text-gray-400 mt-2">
+            <p className="text-[var(--text-muted)] mt-2">
               Gerencie as solicitações de acesso à API do sistema
             </p>
           </div>
@@ -298,40 +298,40 @@ export default function AdminApiRequestsPage() {
           <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Total</p>
-                <p className="text-2xl font-bold text-white">{requests.length}</p>
+                <p className="text-sm text-[var(--text-muted)]">Total</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{requests.length}</p>
               </div>
-              <FileText className="w-8 h-8 text-blue-400" />
+              <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-[var(--text-muted)]">Pendentes</p>
+                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingCount}</p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
             </div>
           </div>
           
           <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Pendentes</p>
-                <p className="text-2xl font-bold text-yellow-400">{pendingCount}</p>
+                <p className="text-sm text-[var(--text-muted)]">Aprovadas</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{approvedCount}</p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-400" />
+              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
           </div>
           
           <div className="glass-card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Aprovadas</p>
-                <p className="text-2xl font-bold text-green-400">{approvedCount}</p>
+                <p className="text-sm text-[var(--text-muted)]">Rejeitadas</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{rejectedCount}</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
-            </div>
-          </div>
-          
-          <div className="glass-card p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Rejeitadas</p>
-                <p className="text-2xl font-bold text-red-400">{rejectedCount}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-red-400" />
+              <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
           </div>
         </div>
@@ -341,13 +341,13 @@ export default function AdminApiRequestsPage() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Buscar por usuário, email, URL ou motivo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
               </div>
             </div>
@@ -356,8 +356,8 @@ export default function AdminApiRequestsPage() {
                 onClick={() => setFilterStatus('all')}
                 className={`px-4 py-2 rounded-lg transition duration-200 ${
                   filterStatus === 'all' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--border-hover)]'
                 }`}
               >
                 Todas ({requests.length})
@@ -366,8 +366,8 @@ export default function AdminApiRequestsPage() {
                 onClick={() => setFilterStatus('pending')}
                 className={`px-4 py-2 rounded-lg transition duration-200 ${
                   filterStatus === 'pending' 
-                    ? 'bg-yellow-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--border-hover)]'
                 }`}
               >
                 Pendentes ({pendingCount})
@@ -376,8 +376,8 @@ export default function AdminApiRequestsPage() {
                 onClick={() => setFilterStatus('approved')}
                 className={`px-4 py-2 rounded-lg transition duration-200 ${
                   filterStatus === 'approved' 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--border-hover)]'
                 }`}
               >
                 Aprovadas ({approvedCount})
@@ -386,8 +386,8 @@ export default function AdminApiRequestsPage() {
                 onClick={() => setFilterStatus('rejected')}
                 className={`px-4 py-2 rounded-lg transition duration-200 ${
                   filterStatus === 'rejected' 
-                    ? 'bg-red-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--border-hover)]'
                 }`}
               >
                 Rejeitadas ({rejectedCount})
@@ -398,12 +398,12 @@ export default function AdminApiRequestsPage() {
 
         {/* Pending Alert */}
         {pendingCount > 0 && (
-          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 mb-6">
+          <div className="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4 mb-6">
             <div className="flex items-start">
-              <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5 mr-3" />
+              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" />
               <div>
-                <h3 className="text-yellow-400 font-semibold">Atenção Necessária</h3>
-                <p className="text-gray-300 text-sm mt-1">
+                <h3 className="text-yellow-700 dark:text-yellow-400 font-semibold">Atenção Necessária</h3>
+                <p className="text-[var(--text-secondary)] text-sm mt-1">
                   Você tem {pendingCount} solicitação{pendingCount > 1 ? 'ões' : ''} pendente{pendingCount > 1 ? 's' : ''} aguardando análise.
                 </p>
               </div>
@@ -417,9 +417,9 @@ export default function AdminApiRequestsPage() {
         {filteredRequests.length === 0 ? (
           <div className="glass-card p-12">
             <div className="text-center">
-              <Key className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">Nenhuma solicitação encontrada</p>
-              <p className="text-gray-500 text-sm mt-2">
+              <Key className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+              <p className="text-[var(--text-muted)] text-lg">Nenhuma solicitação encontrada</p>
+              <p className="text-[var(--text-muted)] text-sm mt-2">
                 {searchTerm ? 'Tente ajustar seus filtros de busca' : 'As solicitações aparecerão aqui quando forem criadas'}
               </p>
             </div>
@@ -431,31 +431,31 @@ export default function AdminApiRequestsPage() {
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-6 h-6 text-gray-400" />
+                    <div className="w-12 h-12 bg-[var(--bg-elevated)] rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-6 h-6 text-[var(--text-muted)]" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-semibold text-white text-lg">
+                        <h3 className="font-semibold text-[var(--text-primary)] text-lg">
                           {request.user?.username || 'Usuário'}
                         </h3>
                         {getStatusBadge(request.status)}
                         {getUsageTypeBadge(request.usageType)}
                       </div>
-                      <p className="text-sm text-gray-400 mb-2">{request.user?.email || '-'}</p>
+                      <p className="text-sm text-[var(--text-muted)] mb-2">{request.user?.email || '-'}</p>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                         <div className="flex items-center space-x-2">
-                          <Globe className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-300">{request.serviceUrl}</span>
+                          <Globe className="w-4 h-4 text-[var(--text-muted)]" />
+                          <span className="text-sm text-[var(--text-secondary)]">{request.serviceUrl}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Activity className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-300">{request.estimatedVolume}</span>
+                          <Activity className="w-4 h-4 text-[var(--text-muted)]" />
+                          <span className="text-sm text-[var(--text-secondary)]">{request.estimatedVolume}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-300">{formatDate(request.createdAt)}</span>
+                          <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
+                          <span className="text-sm text-[var(--text-secondary)]">{formatDate(request.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -482,7 +482,7 @@ export default function AdminApiRequestsPage() {
                     )}
                     <button
                       onClick={() => toggleRow(request.id)}
-                      className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded-lg transition duration-200"
+                      className="p-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] hover-lift text-[var(--text-primary)] rounded-lg transition duration-200"
                       title="Ver detalhes"
                     >
                       {expandedRow === request.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -493,38 +493,38 @@ export default function AdminApiRequestsPage() {
 
               {/* Expanded Details */}
               {expandedRow === request.id && (
-                <div className="border-t border-gray-700 p-6 bg-gray-900/50">
+                <div className="border-t border-[var(--border-default)] p-6 bg-[var(--bg-primary)]">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-400 mb-2">Motivo da Solicitação</h4>
-                      <p className="text-gray-300 bg-gray-800 p-3 rounded">{request.usageReason}</p>
+                      <h4 className="text-sm font-medium text-[var(--text-muted)] mb-2">Motivo da Solicitação</h4>
+                      <p className="text-[var(--text-secondary)] bg-[var(--bg-card)] p-3 rounded">{request.usageReason}</p>
                     </div>
                     
                     {request.approvalNotes && (
                       <div>
-                        <h4 className="text-sm font-medium text-gray-400 mb-2">
+                        <h4 className="text-sm font-medium text-[var(--text-muted)] mb-2">
                           {request.status === 'REJECTED' ? 'Motivo da Rejeição' : 'Observações'}
                         </h4>
-                        <p className="text-gray-300 bg-gray-800 p-3 rounded">{request.approvalNotes}</p>
+                        <p className="text-[var(--text-secondary)] bg-[var(--bg-card)] p-3 rounded">{request.approvalNotes}</p>
                       </div>
                     )}
                     
                     {request.generatedApiKey && (
                       <div className="md:col-span-2">
-                        <h4 className="text-sm font-medium text-green-400 mb-2">Chave API Gerada</h4>
-                        <div className="flex items-center space-x-2 bg-green-900/20 border border-green-700 p-3 rounded">
-                          <code className="flex-1 font-mono text-sm text-green-400">
+                        <h4 className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">Chave API Gerada</h4>
+                        <div className="flex items-center space-x-2 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-700 p-3 rounded">
+                          <code className="flex-1 font-mono text-sm text-green-600 dark:text-green-400">
                             {showApiKey[request.id] ? request.generatedApiKey : '••••••••••••••••••••••••••••••••'}
                           </code>
                           <button
                             onClick={() => toggleApiKeyVisibility(request.id)}
-                            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded transition duration-200"
+                            className="p-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] hover-lift text-[var(--text-primary)] rounded transition duration-200"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => copyToClipboard(request.generatedApiKey!)}
-                            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 hover-lift text-white rounded transition duration-200"
+                            className="p-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] hover-lift text-[var(--text-primary)] rounded transition duration-200"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
@@ -533,7 +533,7 @@ export default function AdminApiRequestsPage() {
                     )}
                   </div>
                   
-                  <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                  <div className="mt-4 flex items-center justify-between text-xs text-[var(--text-muted)]">
                     <span>ID: {request.id}</span>
                     <div className="flex items-center space-x-4">
                       {request.approvedAt && (
@@ -558,23 +558,23 @@ export default function AdminApiRequestsPage() {
             <h2 className="text-2xl font-bold gradient-text mb-6">Aprovar Solicitação</h2>
             
             <div className="space-y-4">
-              <div className="bg-gray-900 rounded-lg p-4">
+              <div className="bg-[var(--bg-primary)] rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-400">Usuário</label>
-                    <p className="text-white font-medium">{selectedRequest.user?.username}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Usuário</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.user?.username}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Email</label>
-                    <p className="text-white font-medium">{selectedRequest.user?.email}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Email</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.user?.email}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Serviço</label>
-                    <p className="text-white font-medium">{selectedRequest.serviceUrl}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Serviço</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.serviceUrl}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Tipo de Uso</label>
-                    <p className="text-white font-medium">
+                    <label className="text-xs text-[var(--text-muted)]">Tipo de Uso</label>
+                    <p className="text-[var(--text-primary)] font-medium">
                       {selectedRequest.usageType === 'SINGLE_CPF' ? 'CPF Único' : 'Múltiplos CPFs'}
                     </p>
                   </div>
@@ -582,20 +582,20 @@ export default function AdminApiRequestsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Observações (opcional)
                 </label>
                 <textarea
                   value={approvalNotes}
                   onChange={(e) => setApprovalNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   rows={4}
                   placeholder="Adicione observações sobre a aprovação..."
                 />
               </div>
 
-              <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
-                <p className="text-sm text-green-400">
+              <div className="bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg p-3">
+                <p className="text-sm text-green-600 dark:text-green-400">
                   ⚡ Ao aprovar, uma chave API será gerada automaticamente e enviada ao usuário.
                 </p>
               </div>
@@ -641,43 +641,43 @@ export default function AdminApiRequestsPage() {
             <h2 className="text-2xl font-bold gradient-text mb-6">Rejeitar Solicitação</h2>
             
             <div className="space-y-4">
-              <div className="bg-gray-900 rounded-lg p-4">
+              <div className="bg-[var(--bg-primary)] rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-400">Usuário</label>
-                    <p className="text-white font-medium">{selectedRequest.user?.username}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Usuário</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.user?.username}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Email</label>
-                    <p className="text-white font-medium">{selectedRequest.user?.email}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Email</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.user?.email}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Serviço</label>
-                    <p className="text-white font-medium">{selectedRequest.serviceUrl}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Serviço</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.serviceUrl}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400">Volume</label>
-                    <p className="text-white font-medium">{selectedRequest.estimatedVolume}</p>
+                    <label className="text-xs text-[var(--text-muted)]">Volume</label>
+                    <p className="text-[var(--text-primary)] font-medium">{selectedRequest.estimatedVolume}</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                   Motivo da Rejeição <span className="text-red-400">*</span>
                 </label>
                 <textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                   rows={4}
                   required
                   placeholder="Explique o motivo da rejeição..."
                 />
               </div>
 
-              <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
-                <p className="text-sm text-red-400">
+              <div className="bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-3">
+                <p className="text-sm text-red-600 dark:text-red-400">
                   ⚠️ O usuário será notificado sobre a rejeição e o motivo informado.
                 </p>
               </div>
