@@ -1,0 +1,21 @@
+{
+  "name": "Conta Atlas",
+  "short_name": "Atlas",
+  "description": "Sua conta financeira digital",
+  "start_url": "/dash",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#18181b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/atlas-logo.jpg",
+      "sizes": "460x460",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "lang": "pt-BR",
+  "prefer_related_applications": false
+}

@@ -1,0 +1,1560 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { api, isAuxiliarCollaborator } from '@/app/lib/api';
+import { toast } from 'sonner';
+import {
+  Link,
+  Plus,
+  QrCode,
+  Copy,
+  Trash2,
+  ExternalLink,
+  DollarSign,
+  Edit,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Loader,
+  TrendingUp,
+  Users,
+  Calendar,
+  MoreVertical,
+  Share2,
+  Download,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  Wallet,
+  X,
+  Webhook
+} from 'lucide-react';
+import QRCode from 'qrcode';
+import { accountValidationService, commerceTermsService } from '@/app/lib/services';
+import WebhookConfiguration from './WebhookConfiguration';
+import CommerceTermsModal from './CommerceTermsModal';
+// import { triggerConfetti } from '@/app/lib/confetti';
+
+interface PaymentLink {
+  id: string;
+  shortCode: string;
+  amount?: number;
+  isCustomAmount: boolean;
+  minAmount?: number;
+  maxAmount?: number;
+  walletAddress: string;
+  description?: string;
+  totalPayments: number;
+  totalAmount: number;
+  isActive: boolean;
+  requiresTaxNumber?: boolean;
+  minAmountForTaxNumber?: number;
+  createdAt: string;
+  updatedAt: string;
+  viewCount?: number;
+}
+
+interface PaymentLinksManagerProps {
+  defaultWallet?: string;
+}
+
+export default function PaymentLinksManager({ defaultWallet }: PaymentLinksManagerProps) {
+  const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingLink, setEditingLink] = useState<PaymentLink | null>(null);
+  const [qrCodeUrls, setQrCodeUrls] = useState<{ [key: string]: string }>({});
+  const [expandedLinks, setExpandedLinks] = useState<Set<string>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [validationStatus, setValidationStatus] = useState<{
+    isValidated: boolean;
+    validationPaymentId?: string;
+    validatedAt?: string;
+    limits?: any;
+    reputation?: any;
+  } | null>(null);
+  const [validationRequirements, setValidationRequirements] = useState<{
+    amount: number;
+    description: string;
+    benefits: string[];
+  } | null>(null);
+  const [loadingValidation, setLoadingValidation] = useState(true);
+  const [showDescription, setShowDescription] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const dismissed = localStorage.getItem('payment-links-description-dismissed');
+      return dismissed !== 'true';
+    }
+    return true;
+  });
+  const [showWebhookConfig, setShowWebhookConfig] = useState<string | null>(null);
+  // Commerce Terms Modal - DESABILITADO TEMPORARIAMENTE
+  const [showCommerceTermsModal, setShowCommerceTermsModal] = useState(false);
+  const [commerceTermsAccepted, setCommerceTermsAccepted] = useState<boolean>(true); // Sempre true para desabilitar
+  const commerceTermsCheckRef = useRef(false);
+
+  // Scroll to top when webhook modal opens
+  useEffect(() => {
+    if (showWebhookConfig) {
+      // Scroll the page to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // NOTE: Temporarily disabled body scroll lock to fix issues
+      // document.body.style.overflow = 'hidden';
+    } else {
+      // Always ensure scroll is enabled
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+    }
+
+    // Cleanup function - ALWAYS restore scroll on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+    };
+  }, [showWebhookConfig]);
+
+  // Additional failsafe to ensure scroll is restored on component mount AND unmount
+  useEffect(() => {
+    // Reset overflow immediately when component mounts (fixes stuck scroll from previous sessions)
+    document.body.style.overflow = 'unset';
+    document.body.style.overflowY = 'auto';
+    document.body.style.position = 'static';
+
+    return () => {
+      // Also reset overflow when component unmounts
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowY = 'auto';
+      document.body.style.position = 'static';
+    };
+  }, []);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [linksPerPage] = useState(9);
+
+  // Calculate pagination
+  const indexOfLastLink = currentPage * linksPerPage;
+  const indexOfFirstLink = indexOfLastLink - linksPerPage;
+  const currentLinks = paymentLinks.slice(indexOfFirstLink, indexOfLastLink);
+  const totalPages = Math.ceil(paymentLinks.length / linksPerPage);
+
+  // Debug: Mostrar informações de paginação no console
+  useEffect(() => {
+    console.log('📄 Paginação:', {
+      totalLinks: paymentLinks.length,
+      linksPerPage,
+      currentPage,
+      totalPages,
+      indexOfFirstLink,
+      indexOfLastLink,
+      currentLinksCount: currentLinks.length,
+      showPagination: paymentLinks.length > linksPerPage
+    });
+  }, [paymentLinks.length, currentPage, linksPerPage, totalPages, indexOfFirstLink, indexOfLastLink, currentLinks.length]);
+
+  // Session storage keys
+  const FORM_STORAGE_KEY = 'payment-links-form-data';
+  const EDIT_FORM_STORAGE_KEY = 'payment-links-edit-form-data';
+
+  // Initialize form data with session storage
+  const getInitialFormData = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(FORM_STORAGE_KEY);
+        if (saved) {
+          const parsedData = JSON.parse(saved);
+          return {
+            ...parsedData,
+            walletAddress: parsedData.walletAddress || defaultWallet || '',
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to load form data from session storage:', error);
+      }
+    }
+    return {
+      amount: '',
+      description: '',
+      isCustomAmount: false,
+      minAmount: '',
+      maxAmount: '',
+      walletAddress: defaultWallet || '',
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
+    };
+  };
+
+  // Initialize edit form data
+  const getInitialEditFormData = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(EDIT_FORM_STORAGE_KEY);
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.warn('Failed to load edit form data from session storage:', error);
+      }
+    }
+    return {
+      amount: '',
+      description: '',
+      isCustomAmount: false,
+      minAmount: '',
+      maxAmount: '',
+      walletAddress: '',
+      isActive: true,
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
+    };
+  };
+
+  const [formData, setFormDataState] = useState(getInitialFormData);
+  const [editFormData, setEditFormDataState] = useState(getInitialEditFormData);
+
+  // Custom setFormData that automatically saves to session storage
+  const setFormData = (newData: any) => {
+    const updatedData = typeof newData === 'function' ? newData(formData) : newData;
+    setFormDataState(updatedData);
+
+    // Save to session storage
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(updatedData));
+      } catch (error) {
+        console.warn('Failed to save form data to session storage:', error);
+      }
+    }
+  };
+
+  // Custom setEditFormData that automatically saves to session storage
+  const setEditFormData = (newData: any) => {
+    const updatedData = typeof newData === 'function' ? newData(editFormData) : newData;
+    setEditFormDataState(updatedData);
+
+    // Save to session storage
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(EDIT_FORM_STORAGE_KEY, JSON.stringify(updatedData));
+      } catch (error) {
+        console.warn('Failed to save edit form data to session storage:', error);
+      }
+    }
+  };
+
+  // Clear form data from session storage when form is reset
+  const clearFormData = () => {
+    const defaultData = {
+      amount: '',
+      description: '',
+      isCustomAmount: false,
+      minAmount: '',
+      maxAmount: '',
+      walletAddress: defaultWallet || '',
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
+    };
+
+    setFormDataState(defaultData);
+
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(FORM_STORAGE_KEY);
+      } catch (error) {
+        console.warn('Failed to clear form data from session storage:', error);
+      }
+    }
+  };
+
+  // Clear edit form data from session storage when form is reset
+  const clearEditFormData = () => {
+    const defaultData = {
+      amount: '',
+      description: '',
+      isCustomAmount: false,
+      minAmount: '',
+      maxAmount: '',
+      walletAddress: '',
+      isActive: true,
+      requiresTaxNumber: false,
+      minAmountForTaxNumber: '3000'
+    };
+
+    setEditFormDataState(defaultData);
+
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(EDIT_FORM_STORAGE_KEY);
+      } catch (error) {
+        console.warn('Failed to clear edit form data from session storage:', error);
+      }
+    }
+  };
+
+  const dismissDescription = () => {
+    setShowDescription(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('payment-links-description-dismissed', 'true');
+    }
+  };
+
+  useEffect(() => {
+    checkValidationStatus();
+    loadPaymentLinks();
+    // checkCommerceTerms(); // DESABILITADO TEMPORARIAMENTE
+  }, []);
+
+  const checkCommerceTerms = async () => {
+    // Evitar múltiplas verificações usando ref (persiste entre renders)
+    if (commerceTermsCheckRef.current) return;
+    commerceTermsCheckRef.current = true;
+
+    // Se já aceitou (localStorage), não precisa verificar
+    if (typeof window !== 'undefined' && localStorage.getItem('commerce-terms-accepted') === 'true') {
+      setCommerceTermsAccepted(true);
+      return;
+    }
+
+    try {
+      const status = await commerceTermsService.getStatus();
+
+      if (status.hasAcceptedTerms) {
+        setCommerceTermsAccepted(true);
+        localStorage.setItem('commerce-terms-accepted', 'true');
+      } else {
+        setCommerceTermsAccepted(false);
+        // Se o usuário já tem payment links mas não aceitou os termos, mostrar modal
+        if (status.needsToAcceptTerms && status.hasPaymentLinks) {
+          setShowCommerceTermsModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking commerce terms:', error);
+      // Em caso de erro, assumir que já aceitou para não bloquear
+      setCommerceTermsAccepted(true);
+    }
+  };
+
+  const handleAcceptCommerceTerms = async () => {
+    try {
+      await commerceTermsService.acceptTerms();
+      setCommerceTermsAccepted(true);
+      setShowCommerceTermsModal(false);
+      // Salvar no localStorage para evitar mostrar novamente durante a sessão
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('commerce-terms-accepted', 'true');
+      }
+      toast.success('Termos aceitos com sucesso!');
+    } catch (error) {
+      console.error('Error accepting commerce terms:', error);
+      toast.error('Erro ao aceitar os termos. Tente novamente.');
+      throw error;
+    }
+  };
+
+
+  const checkValidationStatus = async () => {
+    setLoadingValidation(true);
+    try {
+      const [status, requirements] = await Promise.all([
+        accountValidationService.getValidationStatus(),
+        accountValidationService.getValidationRequirements()
+      ]);
+      setValidationStatus(status);
+      setValidationRequirements(requirements);
+    } catch (error: any) {
+      console.error('Error checking validation status:', error);
+      // If validation check fails, assume not validated
+      setValidationStatus({ isValidated: false });
+
+      // Get current validation amount robustly
+      try {
+        const validationAmount = await accountValidationService.getCurrentValidationAmount();
+        setValidationRequirements({
+          amount: validationAmount,
+          description: `Pagamento único de R$ ${validationAmount.toFixed(2).replace('.', ',')} para validar sua conta`,
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      } catch (fallbackError) {
+        console.error('Error getting current validation amount:', fallbackError);
+        // This should rarely happen now
+        setValidationRequirements({
+          amount: 2.0, // Use admin default instead of hardcoded 1.0
+          description: 'Pagamento único de R$ 2,00 para validar sua conta',
+          benefits: ['Gerar depósitos ilimitados', 'Acesso completo às funcionalidades']
+        });
+      }
+    } finally {
+      setLoadingValidation(false);
+    }
+  };
+
+  const loadPaymentLinks = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/payment-links');
+      setPaymentLinks(response.data);
+
+      // Generate QR codes for each link
+      const qrCodes: { [key: string]: string } = {};
+      for (const link of response.data) {
+        const url = `${window.location.origin}/pay/${link.shortCode}`;
+        qrCodes[link.id] = await QRCode.toDataURL(url);
+      }
+      setQrCodeUrls(qrCodes);
+    } catch (error) {
+      console.error('Error loading payment links:', error);
+      toast.error('Erro ao carregar links de pagamento');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to safely convert string to number
+  const sanitizeNumber = (value: string): number | undefined => {
+    if (!value || value.trim() === '') return undefined;
+    const num = parseFloat(value);
+    return isNaN(num) ? undefined : num;
+  };
+
+  const handleCreateLink = async () => {
+    // DESABILITADO TEMPORARIAMENTE - Verificação de termos do modo comércio
+    // if (!commerceTermsAccepted && paymentLinks.length === 0) {
+    //   setShowCommerceTermsModal(true);
+    //   return;
+    // }
+
+    // Enhanced validation with better error messages
+    if (formData.isCustomAmount) {
+      const minAmount = sanitizeNumber(formData.minAmount);
+      const maxAmount = sanitizeNumber(formData.maxAmount);
+
+      if (!minAmount && !maxAmount) {
+        toast.error('Para valores personalizados, defina pelo menos um valor mínimo ou máximo');
+        return;
+      }
+
+      if (minAmount && minAmount <= 0) {
+        toast.error('O valor mínimo deve ser maior que zero');
+        return;
+      }
+
+      if (maxAmount && maxAmount <= 0) {
+        toast.error('O valor máximo deve ser maior que zero');
+        return;
+      }
+
+      if (minAmount && maxAmount && minAmount >= maxAmount) {
+        toast.error('O valor mínimo deve ser menor que o valor máximo');
+        return;
+      }
+    } else {
+      const amount = sanitizeNumber(formData.amount);
+      if (!amount || amount <= 0) {
+        toast.error('Digite um valor válido para o pagamento');
+        return;
+      }
+    }
+
+    // Enhanced wallet validation - skip for AUXILIAR with default wallet (they use default)
+    const isAuxiliar = isAuxiliarCollaborator();
+    const walletToUse = isAuxiliar && defaultWallet ? defaultWallet : formData.walletAddress?.trim();
+
+    if (!walletToUse || walletToUse.length === 0) {
+      toast.error('Digite um endereço de carteira para recebimento');
+      return;
+    }
+
+    try {
+      // Sanitize all numeric inputs before sending to API
+      // CPF/CNPJ é automaticamente exigido pelo backend para valores acima de R$ 3.000
+      // AUXILIAR collaborators always use the default wallet
+      const payload = {
+        amount: formData.isCustomAmount ? undefined : sanitizeNumber(formData.amount),
+        isCustomAmount: formData.isCustomAmount,
+        minAmount: formData.isCustomAmount ? sanitizeNumber(formData.minAmount) : undefined,
+        maxAmount: formData.isCustomAmount ? sanitizeNumber(formData.maxAmount) : undefined,
+        description: formData.description || undefined,
+        walletAddress: walletToUse,
+      };
+
+
+      const response = await api.post('/payment-links', payload);
+
+      toast.success('Link de pagamento criado com sucesso!');
+      // triggerConfetti.success();
+
+      // Generate QR code for the new link
+      const url = `${window.location.origin}/pay/${response.data.shortCode}`;
+      const qrCode = await QRCode.toDataURL(url);
+      setQrCodeUrls(prev => ({ ...prev, [response.data.id]: qrCode }));
+
+      // Add to list
+      setPaymentLinks(prev => [response.data, ...prev]);
+
+      // Reset to first page to show the new link
+      setCurrentPage(1);
+
+      // Reset form and clear session storage
+      clearFormData();
+      setShowCreateForm(false);
+    } catch (error: any) {
+      console.error('❌ Payment link creation failed:', error);
+      console.error('Error details:', {
+        response: error.response?.data,
+        status: error.response?.status,
+        message: error.message
+      });
+
+      let errorMessage = 'Erro ao criar link de pagamento';
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Dados inválidos. Verifique os valores informados e tente novamente.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Sessão expirada. Faça login novamente.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Erro interno do servidor. Tente novamente em alguns momentos.';
+      } else if (error.message.includes('Network')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      }
+
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteLink = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await api.delete(`/payment-links/${id}`);
+      setPaymentLinks(prev => prev.filter(link => link.id !== id));
+      toast.success('Link removido com sucesso');
+    } catch (error) {
+      toast.error('Erro ao remover link');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleToggleLink = async (link: PaymentLink) => {
+    try {
+      const response = await api.patch(`/payment-links/${link.id}/toggle`);
+      const updatedLink = response.data;
+
+      // Update the link in the local state
+      setPaymentLinks(prev => prev.map(l =>
+        l.id === link.id ? updatedLink : l
+      ));
+
+      toast.success(
+        updatedLink.isActive
+          ? 'Link de pagamento ativado!'
+          : 'Link de pagamento desativado!'
+      );
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao alterar status do link');
+    }
+  };
+
+  const handleEditLink = (link: PaymentLink) => {
+    setEditingLink(link);
+    setEditFormData({
+      amount: link.amount ? link.amount.toString() : '',
+      description: link.description || '',
+      isCustomAmount: link.isCustomAmount,
+      minAmount: link.minAmount ? link.minAmount.toString() : '',
+      maxAmount: link.maxAmount ? link.maxAmount.toString() : '',
+      walletAddress: link.walletAddress,
+      isActive: link.isActive,
+      requiresTaxNumber: link.requiresTaxNumber || false,
+      minAmountForTaxNumber: link.minAmountForTaxNumber ? link.minAmountForTaxNumber.toString() : '3000'
+    });
+    setShowEditForm(true);
+  };
+
+  const handleUpdateLink = async () => {
+    if (!editingLink) return;
+
+    // Enhanced validation with better error messages
+    if (editFormData.isCustomAmount) {
+      const minAmount = sanitizeNumber(editFormData.minAmount);
+      const maxAmount = sanitizeNumber(editFormData.maxAmount);
+
+      if (!minAmount && !maxAmount) {
+        toast.error('Para valores personalizados, defina pelo menos um valor mínimo ou máximo');
+        return;
+      }
+
+      if (minAmount && minAmount <= 0) {
+        toast.error('O valor mínimo deve ser maior que zero');
+        return;
+      }
+
+      if (maxAmount && maxAmount <= 0) {
+        toast.error('O valor máximo deve ser maior que zero');
+        return;
+      }
+
+      if (minAmount && maxAmount && minAmount >= maxAmount) {
+        toast.error('O valor mínimo deve ser menor que o valor máximo');
+        return;
+      }
+    } else {
+      const amount = sanitizeNumber(editFormData.amount);
+      if (!amount || amount <= 0) {
+        toast.error('Digite um valor válido para o pagamento');
+        return;
+      }
+    }
+
+    // Enhanced wallet validation - skip for AUXILIAR (they can't change wallet)
+    const isAuxiliar = isAuxiliarCollaborator();
+    if (!isAuxiliar && (!editFormData.walletAddress || editFormData.walletAddress.trim().length === 0)) {
+      toast.error('Endereço da carteira é obrigatório');
+      return;
+    }
+
+    try {
+      // Sanitize all numeric inputs before sending to API
+      // CPF/CNPJ é automaticamente exigido pelo backend para valores acima de R$ 3.000
+      // AUXILIAR collaborators cannot change wallet address
+      const payload: any = {
+        amount: editFormData.isCustomAmount ? undefined : sanitizeNumber(editFormData.amount),
+        isCustomAmount: editFormData.isCustomAmount,
+        minAmount: editFormData.isCustomAmount ? sanitizeNumber(editFormData.minAmount) : undefined,
+        maxAmount: editFormData.isCustomAmount ? sanitizeNumber(editFormData.maxAmount) : undefined,
+        description: editFormData.description || undefined,
+        isActive: editFormData.isActive,
+      };
+
+      // Only include walletAddress if not AUXILIAR
+      if (!isAuxiliar) {
+        payload.walletAddress = editFormData.walletAddress.trim();
+      }
+
+
+      const response = await api.patch(`/payment-links/${editingLink.id}`, payload);
+
+      toast.success('Link de pagamento atualizado com sucesso!');
+
+      // Generate new QR code for the updated link if payment details changed
+      if (payload.amount !== undefined || payload.walletAddress !== undefined || payload.description !== undefined) {
+        const url = `${window.location.origin}/pay/${response.data.shortCode}`;
+        const qrCode = await QRCode.toDataURL(url);
+        setQrCodeUrls(prev => ({ ...prev, [response.data.id]: qrCode }));
+      }
+
+      // Update in list
+      setPaymentLinks(prev => prev.map(link =>
+        link.id === editingLink.id ? response.data : link
+      ));
+
+      // Reset form and clear session storage
+      clearEditFormData();
+      setShowEditForm(false);
+      setEditingLink(null);
+    } catch (error: any) {
+      console.error('❌ Payment link update failed:', error);
+      console.error('Error details:', {
+        response: error.response?.data,
+        status: error.response?.status,
+        message: error.message
+      });
+
+      let errorMessage = 'Erro ao atualizar link de pagamento';
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Dados inválidos. Verifique os valores informados e tente novamente.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Sessão expirada. Faça login novamente.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Link de pagamento não encontrado.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Erro interno do servidor. Tente novamente em alguns momentos.';
+      } else if (error.message.includes('Network')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      }
+
+      toast.error(errorMessage);
+    }
+  };
+
+  const copyLink = (shortCode: string) => {
+    const url = `${window.location.origin}/pay/${shortCode}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copiado!');
+  };
+
+  const shareLink = async (link: PaymentLink) => {
+    const url = `${window.location.origin}/pay/${link.shortCode}`;
+    const text = link.description || 'Link de pagamento';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Link de Pagamento',
+          text: text,
+          url: url
+        });
+      } catch (err) {
+        // Share cancelled or failed silently
+      }
+    } else {
+      copyLink(link.shortCode);
+    }
+  };
+
+  const downloadQRCode = (link: PaymentLink) => {
+    const qrCodeUrl = qrCodeUrls[link.id];
+    if (!qrCodeUrl) return;
+
+    const downloadLink = document.createElement('a');
+    downloadLink.href = qrCodeUrl;
+    downloadLink.download = `qrcode-${link.shortCode}.png`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    toast.success('QR Code baixado!');
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader className="w-8 h-8 animate-spin text-[var(--accent)]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 native-scroll">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="native-heading-2 flex items-center gap-3">
+          <Link className="text-[var(--accent)]" size={24} />
+          Links de Pagamento
+        </h2>
+
+        {validationStatus?.isValidated ? (
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="native-button flex items-center gap-2 touch-target"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="hidden sm:inline">Criar Novo Link</span>
+            <span className="sm:hidden">Criar</span>
+          </button>
+        ) : (
+          <button
+            disabled
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-muted)] rounded-lg cursor-not-allowed opacity-50 touch-target"
+          >
+            <Shield size={20} />
+            <span className="hidden sm:inline">Validação Necessária</span>
+            <span className="sm:hidden">Validar</span>
+          </button>
+        )}
+      </div>
+
+      {/* Validation Status Info */}
+      {loadingValidation ? (
+        <div className="mb-6 p-4 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl animate-bounce-in">
+          <div className="flex items-center gap-3">
+            <Loader className="text-[var(--text-muted)] animate-spin" size={20} />
+            <p className="text-[var(--text-muted)]">Verificando status de validação...</p>
+          </div>
+        </div>
+      ) : !validationStatus?.isValidated ? (
+        <div className="mb-6 p-6 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-yellow-200 dark:bg-yellow-500/20 rounded-lg">
+              <Shield className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-yellow-700 dark:text-yellow-400 font-semibold text-lg mb-2">Validação de Conta Necessária</h3>
+              <p className="text-[var(--text-secondary)] mb-5 leading-relaxed">
+                Para criar links de pagamento, você precisa validar sua conta primeiro.
+                O processo é simples e requer apenas um pagamento de <strong className="text-[var(--text-primary)]">
+                  R$ {validationRequirements?.amount ? validationRequirements.amount.toFixed(2).replace('.', ',') : '2,00'}
+                </strong>.
+              </p>
+
+              <a
+                href="/dash/deposit"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-[var(--text-primary)] rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl touch-target"
+              >
+                <Shield size={18} />
+                Validar Conta Agora
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : showDescription ? (
+        <div className="mb-6 p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30 rounded-lg">
+          <div className="flex items-start gap-3">
+            <QrCode className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-blue-600 dark:text-blue-400 font-medium">Links de Pagamento Rápido</p>
+                <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <CheckCircle size={16} />
+                  <span className="text-sm">Conta Validada</span>
+                </div>
+              </div>
+              <p className="text-[var(--text-secondary)] text-sm">
+                Crie links personalizados para receber pagamentos PIX de até R$ 5.000 de múltiplos CPF/CNPJ diretamente em Depix
+              </p>
+              {validationStatus?.limits && (
+                <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600/30 rounded">
+                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-1">Seus Limites Atuais:</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm">
+                    Limite diário: <strong>R$ {validationStatus.limits.currentDailyLimit}</strong>
+                    (Tier {validationStatus.limits.limitTier})
+                  </p>
+                  {validationStatus.reputation && (
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">
+                      Reputação: <strong>{validationStatus.reputation.reputationScore.toFixed(1)}</strong>
+                      ({validationStatus.reputation.totalApprovedCount} pagamentos aprovados)
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={dismissDescription}
+              className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors touch-target text-[var(--text-muted)] hover:text-[var(--text-secondary)] flex-shrink-0"
+              title="Ocultar esta mensagem permanentemente"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Enhanced Create Form */}
+      {showCreateForm && (
+        <div className="glass-card-premium p-6 animate-slide-up">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-[var(--accent-soft)] rounded-lg">
+              <Plus className="text-[var(--accent)]" size={20} />
+            </div>
+            <h3 className="text-xl font-bold text-[var(--text-primary)]">Criar Novo Link de Pagamento</h3>
+          </div>
+
+          <div className="space-y-5">
+            {/* Custom Amount Toggle */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="customAmount"
+                checked={formData.isCustomAmount}
+                onChange={(e) => setFormData({ ...formData, isCustomAmount: e.target.checked })}
+                className="w-5 h-5 text-[var(--accent)] bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-[var(--accent)]"
+              />
+              <label htmlFor="customAmount" className="text-[var(--text-secondary)]">
+                Permitir valor personalizado
+              </label>
+            </div>
+
+            {/* Amount Fields */}
+            {formData.isCustomAmount ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                    Valor Mínimo
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.minAmount}
+                    onChange={(e) => setFormData({ ...formData, minAmount: e.target.value })}
+                    placeholder="10.00"
+                    min="0.01"
+                    step="0.01"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                    Valor Máximo
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.maxAmount}
+                    onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
+                    placeholder="1000.00"
+                    min="0.01"
+                    step="0.01"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                  Valor do Pagamento
+                </label>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  placeholder="100.00"
+                  min="0.01"
+                  step="0.01"
+                  className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+            )}
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                Descrição (opcional)
+              </label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Ex: Pagamento do pedido #123"
+                className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+
+            {/* Wallet Configuration Section - Always Visible */}
+            <div className="p-4 bg-gradient-to-br from-blue-100 dark:from-blue-600/10 to-purple-100 dark:to-purple-600/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                  <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
+                </div>
+                <div>
+                  <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                  <p className="text-[var(--text-muted)] text-sm">Endereço Liquid Network</p>
+                </div>
+              </div>
+
+              {defaultWallet && (
+                <div className="mb-3 p-3 bg-green-100 dark:bg-green-500/10 rounded-lg border border-green-300 dark:border-green-500/30">
+                  <p className="text-xs text-green-700 dark:text-green-400 font-medium mb-1">Carteira padrão configurada:</p>
+                  <code className="text-xs text-green-700 dark:text-green-300">
+                    {defaultWallet.substring(0, 10)}...{defaultWallet.substring(defaultWallet.length - 9)}
+                  </code>
+                </div>
+              )}
+
+              {/* Info for AUXILIAR collaborators */}
+              {isAuxiliarCollaborator() && defaultWallet && (
+                <div className="mb-3 p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    Como colaborador auxiliar, você utiliza a carteira padrão da conta.
+                  </p>
+                </div>
+              )}
+
+              {/* Only show wallet input if not AUXILIAR or no default wallet */}
+              {(!isAuxiliarCollaborator() || !defaultWallet) && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                    Endereço da Carteira {!defaultWallet && <span className="text-red-600 dark:text-red-400">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.walletAddress}
+                    onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
+                    placeholder={defaultWallet ? "Usar carteira padrão ou digite outro endereço" : "Digite o endereço da carteira Liquid"}
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none touch-target"
+                    style={{ fontSize: '16px' }}
+                  />
+                  {!defaultWallet && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-start gap-1">
+                      <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                      <span>Configure uma carteira padrão nas configurações para tornar este campo opcional</span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
+            <div className="p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/20">
+              <div className="flex items-start gap-2">
+                <div className="p-1 bg-blue-200 dark:bg-blue-500/20 rounded mt-0.5">
+                  <Shield className="text-blue-600 dark:text-blue-400" size={14} />
+                </div>
+                <div className="text-sm space-y-1">
+                  <p className="text-blue-700 dark:text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                  <ul className="text-[var(--text-secondary)] space-y-0.5">
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                      <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
+                    </li>
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                      <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                    </li>
+                    <li className="flex items-start gap-1">
+                      <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                      <span>Permite pagamentos até R$ 5.000 por transação</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-[var(--border-default)]">
+              <button
+                onClick={handleCreateLink}
+                className="flex-1 px-6 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
+              >
+                <Plus size={18} />
+                Criar Link de Pagamento
+              </button>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="px-6 py-4 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg font-medium transition-all duration-200 touch-target"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Edit Form Modal */}
+      {showEditForm && editingLink && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="glass-card-premium max-w-2xl w-full my-8 animate-slide-up">
+            <div className="p-6 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-[var(--accent-soft)] rounded-lg">
+                  <Edit className="text-blue-600 dark:text-blue-400" size={20} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-[var(--text-primary)]">Editar Link de Pagamento</h3>
+                  <p className="text-[var(--text-muted)] text-sm">
+                    Código: {editingLink.shortCode} • Criado em {new Date(editingLink.createdAt).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditForm(false);
+                    setEditingLink(null);
+                    clearEditFormData();
+                  }}
+                  className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors touch-target"
+                  title="Fechar"
+                >
+                  <XCircle className="text-[var(--text-muted)]" size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                {/* Status Toggle */}
+                <div className="p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-default)]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[var(--text-primary)] font-medium mb-1">Status do Link</h4>
+                      <p className="text-[var(--text-muted)] text-sm">
+                        {editFormData.isActive ? 'Link ativo e funcionando' : 'Link desativado temporariamente'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setEditFormData({ ...editFormData, isActive: !editFormData.isActive })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        editFormData.isActive ? 'bg-green-600' : 'bg-[var(--bg-elevated)]'
+                      }`}
+                      title={editFormData.isActive ? 'Desativar link' : 'Ativar link'}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        editFormData.isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Amount Toggle */}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="editCustomAmount"
+                    checked={editFormData.isCustomAmount}
+                    onChange={(e) => setEditFormData({ ...editFormData, isCustomAmount: e.target.checked })}
+                    className="w-5 h-5 text-[var(--accent)] bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-[var(--accent)]"
+                  />
+                  <label htmlFor="editCustomAmount" className="text-[var(--text-secondary)]">
+                    Permitir valor personalizado
+                  </label>
+                </div>
+
+                {/* Amount Fields */}
+                {editFormData.isCustomAmount ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                        Valor Mínimo
+                      </label>
+                      <input
+                        type="number"
+                        value={editFormData.minAmount}
+                        onChange={(e) => setEditFormData({ ...editFormData, minAmount: e.target.value })}
+                        placeholder="10.00"
+                        min="0.01"
+                        step="0.01"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                        style={{ fontSize: '16px' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                        Valor Máximo
+                      </label>
+                      <input
+                        type="number"
+                        value={editFormData.maxAmount}
+                        onChange={(e) => setEditFormData({ ...editFormData, maxAmount: e.target.value })}
+                        placeholder="1000.00"
+                        min="0.01"
+                        step="0.01"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                        style={{ fontSize: '16px' }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                      Valor do Pagamento
+                    </label>
+                    <input
+                      type="number"
+                      value={editFormData.amount}
+                      onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
+                      placeholder="100.00"
+                      min="0.01"
+                      step="0.01"
+                      className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                      style={{ fontSize: '16px' }}
+                    />
+                  </div>
+                )}
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+                    Descrição (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    placeholder="Ex: Pagamento do pedido #123"
+                    className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none touch-target"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+
+                {/* Wallet Address - Hidden for AUXILIAR collaborators */}
+                {isAuxiliarCollaborator() ? (
+                  <div className="p-4 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                        <p className="text-blue-600 dark:text-blue-400 text-sm">Como colaborador auxiliar, você utiliza a carteira padrão da conta.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gradient-to-br from-blue-100 dark:from-blue-600/10 to-purple-100 dark:to-purple-600/10 rounded-lg border border-blue-300 dark:border-blue-500/30">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-200 dark:bg-blue-500/20 rounded-lg">
+                        <Wallet className="text-blue-600 dark:text-blue-400" size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-[var(--text-primary)] font-medium">Carteira para Recebimento</h4>
+                        <p className="text-[var(--text-muted)] text-sm">Endereço Liquid Network</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                        Endereço da Carteira <span className="text-red-600 dark:text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editFormData.walletAddress}
+                        onChange={(e) => setEditFormData({ ...editFormData, walletAddress: e.target.value })}
+                        placeholder="Digite o endereço da carteira Liquid"
+                        className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none touch-target"
+                        style={{ fontSize: '16px' }}
+                      />
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-start gap-1">
+                        <Shield size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>⚠️ Alterar a carteira invalidará o QR Code atual</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Box - CPF/CNPJ obrigatório acima de R$ 3.000 */}
+                <div className="p-3 bg-blue-100 dark:bg-blue-500/10 rounded-lg border border-blue-300 dark:border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <div className="p-1 bg-blue-200 dark:bg-blue-500/20 rounded mt-0.5">
+                      <Shield className="text-blue-600 dark:text-blue-400" size={14} />
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <p className="text-blue-700 dark:text-blue-400 font-medium">CPF/CNPJ do Pagador:</p>
+                      <ul className="text-[var(--text-secondary)] space-y-0.5">
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                          <span>Para valores acima de R$ 3.000, o pagador deverá informar o CPF/CNPJ</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                          <span>Deve ser o mesmo CPF/CNPJ da conta bancária</span>
+                        </li>
+                        <li className="flex items-start gap-1">
+                          <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                          <span>Permite pagamentos até R$ 5.000 por transação</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-6 border-t border-[var(--border-default)]">
+                  <button
+                    onClick={handleUpdateLink}
+                    className="flex-1 px-6 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
+                  >
+                    <Edit size={18} />
+                    Atualizar Link
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditForm(false);
+                      setEditingLink(null);
+                      clearEditFormData();
+                    }}
+                    className="px-6 py-4 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg font-medium transition-all duration-200 touch-target"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Links Grid */}
+      {validationStatus?.isValidated && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paymentLinks.length === 0 ? (
+              <div className="col-span-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-12 text-center">
+                <Link className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-4" />
+                <p className="text-[var(--text-muted)]">Nenhum link de pagamento criado</p>
+                <p className="text-[var(--text-muted)] text-sm mt-2">
+                  Clique em "Criar Novo Link" para criar seu primeiro link de pagamento
+                </p>
+              </div>
+            ) : (
+              currentLinks.map((link) => (
+              <div key={link.id} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-6">
+                {/* QR Code */}
+                <div className="flex justify-center mb-4">
+                  {qrCodeUrls[link.id] && (
+                    <img
+                      src={qrCodeUrls[link.id]}
+                      alt="QR Code"
+                      className="w-32 h-32 bg-white p-2 rounded-lg"
+                    />
+                  )}
+                </div>
+
+                {/* Link Info */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">Valor</p>
+                    {link.isCustomAmount ? (
+                      <div>
+                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">Valor Personalizado</p>
+                        {(link.minAmount || link.maxAmount) && (
+                          <p className="text-sm text-[var(--text-muted)]">
+                            {link.minAmount && `Min: ${formatCurrency(link.minAmount)}`}
+                            {link.minAmount && link.maxAmount && ' - '}
+                            {link.maxAmount && `Max: ${formatCurrency(link.maxAmount)}`}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(link.amount || 0)}</p>
+                    )}
+                  </div>
+
+                  {link.description && (
+                    <div>
+                      <p className="text-sm text-[var(--text-muted)]">Descrição</p>
+                      <p className="text-[var(--text-primary)]">{link.description}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">Link</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-xs text-blue-600 dark:text-blue-400 bg-[var(--bg-elevated)] px-2 py-1 rounded flex-1 truncate">
+                        {window.location.origin}/pay/{link.shortCode}
+                      </code>
+                      <button
+                        onClick={() => copyLink(link.shortCode)}
+                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] touch-target"
+                        title="Copiar link"
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <a
+                        href={`${window.location.origin}/pay/${link.shortCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] touch-target"
+                        title="Abrir link"
+                      >
+                        <ExternalLink size={16} />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border-default)]">
+                    <div>
+                      <p className="text-xs text-[var(--text-muted)]">Pagamentos</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">{link.totalPayments || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--text-muted)]">Total Recebido</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">
+                        {formatCurrency(link.totalAmount || 0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle and Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
+                    {/* Toggle Switch */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggleLink(link)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          link.isActive ? 'bg-green-600' : 'bg-[var(--bg-elevated)]'
+                        }`}
+                        title={link.isActive ? 'Desativar link' : 'Ativar link'}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          link.isActive ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                      <span className={`text-xs ${
+                        link.isActive ? 'text-green-600 dark:text-green-400' : 'text-[var(--text-muted)]'
+                      }`}>
+                        {link.isActive ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-1 flex-wrap">
+                      <button
+                        onClick={() => setShowWebhookConfig(link.id)}
+                        className="p-2 bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded-lg transition-colors"
+                        title="Configurar webhooks"
+                      >
+                        <Webhook size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEditLink(link)}
+                        className="p-2 bg-blue-100 dark:bg-blue-600/20 hover:bg-blue-200 dark:hover:bg-blue-600/30 text-blue-700 dark:text-blue-400 rounded-lg transition-colors"
+                        title="Editar link"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => downloadQRCode(link)}
+                        className="p-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-lg transition-colors"
+                        title="Baixar QR Code"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLink(link.id)}
+                        disabled={deletingId === link.id}
+                        className="p-2 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 text-red-700 dark:text-red-400 rounded-lg transition-colors"
+                        title="Excluir link"
+                      >
+                        {deletingId === link.id ? (
+                          <Loader size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              ))
+            )}
+          </div>
+
+          {/* Pagination Controls */}
+          {paymentLinks.length > linksPerPage && (
+          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-[var(--accent)]/30 border-2 border-[var(--accent)] p-4 rounded-lg shadow-lg shadow-[var(--accent)]/20">
+              <div className="text-sm text-[var(--text-muted)]">
+                Mostrando {indexOfFirstLink + 1} - {Math.min(indexOfLastLink, paymentLinks.length)} de {paymentLinks.length} links
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    currentPage === 1
+                      ? 'bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed'
+                      : 'bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)]'
+                  }`}
+                >
+                  Anterior
+                </button>
+
+                {/* Page numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNumber => {
+                    // Show first page, last page, current page, and pages around current
+                    const showPage =
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1);
+
+                    const showEllipsis =
+                      pageNumber === currentPage - 2 && currentPage > 3 ||
+                      pageNumber === currentPage + 2 && currentPage < totalPages - 2;
+
+                    if (showEllipsis) {
+                      return <span key={pageNumber} className="text-[var(--text-muted)] px-2">...</span>;
+                    }
+
+                    if (!showPage) return null;
+
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => setCurrentPage(pageNumber)}
+                        className={`min-w-[32px] h-8 px-2 rounded-lg transition-colors ${
+                          currentPage === pageNumber
+                            ? 'bg-[var(--accent)] text-[var(--text-primary)]'
+                            : 'bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    currentPage === totalPages
+                      ? 'bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed'
+                      : 'bg-[var(--accent-soft)] hover:bg-[var(--accent)]/30 text-[var(--accent)]'
+                  }`}
+                >
+                  Próximo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination info - always show for debugging */}
+          {paymentLinks.length > 0 && paymentLinks.length <= linksPerPage && (
+            <div className="mt-6 text-center text-[var(--text-muted)] text-sm p-2 bg-[var(--bg-card)] rounded">
+              Mostrando todos os {paymentLinks.length} links (paginação aparece com mais de {linksPerPage} links)
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Commerce Terms Modal - DESABILITADO TEMPORARIAMENTE */}
+      {/* <CommerceTermsModal
+        isOpen={showCommerceTermsModal}
+        onAccept={handleAcceptCommerceTerms}
+      /> */}
+
+      {/* Webhook Configuration Modal */}
+      {showWebhookConfig && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm"
+          onClick={(e) => {
+            // Close modal if clicking on backdrop
+            if (e.target === e.currentTarget) {
+              setShowWebhookConfig(null);
+              // Force restore scroll when closing via backdrop
+              document.body.style.overflow = 'unset';
+              document.body.style.overflowY = 'auto';
+              document.body.style.position = 'static';
+            }
+          }}
+        >
+          <div className="absolute top-0 left-0 right-0 flex justify-center pt-4">
+            <div
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">Configuração de Webhooks</h2>
+                <button
+                  onClick={() => {
+                    setShowWebhookConfig(null);
+                    // Explicitly restore scroll
+                    document.body.style.overflow = 'unset';
+                    document.body.style.overflowY = 'auto';
+                    document.body.style.position = 'static';
+                  }}
+                  className="p-2 hover:bg-zinc-800 rounded transition-colors"
+                  title="Fechar"
+                >
+                  <X className="h-5 w-5 text-zinc-400" />
+                </button>
+              </div>
+
+              {showWebhookConfig && (
+                <WebhookConfiguration
+                  key={`webhook-${showWebhookConfig}-${Date.now()}`}
+                  paymentLinkId={showWebhookConfig}
+                  onWebhookChange={() => {
+                    // Optionally reload payment links or show a success message
+                    console.log('Webhook changed for payment link:', showWebhookConfig);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

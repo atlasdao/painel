@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /dash/
+Disallow: /api/
+Sitemap: https://atlasdao.app/sitemap.xml

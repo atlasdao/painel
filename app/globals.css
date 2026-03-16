@@ -1,0 +1,1052 @@
+/* ============================================
+   Conta Atlas Design System v2
+   1. Font imports
+   2. Tailwind
+   3. Theme variables (light + dark)
+   4. Base resets
+   5. Atlas component classes
+   6. Atlas icon system
+   7. Animations
+   8. Utilities
+   9. Admin backward-compatibility
+   10. Light/Dark theme overrides
+   ============================================ */
+
+/* 1. Font Imports */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&display=swap');
+
+/* 2. Tailwind */
+@import "tailwindcss";
+
+/* Class-based dark mode (instead of media query default) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 3. Theme Variables */
+:root {
+  /* Background */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-card: #ffffff;
+  --bg-elevated: #f4f4f5;
+  --bg-hover: #ebebed;
+
+  /* Borders */
+  --border-default: #e4e4e7;
+  --border-hover: #d4d4d8;
+
+  /* Text */
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --text-muted: #a1a1aa;
+
+  /* Accent - minimalist black/white */
+  --accent: #18181b;
+  --accent-hover: #27272a;
+  --accent-soft: rgba(24, 24, 27, 0.08);
+
+  /* Semantic */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+
+  /* Skeleton */
+  --skeleton-bg: #e4e4e7;
+  --skeleton-border: #d4d4d8;
+
+  /* Legacy compat */
+  --background: #ffffff;
+  --surface: #f4f4f5;
+  --foreground: #18181b;
+  --text-secondary-legacy: #71717a;
+  --border: #e4e4e7;
+  --brand-primary-600: #2563eb;
+  --brand-primary-500: #3b82f6;
+  --brand-primary-400: #60a5fa;
+  --brand-primary-300: #93c5fd;
+  --brand-primary-200: #bfdbfe;
+  --brand-primary-100: #dbeafe;
+  --brand-primary-800: #1e40af;
+  --brand-primary-900: #1e3a5f;
+  --brand-secondary-500: #22c55e;
+  --atlas-primary: var(--brand-primary-600);
+  --atlas-secondary: var(--brand-secondary-500);
+  --atlas-accent: var(--brand-primary-400);
+  --atlas-dark: var(--foreground);
+  --atlas-light: var(--surface);
+  --shadow-brand: 0 10px 40px -10px rgba(59, 130, 246, 0.35);
+}
+
+.dark {
+  /* Background */
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --bg-card: #18181b;
+  --bg-elevated: #27272a;
+  --bg-hover: #323238;
+
+  /* Borders */
+  --border-default: #27272a;
+  --border-hover: #3f3f46;
+
+  /* Text */
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  /* Accent - minimalist white */
+  --accent: #fafafa;
+  --accent-hover: #e4e4e7;
+  --accent-soft: rgba(250, 250, 250, 0.08);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+
+  /* Skeleton */
+  --skeleton-bg: #27272a;
+  --skeleton-border: #3f3f46;
+
+  /* Legacy compat */
+  --background: #09090b;
+  --surface: #18181b;
+  --foreground: #fafafa;
+  --border: #27272a;
+}
+
+/* 4. Base Resets */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::selection {
+  background: rgba(24, 24, 27, 0.15);
+  color: var(--text-primary);
+}
+
+.dark ::selection {
+  background: rgba(250, 250, 250, 0.2);
+}
+
+/* 5. Atlas Component Classes */
+
+/* Card */
+.atlas-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.atlas-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Button */
+.atlas-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  min-height: 48px;
+  transition: background 0.15s, transform 0.15s;
+  cursor: pointer;
+  border: none;
+}
+
+.atlas-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.atlas-btn:active {
+  transform: translateY(0);
+}
+
+/* Button secondary */
+.atlas-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  min-height: 48px;
+  border: 1px solid var(--border-default);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+
+.atlas-btn-secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.atlas-btn-secondary:active {
+  transform: translateY(0);
+}
+
+/* Input */
+.atlas-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  min-height: 48px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.atlas-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.atlas-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Badge */
+.atlas-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.atlas-badge-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.atlas-badge-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.atlas-badge-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.atlas-badge-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.atlas-badge-neutral {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+/* 6. Atlas Icon System */
+.atlas-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.atlas-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 1.75;
+}
+
+.atlas-icon-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.atlas-icon-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.atlas-icon-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.atlas-icon-neutral {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+/* 7. Animations */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* 8. Utilities */
+.scroll-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.skeleton {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: var(--skeleton-bg);
+  border-radius: 0.25rem;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  animation: skeleton-fade 1.8s ease-in-out infinite;
+}
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--bg-hover, rgba(255,255,255,0.08)) 40%,
+    var(--bg-hover, rgba(255,255,255,0.08)) 60%,
+    transparent 100%
+  );
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-fade {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: 1.5rem 0;
+}
+
+/* Safe area utilities for mobile */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* 9. Admin backward-compatibility block
+   These styles keep admin pages working without changes */
+
+/* Glass card - used by admin pages */
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.glass-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-card::before {
+  display: none;
+}
+
+.glass-card-dark {
+  background: var(--bg-secondary);
+}
+
+.glass-card-light {
+  background: var(--bg-elevated);
+}
+
+/* Stat card - used by admin and dashboard */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card::before {
+  display: none;
+}
+
+/* Legacy buttons */
+.btn-gradient {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.btn-gradient:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-default);
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.btn-outline {
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Legacy inputs */
+.input-modern {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-modern:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.input-modern::placeholder {
+  color: var(--text-muted);
+}
+
+.brand-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.brand-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.brand-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.brand-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Legacy badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.brand-badge.primary {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.brand-badge.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.brand-badge.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.brand-badge.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Table styles */
+.table-modern {
+  width: 100%;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.table-modern thead {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.table-modern thead th {
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.table-modern tbody tr {
+  border-bottom: 1px solid var(--border-default);
+  transition: background-color 0.15s;
+}
+
+.table-modern tbody tr:hover {
+  background: var(--bg-elevated);
+}
+
+.table-modern tbody td {
+  padding: 0.75rem 1.5rem;
+}
+
+/* Navigation styles */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.nav-item-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Modal styles */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 40;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-md);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  position: relative;
+  z-index: 50;
+}
+
+/* Alert styles */
+.alert {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid;
+}
+
+.alert-success {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+/* Hover lift */
+.hover-lift {
+  transition: transform 0.2s;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Transaction status styles */
+.transaction-status-professional {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.transaction-status-completed {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.transaction-status-pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.transaction-status-processing {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.transaction-status-failed {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.transaction-status-expired {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* Stat card premium variant */
+.stat-card-premium {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s;
+}
+
+.stat-card-premium:hover {
+  border-color: var(--accent);
+}
+
+/* PWA install prompt styles */
+.pwa-install-prompt {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+/* 10. Light theme overrides for status colors */
+/* In light mode, status badges need solid bg + white text for contrast */
+
+:root .atlas-badge-success,
+:root .badge-success,
+:root .brand-badge.success,
+:root .alert-success {
+  background: #22c55e;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+:root .atlas-badge-warning,
+:root .badge-warning,
+:root .brand-badge.warning,
+:root .alert-warning {
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #d97706;
+}
+
+:root .atlas-badge-error,
+:root .badge-danger,
+:root .brand-badge.danger,
+:root .alert-error {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+:root .atlas-badge-info,
+:root .badge-info,
+:root .brand-badge.primary,
+:root .alert-info {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+/* Atlas icon containers in light mode */
+:root .atlas-icon {
+  background: rgba(24, 24, 27, 0.08);
+}
+:root .atlas-icon-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+:root .atlas-icon-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+:root .atlas-icon-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+/* Transaction status overrides for light theme */
+:root .transaction-status-completed {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+:root .transaction-status-pending {
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #d97706;
+}
+:root .transaction-status-processing {
+  background: #22c55e;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+:root .transaction-status-failed {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+:root .transaction-status-expired {
+  background: #f97316;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+/* Dark mode keeps semi-transparent badges (original style) */
+.dark .atlas-badge-success,
+.dark .badge-success,
+.dark .brand-badge.success,
+.dark .alert-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+.dark .atlas-badge-warning,
+.dark .badge-warning,
+.dark .brand-badge.warning,
+.dark .alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.dark .atlas-badge-error,
+.dark .badge-danger,
+.dark .brand-badge.danger,
+.dark .alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.dark .atlas-badge-info,
+.dark .badge-info,
+.dark .brand-badge.primary,
+.dark .alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.dark .transaction-status-completed {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.dark .transaction-status-pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.dark .transaction-status-processing {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+.dark .transaction-status-failed {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.dark .transaction-status-expired {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* Responsive mobile adjustments */
+@media (max-width: 640px) {
+  .atlas-card {
+    padding: 1rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .atlas-card, .glass-card, .stat-card {
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+}

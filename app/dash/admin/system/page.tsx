@@ -1,0 +1,2454 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import api from '@/app/lib/api';
+import { adminService } from '@/app/lib/services';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Settings,
+  Users,
+  DollarSign,
+  TrendingUp,
+  RefreshCw,
+  Save,
+  Key,
+  Shield,
+  Plus,
+  Trash2,
+  FileText,
+  Search,
+  Filter,
+  Download,
+  Calendar,
+  User,
+  Eye,
+  X,
+  Copy,
+  Clock,
+  AlertCircle,
+  MessageSquare,
+  ExternalLink,
+  ShieldAlert,
+  Bell,
+  ToggleLeft,
+  ToggleRight,
+  Edit,
+  Info,
+  Link as LinkIcon,
+  HardDrive,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import os from 'os';
+
+export default function AdminSystemPage() {
+  const router = useRouter();
+  const [systemInfo, setSystemInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [medLimits, setMedLimits] = useState({
+    dailyDepositLimit: 1000,
+    dailyWithdrawLimit: 1000,
+    monthlyDepositLimit: 10000,
+    monthlyWithdrawLimit: 10000,
+    maxTransactionAmount: 5000,
+    requiresKyc: false,
+    firstDayLimit: 500,
+  });
+  const [eulenToken, setEulenToken] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
+  const [savingLimits, setSavingLimits] = useState(false);
+  const [validationSettings, setValidationSettings] = useState({
+    validationEnabled: true,
+    validationAmount: 1.00,
+    initialDailyLimit: 6000,
+    limitTiers: [6000, 10000, 20000, 40000, 80000, 160000],
+    thresholdTiers: [50000, 150000, 400000, 1000000, 2500000, 5000000],
+  });
+  const [savingValidation, setSavingValidation] = useState(false);
+
+  // Support Widget Keys State
+  const [supportKeys, setSupportKeys] = useState({ loggedKey: '', unloggedKey: '' });
+  const [savingSupportKeys, setSavingSupportKeys] = useState(false);
+
+  // Incident Management State
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [incidentLoading, setIncidentLoading] = useState(true);
+  const [showCreateIncident, setShowCreateIncident] = useState(false);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
+  const [newIncident, setNewIncident] = useState({
+    title: '',
+    description: '',
+    severity: 'MINOR',
+    affectedServices: [] as string[],
+    affectedFrom: '',
+    affectedTo: ''
+  });
+  const [newUpdate, setNewUpdate] = useState('');
+  const [creatingIncident, setCreatingIncident] = useState(false);
+  const [addingUpdate, setAddingUpdate] = useState(false);
+
+  // Audit Log State
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditFilters, setAuditFilters] = useState({
+    userId: '',
+    action: '',
+    resource: '',
+    startDate: '',
+    endDate: '',
+    search: '',
+  });
+  const [auditStats, setAuditStats] = useState({
+    total: 0,
+    todayCount: 0,
+    weekCount: 0,
+    monthCount: 0,
+  });
+
+  // System Warnings State
+  const [warnings, setWarnings] = useState<any[]>([]);
+  const [warningsLoading, setWarningsLoading] = useState(true);
+  const [showCreateWarning, setShowCreateWarning] = useState(false);
+  const [editingWarning, setEditingWarning] = useState<any | null>(null);
+  const [newWarning, setNewWarning] = useState({
+    title: '',
+    message: '',
+    type: 'INFO',
+    targetAudience: 'ALL',
+    isDismissible: true,
+    startDate: '',
+    endDate: '',
+    priority: 0,
+    link: '',
+    linkText: '',
+  });
+  const [savingWarning, setSavingWarning] = useState(false);
+
+  useEffect(() => {
+    loadSystemInfo();
+    loadMedLimits();
+    loadValidationSettings();
+  }, []);
+
+  // Load audit logs when switching to audit tab
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      loadAuditLogs();
+    }
+  }, [activeTab, auditFilters]);
+
+  // Load incidents when switching to incidents tab
+  useEffect(() => {
+    if (activeTab === 'incidents') {
+      loadIncidents();
+    }
+  }, [activeTab]);
+
+  // Load warnings when switching to warnings tab
+  useEffect(() => {
+    if (activeTab === 'warnings') {
+      loadWarnings();
+    }
+  }, [activeTab]);
+
+  // Load support widget keys when switching to settings tab
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      loadSupportWidgetKeys();
+    }
+  }, [activeTab]);
+
+  const loadSupportWidgetKeys = async () => {
+    try {
+      const response = await api.get('/admin/system/support-widget-keys');
+      setSupportKeys(response.data);
+    } catch (error) {
+      console.error('Error loading support widget keys:', error);
+    }
+  };
+
+  const handleSaveSupportKeys = async () => {
+    setSavingSupportKeys(true);
+    try {
+      await api.put('/admin/system/support-widget-keys', supportKeys);
+      toast.success('Chaves de suporte atualizadas com sucesso!');
+    } catch (error: any) {
+      console.error('Error saving support widget keys:', error);
+      toast.error(error.response?.data?.message || 'Erro ao salvar chaves de suporte');
+    } finally {
+      setSavingSupportKeys(false);
+    }
+  };
+
+  const loadWarnings = async () => {
+    setWarningsLoading(true);
+    try {
+      const response = await api.get('/admin/system/warnings');
+      if (response.data?.data) {
+        setWarnings(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error loading warnings:', error);
+      toast.error('Erro ao carregar avisos');
+    } finally {
+      setWarningsLoading(false);
+    }
+  };
+
+  const handleCreateWarning = async () => {
+    if (!newWarning.title.trim() || !newWarning.message.trim()) {
+      toast.error('Título e mensagem são obrigatórios');
+      return;
+    }
+
+    setSavingWarning(true);
+    try {
+      const response = await api.post('/admin/system/warnings', {
+        ...newWarning,
+        startDate: newWarning.startDate || undefined,
+        endDate: newWarning.endDate || undefined,
+        link: newWarning.link || undefined,
+        linkText: newWarning.linkText || undefined,
+      });
+
+      if (response.data?.success) {
+        toast.success('Aviso criado com sucesso');
+        setShowCreateWarning(false);
+        setNewWarning({
+          title: '',
+          message: '',
+          type: 'INFO',
+          targetAudience: 'ALL',
+          isDismissible: true,
+          startDate: '',
+          endDate: '',
+          priority: 0,
+          link: '',
+          linkText: '',
+        });
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error creating warning:', error);
+      toast.error('Erro ao criar aviso');
+    } finally {
+      setSavingWarning(false);
+    }
+  };
+
+  const handleUpdateWarning = async () => {
+    if (!editingWarning || !editingWarning.title.trim() || !editingWarning.message.trim()) {
+      toast.error('Título e mensagem são obrigatórios');
+      return;
+    }
+
+    setSavingWarning(true);
+    try {
+      const response = await api.put(`/admin/system/warnings/${editingWarning.id}`, {
+        title: editingWarning.title,
+        message: editingWarning.message,
+        type: editingWarning.type,
+        targetAudience: editingWarning.targetAudience,
+        isDismissible: editingWarning.isDismissible,
+        startDate: editingWarning.startDate || null,
+        endDate: editingWarning.endDate || null,
+        priority: editingWarning.priority,
+        link: editingWarning.link || null,
+        linkText: editingWarning.linkText || null,
+      });
+
+      if (response.data?.success) {
+        toast.success('Aviso atualizado com sucesso');
+        setEditingWarning(null);
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error updating warning:', error);
+      toast.error('Erro ao atualizar aviso');
+    } finally {
+      setSavingWarning(false);
+    }
+  };
+
+  const handleToggleWarning = async (warningId: string, isActive: boolean) => {
+    try {
+      const response = await api.put(`/admin/system/warnings/${warningId}/toggle`, {
+        isActive: !isActive,
+      });
+
+      if (response.data?.success) {
+        toast.success(isActive ? 'Aviso desativado' : 'Aviso ativado');
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error toggling warning:', error);
+      toast.error('Erro ao alterar status do aviso');
+    }
+  };
+
+  const handleDeleteWarning = async (warningId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este aviso?')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/admin/system/warnings/${warningId}`);
+
+      if (response.data?.success) {
+        toast.success('Aviso excluído com sucesso');
+        loadWarnings();
+      }
+    } catch (error) {
+      console.error('Error deleting warning:', error);
+      toast.error('Erro ao excluir aviso');
+    }
+  };
+
+  const getWarningTypeColor = (type: string) => {
+    switch (type) {
+      case 'INFO': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/30';
+      case 'WARNING': return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30';
+      case 'CRITICAL': return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30';
+      case 'SUCCESS': return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/30';
+      default: return 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border-default)]';
+    }
+  };
+
+  const getWarningTypeLabel = (type: string) => {
+    switch (type) {
+      case 'INFO': return 'Informativo';
+      case 'WARNING': return 'Alerta';
+      case 'CRITICAL': return 'Crítico';
+      case 'SUCCESS': return 'Sucesso';
+      default: return type;
+    }
+  };
+
+  const getTargetAudienceLabel = (audience: string) => {
+    switch (audience) {
+      case 'ALL': return 'Todos os usuários';
+      case 'VALIDATED_USERS': return 'Usuários validados';
+      case 'COMMERCE_USERS': return 'Usuários com modo comércio';
+      case 'NEW_USERS': return 'Novos usuários (< 7 dias)';
+      case 'ADMINS': return 'Apenas administradores';
+      default: return audience;
+    }
+  };
+
+  const loadSystemInfo = async () => {
+    setLoading(true);
+    try {
+      // Get real system information
+      const statsResponse = await api.get('/admin/stats');
+      const stats = statsResponse.data;
+
+      // Calculate real uptime
+      const uptimeSeconds = process.uptime ? process.uptime() : 0;
+      const days = Math.floor(uptimeSeconds / 86400);
+      const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+      const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+      setSystemInfo({
+        ...stats,
+        server: {
+          status: 'online',
+          uptime: `${days}d ${hours}h ${minutes}m`,
+          version: process.env.npm_package_version || '1.0.0',
+          nodeVersion: process.version || 'unknown',
+          environment: process.env.NODE_ENV || 'development',
+          memoryUsage: process.memoryUsage ? Math.round(process.memoryUsage().heapUsed / 1024 / 1024) : 0,
+          platform: process.platform || 'unknown',
+        },
+      });
+    } catch (error) {
+      console.error('Error loading system info:', error);
+      // Use fallback data if API fails
+      setSystemInfo({
+        totalUsers: 0,
+        totalTransactions: 0,
+        server: {
+          status: 'online',
+          uptime: '0d 0h 0m',
+          version: '1.0.0',
+          nodeVersion: 'v20.11.0',
+          environment: 'development',
+          memoryUsage: 0,
+          platform: 'linux',
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMedLimits = async () => {
+    try {
+      const response = await api.get('/admin/med-limits');
+      setMedLimits(response.data);
+    } catch (error) {
+      console.error('Error loading MED limits:', error);
+    }
+  };
+
+  const loadValidationSettings = async () => {
+    try {
+      const response = await api.get('/account-validation/settings');
+      setValidationSettings(response.data);
+    } catch (error) {
+      console.error('Error loading validation settings:', error);
+    }
+  };
+
+  const handleSaveMedLimits = async () => {
+    setSavingLimits(true);
+    try {
+      await api.put('/admin/med-limits', medLimits);
+      toast.success('Limites MED atualizados com sucesso!');
+    } catch (error) {
+      console.error('Error saving MED limits:', error);
+      toast.error('Erro ao salvar limites MED');
+    } finally {
+      setSavingLimits(false);
+    }
+  };
+
+  const handleSaveValidationSettings = async () => {
+    setSavingValidation(true);
+    try {
+      await api.put('/account-validation/settings', validationSettings);
+      toast.success('Configurações de validação salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving validation settings:', error);
+      toast.error('Erro ao salvar configurações de validação');
+    } finally {
+      setSavingValidation(false);
+    }
+  };
+
+  const handleTierChange = (index: number, value: string, type: 'limit' | 'threshold') => {
+    const numValue = parseFloat(value) || 0;
+    if (type === 'limit') {
+      const newTiers = [...validationSettings.limitTiers];
+      newTiers[index] = numValue;
+      setValidationSettings({ ...validationSettings, limitTiers: newTiers });
+    } else {
+      const newTiers = [...validationSettings.thresholdTiers];
+      newTiers[index] = numValue;
+      setValidationSettings({ ...validationSettings, thresholdTiers: newTiers });
+    }
+  };
+
+  const addTier = () => {
+    const lastLimit = validationSettings.limitTiers[validationSettings.limitTiers.length - 1];
+    const lastThreshold = validationSettings.thresholdTiers[validationSettings.thresholdTiers.length - 1];
+    
+    setValidationSettings({
+      ...validationSettings,
+      limitTiers: [...validationSettings.limitTiers, lastLimit * 2],
+      thresholdTiers: [...validationSettings.thresholdTiers, lastThreshold * 2],
+    });
+  };
+
+  const removeTier = (index: number) => {
+    if (validationSettings.limitTiers.length <= 1) {
+      toast.error('Deve haver pelo menos um nível');
+      return;
+    }
+    
+    setValidationSettings({
+      ...validationSettings,
+      limitTiers: validationSettings.limitTiers.filter((_, i) => i !== index),
+      thresholdTiers: validationSettings.thresholdTiers.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleSaveEulenToken = async () => {
+    if (!eulenToken.trim()) {
+      toast.error('Token não pode estar vazio');
+      return;
+    }
+
+    setSavingToken(true);
+    try {
+      await api.put('/admin/system/eulen-token', { token: eulenToken });
+      toast.success('Token Depix atualizado com sucesso!');
+      setEulenToken('');
+    } catch (error) {
+      console.error('Error saving Eulen token:', error);
+      toast.error('Erro ao salvar token Depix');
+    } finally {
+      setSavingToken(false);
+    }
+  };
+
+  const loadAuditLogs = async () => {
+    setAuditLoading(true);
+    try {
+      const data = await adminService.getAuditLogs({
+        userId: auditFilters.userId || undefined,
+        action: auditFilters.action || undefined,
+        resource: auditFilters.resource || undefined,
+        startDate: auditFilters.startDate ? new Date(auditFilters.startDate) : undefined,
+        endDate: auditFilters.endDate ? new Date(auditFilters.endDate) : undefined,
+        take: 100,
+      });
+      setAuditLogs(data);
+      calculateAuditStats(data);
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      toast.error('Erro ao carregar logs de auditoria');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const calculateAuditStats = (data: any[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const stats = data.reduce(
+      (acc, log) => {
+        const logDate = new Date(log.createdAt);
+        acc.total++;
+        if (logDate >= today) acc.todayCount++;
+        if (logDate >= weekAgo) acc.weekCount++;
+        if (logDate >= monthAgo) acc.monthCount++;
+        return acc;
+      },
+      { total: 0, todayCount: 0, weekCount: 0, monthCount: 0 }
+    );
+    setAuditStats(stats);
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado!`);
+    } catch (error) {
+      toast.error('Erro ao copiar');
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date(date));
+  };
+
+  const getActionIcon = (action: string) => {
+    if (action.includes('LOGIN') || action.includes('LOGOUT')) {
+      return <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+    }
+    if (action.includes('CREATE') || action.includes('POST')) {
+      return <div className="w-4 h-4 bg-green-600 dark:bg-green-400 rounded-full" />;
+    }
+    if (action.includes('UPDATE') || action.includes('PUT') || action.includes('PATCH')) {
+      return <div className="w-4 h-4 bg-yellow-600 dark:bg-yellow-400 rounded-full" />;
+    }
+    if (action.includes('DELETE')) {
+      return <div className="w-4 h-4 bg-red-600 dark:bg-red-400 rounded-full" />;
+    }
+    return <Activity className="w-4 h-4 text-[var(--text-muted)]" />;
+  };
+
+  const getStatusColor = (statusCode?: number) => {
+    if (!statusCode) return 'text-[var(--text-muted)]';
+    if (statusCode >= 200 && statusCode < 300) return 'text-green-600 dark:text-green-400';
+    if (statusCode >= 400 && statusCode < 500) return 'text-yellow-600 dark:text-yellow-400';
+    if (statusCode >= 500) return 'text-red-600 dark:text-red-400';
+    return 'text-[var(--text-muted)]';
+  };
+
+  // Incident Management Functions
+  const loadIncidents = async () => {
+    setIncidentLoading(true);
+    try {
+      const response = await api.get('/admin/system/incidents');
+      setIncidents(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading incidents:', error);
+      toast.error('Erro ao carregar incidentes');
+    } finally {
+      setIncidentLoading(false);
+    }
+  };
+
+  const createIncident = async () => {
+    if (!newIncident.title.trim()) {
+      toast.error('Título é obrigatório');
+      return;
+    }
+
+    setCreatingIncident(true);
+    try {
+      await api.post('/admin/system/incidents', {
+        ...newIncident,
+        affectedFrom: newIncident.affectedFrom || undefined,
+        affectedTo: newIncident.affectedTo || undefined
+      });
+      toast.success('Incidente criado com sucesso!');
+      setNewIncident({
+        title: '',
+        description: '',
+        severity: 'MINOR',
+        affectedServices: [],
+        affectedFrom: '',
+        affectedTo: ''
+      });
+      setShowCreateIncident(false);
+      loadIncidents();
+    } catch (error) {
+      console.error('Error creating incident:', error);
+      toast.error('Erro ao criar incidente');
+    } finally {
+      setCreatingIncident(false);
+    }
+  };
+
+  const addIncidentUpdate = async () => {
+    if (!newUpdate.trim() || !selectedIncident) return;
+
+    setAddingUpdate(true);
+    try {
+      await api.post(`/admin/system/incidents/${selectedIncident.id}/updates`, {
+        message: newUpdate
+      });
+      toast.success('Atualização adicionada!');
+      setNewUpdate('');
+      loadIncidents();
+      // Refresh selected incident
+      const response = await api.get('/admin/system/incidents');
+      const updated = response.data.data.find((i: any) => i.id === selectedIncident.id);
+      if (updated) setSelectedIncident(updated);
+    } catch (error) {
+      console.error('Error adding update:', error);
+      toast.error('Erro ao adicionar atualização');
+    } finally {
+      setAddingUpdate(false);
+    }
+  };
+
+  const resolveIncident = async (incidentId: string, message?: string) => {
+    try {
+      await api.post(`/admin/system/incidents/${incidentId}/resolve`, {
+        message: message || 'Incidente resolvido'
+      });
+      toast.success('Incidente resolvido!');
+      loadIncidents();
+      if (selectedIncident?.id === incidentId) {
+        setShowIncidentModal(false);
+        setSelectedIncident(null);
+      }
+    } catch (error) {
+      console.error('Error resolving incident:', error);
+      toast.error('Erro ao resolver incidente');
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
+      case 'major':
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20';
+      case 'minor':
+        return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/20';
+      default:
+        return 'text-[var(--text-muted)] bg-[var(--bg-secondary)]';
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'resolved':
+        return 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20';
+      case 'monitoring':
+        return 'text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20';
+      case 'identified':
+        return 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20';
+      case 'investigating':
+        return 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
+      default:
+        return 'text-[var(--text-muted)] bg-[var(--bg-secondary)]';
+    }
+  };
+
+  const tabs = [
+    { id: 'overview', name: 'Visão Geral', icon: Activity },
+    { id: 'warnings', name: 'Avisos', icon: Bell },
+    { id: 'incidents', name: 'Incidentes', icon: AlertCircle },
+    { id: 'limits', name: 'Limites MED', icon: AlertTriangle },
+    { id: 'validation', name: 'Validação', icon: CheckCircle },
+    { id: 'audit', name: 'Auditoria', icon: FileText },
+    { id: 'backups', name: 'Backups', icon: HardDrive, href: '/dash/admin/backup' },
+    { id: 'settings', name: 'Configurações', icon: Settings },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      
+      <h1 className="text-3xl font-bold mb-8 text-[var(--text-primary)]">Sistema</h1>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-[var(--border-default)] mb-8">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if ((tab as any).href) {
+                    router.push((tab as any).href);
+                  } else {
+                    setActiveTab(tab.id);
+                  }
+                }}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
+                }`}
+              >
+                <Icon className="mr-2" size={16} />
+                {tab.name}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* System Status Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
+                <span className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
+                  Online
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Status do Sistema</h3>
+              <p className="text-[var(--text-muted)] text-sm">Todos os serviços operando</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <Activity className="text-blue-600 dark:text-blue-400" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
+                  {systemInfo?.server?.uptime || '0d 0h 0m'}
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Uptime</h3>
+              <p className="text-[var(--text-muted)] text-sm">Tempo ativo do sistema</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <Users className="text-[var(--accent)]" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
+                  {systemInfo?.totalUsers || 0}
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Usuários</h3>
+              <p className="text-[var(--text-muted)] text-sm">Total de usuários cadastrados</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <DollarSign className="text-yellow-600 dark:text-yellow-400" size={24} />
+                <span className="text-2xl font-bold text-[var(--text-primary)]">
+                  {systemInfo?.totalTransactions || 0}
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">Transações</h3>
+              <p className="text-[var(--text-muted)] text-sm">Total de transações processadas</p>
+            </div>
+          </div>
+
+          {/* System Information */}
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Informações do Sistema</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Versão da Aplicação:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.version}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Node.js:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.nodeVersion}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Ambiente:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.environment}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Plataforma:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.platform}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Uso de Memória:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{systemInfo?.server?.memoryUsage} MB</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Status:</span>
+                  <span className="text-green-600 dark:text-green-400 font-mono">{systemInfo?.server?.status}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Ações Rápidas</h2>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => loadSystemInfo()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <RefreshCw size={16} />
+                Atualizar Dados
+              </button>
+              <Link
+                href="/dash/admin/risk"
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <ShieldAlert size={16} />
+                Gerenciar Riscos
+              </Link>
+              <button
+                onClick={() => toast.success('Cache limpo com sucesso!')}
+                className="btn-outline transition-colors"
+              >
+                Limpar Cache
+              </button>
+              <button
+                onClick={() => toast.error('Função desabilitada em produção')}
+                className="px-4 py-2 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 text-red-700 dark:text-red-400 rounded-lg transition-colors"
+              >
+                Reiniciar Sistema
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warnings Tab */}
+      {activeTab === 'warnings' && (
+        <div className="space-y-6">
+          <div className="glass-card p-6">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Bell className="text-yellow-600 dark:text-yellow-400" size={24} />
+                  Avisos do Sistema
+                </h2>
+                <p className="text-[var(--text-muted)] text-sm mt-1">
+                  Gerencie banners e avisos exibidos aos usuários
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateWarning(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Novo Aviso
+              </button>
+            </div>
+
+            {warningsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin text-blue-500" size={32} />
+              </div>
+            ) : warnings.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="mx-auto text-[var(--text-muted)] mb-4" size={48} />
+                <p className="text-[var(--text-muted)]">Nenhum aviso cadastrado</p>
+                <button
+                  onClick={() => setShowCreateWarning(true)}
+                  className="mt-4 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
+                >
+                  Criar primeiro aviso
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {warnings.map((warning) => (
+                  <div
+                    key={warning.id}
+                    className={`p-4 rounded-lg border ${getWarningTypeColor(warning.type)} ${!warning.isActive ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getWarningTypeColor(warning.type)}`}>
+                            {getWarningTypeLabel(warning.type)}
+                          </span>
+                          <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
+                            {getTargetAudienceLabel(warning.targetAudience)}
+                          </span>
+                          {!warning.isActive && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-muted)]">
+                              Inativo
+                            </span>
+                          )}
+                          {warning.isDismissible && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-[var(--bg-elevated)] text-[var(--text-muted)]">
+                              Dispensável
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-[var(--text-primary)] font-semibold mb-1">{warning.title}</h3>
+                        <p className="text-[var(--text-secondary)] text-sm">{warning.message}</p>
+                        {warning.link && (
+                          <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                            Link: {warning.linkText || warning.link}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-3 text-xs text-[var(--text-muted)]">
+                          <span>Prioridade: {warning.priority}</span>
+                          {warning.startDate && (
+                            <span>Início: {new Date(warning.startDate).toLocaleDateString('pt-BR')}</span>
+                          )}
+                          {warning.endDate && (
+                            <span>Fim: {new Date(warning.endDate).toLocaleDateString('pt-BR')}</span>
+                          )}
+                          <span>Dispensados: {warning._count?.dismissals || 0}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => handleToggleWarning(warning.id, warning.isActive)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            warning.isActive
+                              ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
+                              : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'
+                          }`}
+                          title={warning.isActive ? 'Desativar' : 'Ativar'}
+                        >
+                          {warning.isActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                        </button>
+                        <button
+                          onClick={() => setEditingWarning({
+                            ...warning,
+                            startDate: warning.startDate ? new Date(warning.startDate).toISOString().split('T')[0] : '',
+                            endDate: warning.endDate ? new Date(warning.endDate).toISOString().split('T')[0] : '',
+                          })}
+                          className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-500/30 transition-colors"
+                          title="Editar"
+                        >
+                          <Edit size={20} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWarning(warning.id)}
+                          className="p-2 rounded-lg bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-500/30 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Create Warning Modal */}
+          {showCreateWarning && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)]">Criar Novo Aviso</h3>
+                    <button
+                      onClick={() => setShowCreateWarning(false)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Título *</label>
+                      <input
+                        type="text"
+                        value={newWarning.title}
+                        onChange={(e) => setNewWarning({ ...newWarning, title: e.target.value })}
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        placeholder="Título do aviso"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Mensagem *</label>
+                      <textarea
+                        value={newWarning.message}
+                        onChange={(e) => setNewWarning({ ...newWarning, message: e.target.value })}
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        placeholder="Conteúdo da mensagem"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Tipo</label>
+                        <select
+                          value={newWarning.type}
+                          onChange={(e) => setNewWarning({ ...newWarning, type: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="INFO">Informativo (Azul)</option>
+                          <option value="WARNING">Alerta (Amarelo)</option>
+                          <option value="CRITICAL">Crítico (Vermelho)</option>
+                          <option value="SUCCESS">Sucesso (Verde)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Público-alvo</label>
+                        <select
+                          value={newWarning.targetAudience}
+                          onChange={(e) => setNewWarning({ ...newWarning, targetAudience: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="ALL">Todos os usuários</option>
+                          <option value="VALIDATED_USERS">Usuários validados</option>
+                          <option value="COMMERCE_USERS">Modo comércio</option>
+                          <option value="NEW_USERS">Novos usuários (7 dias)</option>
+                          <option value="ADMINS">Apenas administradores</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de início</label>
+                        <input
+                          type="date"
+                          value={newWarning.startDate}
+                          onChange={(e) => setNewWarning({ ...newWarning, startDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de fim</label>
+                        <input
+                          type="date"
+                          value={newWarning.endDate}
+                          onChange={(e) => setNewWarning({ ...newWarning, endDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Prioridade</label>
+                        <input
+                          type="number"
+                          value={newWarning.priority}
+                          onChange={(e) => setNewWarning({ ...newWarning, priority: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          min="0"
+                          max="100"
+                        />
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Maior = mais importante</p>
+                      </div>
+
+                      <div className="flex items-center pt-7">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newWarning.isDismissible}
+                            onChange={(e) => setNewWarning({ ...newWarning, isDismissible: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-[var(--text-secondary)]">Permitir dispensar</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Link (opcional)</label>
+                        <input
+                          type="url"
+                          value={newWarning.link}
+                          onChange={(e) => setNewWarning({ ...newWarning, link: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Texto do link</label>
+                        <input
+                          type="text"
+                          value={newWarning.linkText}
+                          onChange={(e) => setNewWarning({ ...newWarning, linkText: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          placeholder="Saiba mais"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => setShowCreateWarning(false)}
+                      className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleCreateWarning}
+                      disabled={savingWarning}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {savingWarning ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                      Criar Aviso
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Warning Modal */}
+          {editingWarning && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)]">Editar Aviso</h3>
+                    <button
+                      onClick={() => setEditingWarning(null)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Título *</label>
+                      <input
+                        type="text"
+                        value={editingWarning.title}
+                        onChange={(e) => setEditingWarning({ ...editingWarning, title: e.target.value })}
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Mensagem *</label>
+                      <textarea
+                        value={editingWarning.message}
+                        onChange={(e) => setEditingWarning({ ...editingWarning, message: e.target.value })}
+                        className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Tipo</label>
+                        <select
+                          value={editingWarning.type}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, type: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="INFO">Informativo (Azul)</option>
+                          <option value="WARNING">Alerta (Amarelo)</option>
+                          <option value="CRITICAL">Crítico (Vermelho)</option>
+                          <option value="SUCCESS">Sucesso (Verde)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Público-alvo</label>
+                        <select
+                          value={editingWarning.targetAudience}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, targetAudience: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="ALL">Todos os usuários</option>
+                          <option value="VALIDATED_USERS">Usuários validados</option>
+                          <option value="COMMERCE_USERS">Modo comércio</option>
+                          <option value="NEW_USERS">Novos usuários (7 dias)</option>
+                          <option value="ADMINS">Apenas administradores</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de início</label>
+                        <input
+                          type="date"
+                          value={editingWarning.startDate}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, startDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Data de fim</label>
+                        <input
+                          type="date"
+                          value={editingWarning.endDate}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, endDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Prioridade</label>
+                        <input
+                          type="number"
+                          value={editingWarning.priority}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, priority: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          min="0"
+                          max="100"
+                        />
+                      </div>
+
+                      <div className="flex items-center pt-7">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editingWarning.isDismissible}
+                            onChange={(e) => setEditingWarning({ ...editingWarning, isDismissible: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-[var(--text-secondary)]">Permitir dispensar</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Link (opcional)</label>
+                        <input
+                          type="url"
+                          value={editingWarning.link || ''}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, link: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Texto do link</label>
+                        <input
+                          type="text"
+                          value={editingWarning.linkText || ''}
+                          onChange={(e) => setEditingWarning({ ...editingWarning, linkText: e.target.value })}
+                          className="w-full px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+                          placeholder="Saiba mais"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => setEditingWarning(null)}
+                      className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleUpdateWarning}
+                      disabled={savingWarning}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {savingWarning ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                      Salvar Alterações
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MED Limits Tab */}
+      {activeTab === 'limits' && (
+        <div className="space-y-6">
+          <div className="glass-card p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">Configuração de Limites MED</h2>
+              <button
+                onClick={handleSaveMedLimits}
+                disabled={savingLimits}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {savingLimits ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Salvar Alterações
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Limite Diário de Depósito (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.dailyDepositLimit}
+                  onChange={(e) => setMedLimits({ ...medLimits, dailyDepositLimit: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Limite Diário de Saque (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.dailyWithdrawLimit}
+                  onChange={(e) => setMedLimits({ ...medLimits, dailyWithdrawLimit: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Limite Mensal de Depósito (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.monthlyDepositLimit}
+                  onChange={(e) => setMedLimits({ ...medLimits, monthlyDepositLimit: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Limite Mensal de Saque (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.monthlyWithdrawLimit}
+                  onChange={(e) => setMedLimits({ ...medLimits, monthlyWithdrawLimit: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Valor Máximo por Transação (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.maxTransactionAmount}
+                  onChange={(e) => setMedLimits({ ...medLimits, maxTransactionAmount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  Limite Primeiro Dia (R$)
+                </label>
+                <input
+                  type="number"
+                  value={medLimits.firstDayLimit}
+                  onChange={(e) => setMedLimits({ ...medLimits, firstDayLimit: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={medLimits.requiresKyc}
+                    onChange={(e) => setMedLimits({ ...medLimits, requiresKyc: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
+                  />
+                  <span className="text-[var(--text-primary)]">Exigir validação de conta para limites aumentados</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />
+                <div>
+                  <p className="text-yellow-600 dark:text-yellow-400 font-medium">Conformidade MED</p>
+                  <p className="text-[var(--text-secondary)] text-sm mt-1">
+                    Estes limites são aplicados globalmente e afetam todos os usuários. 
+                    Limites individuais podem ser configurados na página de gerenciamento de usuários.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Validation Tab */}
+      {activeTab === 'validation' && (
+        <div className="space-y-6">
+          {/* Validation Settings */}
+          <div className="glass-card shadow-lg p-6 border border-[var(--border-default)]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold flex items-center text-[var(--text-primary)]">
+                <Shield className="mr-2 text-yellow-600 dark:text-yellow-400" />
+                Configurações de Validação de Conta
+              </h2>
+              <button
+                onClick={handleSaveValidationSettings}
+                disabled={savingValidation}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {savingValidation ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Salvar Configurações
+              </button>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="flex items-center space-x-3 mb-4">
+                  <input
+                    type="checkbox"
+                    checked={validationSettings.validationEnabled}
+                    onChange={(e) => setValidationSettings({ ...validationSettings, validationEnabled: e.target.checked })}
+                    className="w-5 h-5 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
+                  />
+                  <span className="text-[var(--text-primary)]">Validação obrigatória</span>
+                </label>
+                
+                <div className="p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Quando ativado, usuários precisam fazer um pagamento de validação antes de realizar depósitos.
+                  </p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  Valor da Validação (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    value={validationSettings.validationAmount}
+                    onChange={(e) => setValidationSettings({ ...validationSettings, validationAmount: parseFloat(e.target.value) || 0 })}
+                    className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    step="0.01"
+                    min="0.01"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Limite Diário Inicial (R$)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]">
+                  R$
+                </span>
+                <input
+                  type="number"
+                  value={validationSettings.initialDailyLimit}
+                  onChange={(e) => setValidationSettings({ ...validationSettings, initialDailyLimit: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-10 pr-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  step="100"
+                  min="100"
+                />
+              </div>
+              <p className="text-sm text-[var(--text-muted)] mt-2">
+                Limite diário para novos usuários após validação
+              </p>
+            </div>
+          </div>
+
+          {/* Progressive Tiers */}
+          <div className="glass-card shadow-lg p-6 border border-[var(--border-default)]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold flex items-center text-[var(--text-primary)]">
+                <TrendingUp className="mr-2 text-blue-600 dark:text-blue-400" />
+                Níveis Progressivos
+              </h2>
+              
+              <button
+                onClick={addTier}
+                className="btn-gradient transition duration-200 text-sm flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Adicionar Nível
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="table-modern divide-y divide-[var(--border-default)]">
+                <thead className="bg-[var(--bg-elevated)]">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                      Nível
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                      Limite Diário (R$)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                      Volume para Próximo (R$)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-[var(--bg-card)] divide-y divide-[var(--border-default)]">
+                  {validationSettings.limitTiers.map((limit, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--text-primary)]">
+                        Tier {index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] text-sm">
+                            R$
+                          </span>
+                          <input
+                            type="number"
+                            value={limit}
+                            onChange={(e) => handleTierChange(index, e.target.value, 'limit')}
+                            className="w-40 pl-10 pr-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded text-sm"
+                            step="1000"
+                            min="100"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] text-sm">
+                            R$
+                          </span>
+                          <input
+                            type="number"
+                            value={validationSettings.thresholdTiers[index]}
+                            onChange={(e) => handleTierChange(index, e.target.value, 'threshold')}
+                            className="w-40 pl-10 pr-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded text-sm"
+                            step="10000"
+                            min="1000"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => removeTier(index)}
+                          disabled={validationSettings.limitTiers.length <= 1}
+                          className="text-red-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        >
+                          <Trash2 size={16} />
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-4 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-start">
+                <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mr-2 mt-0.5" size={20} />
+                <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                  <p className="font-semibold mb-1">Como funcionam os níveis:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Usuários começam no Tier 1 após validação</li>
+                    <li>Limites aumentam automaticamente ao atingir o volume necessário</li>
+                    <li>O progresso é baseado no volume total de transações aprovadas</li>
+                    <li>Admins podem ajustar níveis individuais manualmente</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Tab */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-6 text-[var(--text-primary)]">Configurações do Sistema</h2>
+
+            {/* Eulen Token Update */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <Key className="inline mr-2" size={16} />
+                  Token JWT Depix
+                </label>
+                <p className="text-sm text-[var(--text-muted)] mb-3">
+                  Atualize o token de autenticação da API Depix/Plebank
+                </p>
+                <div className="flex gap-3">
+                  <input
+                    type="password"
+                    value={eulenToken}
+                    onChange={(e) => setEulenToken(e.target.value)}
+                    placeholder="Cole o novo token JWT aqui..."
+                    className="flex-1 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleSaveEulenToken}
+                    disabled={savingToken || !eulenToken.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {savingToken ? (
+                      <RefreshCw className="animate-spin" size={16} />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    Atualizar Token
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-2">
+                  O token será usado imediatamente após a atualização para todas as novas requisições.
+                </p>
+              </div>
+
+              <div className="mt-8 p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                  <div>
+                    <p className="text-blue-600 dark:text-blue-400 font-medium">Importante</p>
+                    <p className="text-[var(--text-secondary)] text-sm mt-1">
+                      Certifique-se de que o token é válido antes de atualizar.
+                      Um token inválido pode interromper as operações PIX.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Support Widget Keys */}
+          <div className="glass-card p-6">
+            <h2 className="text-xl font-semibold mb-6 text-[var(--text-primary)]">Widget de Suporte</h2>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              Configure as chaves do widget de suporte para as áreas logada e deslogada do painel.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <MessageSquare className="inline mr-2" size={16} />
+                  Chave suporte logado
+                </label>
+                <input
+                  type="text"
+                  value={supportKeys.loggedKey}
+                  onChange={(e) => setSupportKeys({ ...supportKeys, loggedKey: e.target.value })}
+                  placeholder="Ex: od3HleR7jHa6JOliQuLEIQ"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Usado no widget de suporte para usuários autenticados.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                  <MessageSquare className="inline mr-2" size={16} />
+                  Chave suporte deslogado
+                </label>
+                <input
+                  type="text"
+                  value={supportKeys.unloggedKey}
+                  onChange={(e) => setSupportKeys({ ...supportKeys, unloggedKey: e.target.value })}
+                  placeholder="Ex: lcON4WeKgbZ6fbKzIwfXBw"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Usado no widget de suporte para visitantes (landing page, login, etc).
+                </p>
+              </div>
+              <button
+                onClick={handleSaveSupportKeys}
+                disabled={savingSupportKeys}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {savingSupportKeys ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Salvar Chaves
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incidents Tab */}
+      {activeTab === 'incidents' && (
+        <div className="space-y-6">
+          {/* Create Incident Button */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">Gerenciamento de Incidentes</h2>
+            <button
+              onClick={() => setShowCreateIncident(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Criar Incidente
+            </button>
+          </div>
+
+          {/* Incidents List */}
+          <div className="glass-card overflow-hidden">
+            <div className="px-6 py-4 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Incidentes Ativos</h3>
+            </div>
+
+            {incidentLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
+                <span className="ml-3 text-[var(--text-muted)]">Carregando incidentes...</span>
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border-default)]">
+                {incidents.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-[var(--text-muted)]">
+                    <AlertCircle className="mx-auto w-12 h-12 text-[var(--text-muted)] mb-4" />
+                    <p>Nenhum incidente encontrado</p>
+                    <p className="text-sm mt-2">Todos os serviços estão operando normalmente</p>
+                  </div>
+                ) : (
+                  incidents.map((incident) => (
+                    <div key={incident.id} className="px-6 py-4 hover:bg-[var(--bg-elevated)]">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-lg font-medium text-[var(--text-primary)]">{incident.title}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(incident.severity)}`}>
+                              {incident.severity}
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(incident.status)}`}>
+                              {incident.status}
+                            </span>
+                          </div>
+                          {incident.description && (
+                            <p className="text-[var(--text-secondary)] text-sm mb-3">{incident.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} />
+                              {formatDate(incident.createdAt)}
+                            </span>
+                            <span>Criado por: {incident.creator?.username || 'Sistema'}</span>
+                            {incident.updates?.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <MessageSquare size={12} />
+                                {incident.updates.length} {incident.updates.length === 1 ? 'atualização' : 'atualizações'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => {
+                              setSelectedIncident(incident);
+                              setShowIncidentModal(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                          >
+                            Ver Detalhes
+                          </button>
+                          {incident.status !== 'RESOLVED' && (
+                            <button
+                              onClick={() => resolveIncident(incident.id)}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+                            >
+                              Resolver
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Incident Modal */}
+      {showCreateIncident && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Criar Novo Incidente</h2>
+              <button
+                onClick={() => {
+                  setShowCreateIncident(false);
+                  setNewIncident({
+                    title: '',
+                    description: '',
+                    severity: 'MINOR',
+                    affectedServices: [],
+                    affectedFrom: '',
+                    affectedTo: ''
+                  });
+                }}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Título *</label>
+                <input
+                  type="text"
+                  value={newIncident.title}
+                  onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
+                  placeholder="Ex: Instabilidade no sistema de pagamentos"
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Descrição</label>
+                <textarea
+                  value={newIncident.description}
+                  onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
+                  placeholder="Descreva o problema em detalhes..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Severidade</label>
+                <select
+                  value={newIncident.severity}
+                  onChange={(e) => setNewIncident({ ...newIncident, severity: e.target.value })}
+                  className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="MINOR">Menor</option>
+                  <option value="MAJOR">Maior</option>
+                  <option value="CRITICAL">Crítico</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Serviços Afetados</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {['API Gateway', 'Processamento PIX', 'Dashboard', 'Banco de Dados', 'Webhooks', 'Autenticação'].map((service) => (
+                    <label key={service} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newIncident.affectedServices.includes(service)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewIncident({
+                              ...newIncident,
+                              affectedServices: [...newIncident.affectedServices, service]
+                            });
+                          } else {
+                            setNewIncident({
+                              ...newIncident,
+                              affectedServices: newIncident.affectedServices.filter(s => s !== service)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-[var(--bg-elevated)] border-[var(--border-hover)] rounded focus:ring-blue-500"
+                      />
+                      <span className="text-[var(--text-primary)] text-sm">{service}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Afetado Desde</label>
+                  <input
+                    type="datetime-local"
+                    value={newIncident.affectedFrom}
+                    onChange={(e) => setNewIncident({ ...newIncident, affectedFrom: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Afetado Até</label>
+                  <input
+                    type="datetime-local"
+                    value={newIncident.affectedTo}
+                    onChange={(e) => setNewIncident({ ...newIncident, affectedTo: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Deixe vazio se ainda afetado"
+                  />
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Deixe vazio se o incidente ainda está ativo</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={createIncident}
+                disabled={creatingIncident || !newIncident.title.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {creatingIncident ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Plus size={16} />
+                )}
+                Criar Incidente
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateIncident(false);
+                  setNewIncident({
+                    title: '',
+                    description: '',
+                    severity: 'MINOR',
+                    affectedServices: [],
+                    affectedFrom: '',
+                    affectedTo: ''
+                  });
+                }}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incident Details Modal */}
+      {showIncidentModal && selectedIncident && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Incidente</h2>
+              <button
+                onClick={() => {
+                  setShowIncidentModal(false);
+                  setSelectedIncident(null);
+                }}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)]">{selectedIncident.title}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(selectedIncident.severity)}`}>
+                    {selectedIncident.severity}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(selectedIncident.status)}`}>
+                    {selectedIncident.status}
+                  </span>
+                </div>
+                {selectedIncident.description && (
+                  <p className="text-[var(--text-secondary)]">{selectedIncident.description}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="text-[var(--text-muted)]">Criado em:</label>
+                  <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.createdAt)}</p>
+                </div>
+                <div>
+                  <label className="text-[var(--text-muted)]">Criado por:</label>
+                  <p className="text-[var(--text-primary)]">{selectedIncident.creator?.username || 'Sistema'}</p>
+                </div>
+                {selectedIncident.resolvedAt && (
+                  <div>
+                    <label className="text-[var(--text-muted)]">Resolvido em:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.resolvedAt)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedFrom && (
+                  <div>
+                    <label className="text-[var(--text-muted)]">Afetado desde:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.affectedFrom)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedTo && (
+                  <div>
+                    <label className="text-[var(--text-muted)]">Afetado até:</label>
+                    <p className="text-[var(--text-primary)]">{formatDate(selectedIncident.affectedTo)}</p>
+                  </div>
+                )}
+                {selectedIncident.affectedServices?.length > 0 && (
+                  <div className="col-span-2">
+                    <label className="text-[var(--text-muted)]">Serviços afetados:</label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedIncident.affectedServices.map((service: string, index: number) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded text-xs"
+                        >
+                          {service}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Updates Timeline */}
+              <div className="border-t border-[var(--border-default)] pt-4">
+                <h4 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Timeline de Atualizações</h4>
+
+                {selectedIncident.status !== 'RESOLVED' && (
+                  <div className="bg-[var(--bg-elevated)] p-3 rounded-lg mb-4">
+                    <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                      Adicionar Atualização
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={newUpdate}
+                        onChange={(e) => setNewUpdate(e.target.value)}
+                        placeholder="Ex: Investigando o problema, aguarde..."
+                        className="flex-1 px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={addIncidentUpdate}
+                        disabled={addingUpdate || !newUpdate.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        {addingUpdate ? (
+                          <RefreshCw className="animate-spin" size={16} />
+                        ) : (
+                          <MessageSquare size={16} />
+                        )}
+                        Adicionar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {selectedIncident.updates?.length === 0 ? (
+                    <p className="text-[var(--text-muted)] text-center py-4">Nenhuma atualização ainda</p>
+                  ) : (
+                    selectedIncident.updates?.map((update: any, index: number) => (
+                      <div key={index} className="bg-[var(--bg-elevated)] p-3 rounded-lg">
+                        <p className="text-[var(--text-primary)]">{update.message}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
+                          {formatDate(update.createdAt)} - {update.author?.username || 'Sistema'}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-between">
+              <div>
+                {selectedIncident.status !== 'RESOLVED' && (
+                  <button
+                    onClick={() => resolveIncident(selectedIncident.id, 'Incidente resolvido via painel admin')}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    Resolver Incidente
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowIncidentModal(false);
+                  setSelectedIncident(null);
+                }}
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-lg transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Tab */}
+      {activeTab === 'audit' && (
+        <div className="space-y-6">
+          {/* Audit Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Total de Logs</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.total}</p>
+                </div>
+                <FileText className="text-[var(--accent)]" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Hoje</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.todayCount}</p>
+                </div>
+                <Calendar className="text-blue-600 dark:text-blue-400" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Última Semana</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.weekCount}</p>
+                </div>
+                <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Último Mês</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{auditStats.monthCount}</p>
+                </div>
+                <Activity className="text-orange-600 dark:text-orange-400" size={24} />
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-semibold mb-4 text-[var(--text-primary)]">Filtros</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="ID do Usuário"
+                value={auditFilters.userId}
+                onChange={(e) => setAuditFilters({ ...auditFilters, userId: e.target.value })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
+              />
+              <input
+                type="text"
+                placeholder="Ação"
+                value={auditFilters.action}
+                onChange={(e) => setAuditFilters({ ...auditFilters, action: e.target.value })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
+              />
+              <input
+                type="text"
+                placeholder="Recurso"
+                value={auditFilters.resource}
+                onChange={(e) => setAuditFilters({ ...auditFilters, resource: e.target.value })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
+              />
+              <input
+                type="date"
+                value={auditFilters.startDate}
+                onChange={(e) => setAuditFilters({ ...auditFilters, startDate: e.target.value })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
+              />
+              <input
+                type="date"
+                value={auditFilters.endDate}
+                onChange={(e) => setAuditFilters({ ...auditFilters, endDate: e.target.value })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg focus:outline-none focus:border-blue-500 text-[var(--text-primary)]"
+              />
+              <button
+                onClick={() => setAuditFilters({
+                  userId: '',
+                  action: '',
+                  resource: '',
+                  startDate: '',
+                  endDate: '',
+                  search: '',
+                })}
+                className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors text-[var(--text-primary)]"
+              >
+                Limpar Filtros
+              </button>
+            </div>
+          </div>
+
+          {/* Audit Logs Table */}
+          <div className="glass-card overflow-hidden">
+            <div className="px-6 py-4 border-b border-[var(--border-default)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Logs de Auditoria</h3>
+            </div>
+
+            {auditLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin w-8 h-8 text-blue-400" />
+                <span className="ml-3 text-[var(--text-muted)]">Carregando logs...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table-modern">
+                  <thead className="bg-[var(--bg-elevated)]">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Data/Hora
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Usuário
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Ação
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Recurso
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        IP
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-default)]">
+                    {auditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-[var(--text-muted)]">
+                          Nenhum log encontrado
+                        </td>
+                      </tr>
+                    ) : (
+                      auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-[var(--bg-elevated)]">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-[var(--text-primary)]">
+                              {formatDate(log.createdAt)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <p className="text-sm font-medium text-[var(--text-primary)]">
+                                {log.user?.username || 'Sistema'}
+                              </p>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {log.user?.email || log.userId || '-'}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {getActionIcon(log.action)}
+                              <span className="text-sm text-[var(--text-primary)]">{log.action}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-[var(--text-primary)]">{log.resource}</span>
+                            {log.resourceId && (
+                              <p className="text-xs text-[var(--text-muted)]">{log.resourceId}</p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`text-sm font-medium ${getStatusColor(log.statusCode)}`}>
+                              {log.statusCode || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-[var(--text-secondary)]">
+                              {log.ipAddress || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setSelectedLog(log);
+                                setShowAuditModal(true);
+                              }}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
+                            >
+                              <Eye size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Audit Details Modal */}
+      {showAuditModal && selectedLog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Detalhes do Log</h2>
+              <button
+                onClick={() => {
+                  setShowAuditModal(false);
+                  setSelectedLog(null);
+                }}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--text-muted)]">ID</label>
+                <div className="flex items-center gap-2">
+                  <p className="text-[var(--text-primary)]">{selectedLog.id}</p>
+                  <button
+                    onClick={() => copyToClipboard(selectedLog.id, 'ID')}
+                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Usuário</label>
+                  <p className="text-[var(--text-primary)]">
+                    {selectedLog.user?.username || 'Sistema'}
+                    {selectedLog.user?.email && (
+                      <span className="text-[var(--text-muted)] ml-2">({selectedLog.user.email})</span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Data/Hora</label>
+                  <p className="text-[var(--text-primary)]">{formatDate(selectedLog.createdAt)}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Ação</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.action}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Recurso</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.resource}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Status Code</label>
+                  <p className={getStatusColor(selectedLog.statusCode)}>
+                    {selectedLog.statusCode || '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Duração</label>
+                  <p className="text-[var(--text-primary)]">
+                    {selectedLog.duration ? `${selectedLog.duration}ms` : '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">IP Address</label>
+                  <p className="text-[var(--text-primary)]">{selectedLog.ipAddress || '-'}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">User Agent</label>
+                  <p className="text-[var(--text-primary)] text-xs">{selectedLog.userAgent || '-'}</p>
+                </div>
+              </div>
+
+              {selectedLog.requestBody && (
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Request Body</label>
+                  <pre className="bg-[var(--bg-card)] p-3 rounded-lg text-xs text-[var(--text-secondary)] overflow-x-auto">
+                    {JSON.stringify(JSON.parse(selectedLog.requestBody), null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {selectedLog.responseBody && (
+                <div>
+                  <label className="text-sm text-[var(--text-muted)]">Response Body</label>
+                  <pre className="bg-[var(--bg-card)] p-3 rounded-lg text-xs text-[var(--text-secondary)] overflow-x-auto">
+                    {JSON.stringify(JSON.parse(selectedLog.responseBody), null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowAuditModal(false);
+                  setSelectedLog(null);
+                }}
+                className="px-6 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--border-hover)] rounded-lg font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
