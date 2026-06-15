@@ -11,6 +11,10 @@ import { TransactionStatus, TransactionType } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { CreatePixDto } from './dto/create-pix.dto';
 import { ExternalWebhookService } from './external-webhook.service';
+import {
+  hashTaxNumber,
+  maskTaxNumber,
+} from '../identity-vault/identity-vault.utils';
 
 @Injectable()
 export class ExternalApiService {
@@ -79,12 +83,14 @@ export class ExternalApiService {
           depixAddress: depixAddress,
           description: data.description || 'Pagamento via API',
           isApiRequest: true, // Bypass tier limits for External API requests
-          payerCpfCnpj: data.taxNumber, // Forward tax number to Eulen API (required for amounts >= R$ 3000)
+          payerTaxNumber: data.taxNumber,
+          payerFullName: data.fullName,
           metadata: {
             source: 'EXTERNAL_API',
             apiKeyRequestId: apiKeyRequest.id,
             merchantOrderId: merchantOrderId,
-            taxNumber: data.taxNumber,
+            payerTaxNumberMasked: maskTaxNumber(data.taxNumber),
+            payerTaxNumberHash: hashTaxNumber(data.taxNumber),
             webhookUrl: data.webhookUrl || data.webhook?.url, // Support both formats
             ...data.metadata,
           },

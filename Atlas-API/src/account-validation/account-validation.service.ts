@@ -6,6 +6,8 @@ import { LiquidValidationService } from '../services/liquid-validation.service';
 import { EuidValidationService } from '../risk/euid-validation.service';
 import { RiskScoringService } from '../risk/risk-scoring.service';
 import { TransactionStatus, TransactionType, RiskEventType } from '@prisma/client';
+import { validateTaxNumber } from '../payment-link/utils/tax-number-validator';
+import { maskTaxNumber } from '../identity-vault/identity-vault.utils';
 
 @Injectable()
 export class AccountValidationService {
@@ -127,12 +129,29 @@ export class AccountValidationService {
 	async createValidationPayment(
 		userId: string,
 		depixAddress?: string,
+		taxNumber?: string,
+		fullName?: string,
 	): Promise<{
 		transactionId: string;
 		qrCode: string;
 		amount: number;
 	}> {
 		const validationAmount = await this.getValidationAmount();
+
+		const taxValidation = validateTaxNumber(taxNumber || '');
+		if (!taxValidation.isValid) {
+			throw new HttpException(
+				'CPF/CNPJ é obrigatório para validação de conta.',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		if (!fullName?.trim()) {
+			throw new HttpException(
+				'Nome completo é obrigatório para validação de conta.',
+				HttpStatus.BAD_REQUEST,
+			);
+		}
 
 		// CRITICAL: depixAddress is REQUIRED for validation payments
 		// Without it, the DePix tokens would go to the system wallet instead of the user's wallet
@@ -185,11 +204,16 @@ export class AccountValidationService {
 			const metadata = existingValidation.metadata
 				? JSON.parse(existingValidation.metadata)
 				: {};
+			const requestedTaxNumberMasked = maskTaxNumber(taxValidation.formatted);
+			const requestedFullName = fullName.trim();
 
 			// Check if the existing QR code is valid (should be a string and not empty/true/false)
 			const storedQrCode = metadata.qrCode;
 			const isValidQrCode =
-				typeof storedQrCode === 'string' && storedQrCode.length > 10;
+				typeof storedQrCode === 'string' &&
+				storedQrCode.length > 10 &&
+				metadata.payerTaxNumberMasked === requestedTaxNumberMasked &&
+				metadata.payerFullName === requestedFullName;
 
 			if (isValidQrCode) {
 				this.logger.log(
@@ -222,10 +246,13 @@ export class AccountValidationService {
 				amount: validationAmount,
 				depixAddress: depixAddress, // Pass user's Liquid address so payment goes to them
 				description: 'Validação de conta Atlas DAO',
-				// Note: No payerCpfCnpj restriction - EUID will come from webhook
+				payerTaxNumber: taxValidation.formatted,
+				payerFullName: fullName.trim(),
 				metadata: {
 					isValidation: true,
 					userLiquidAddress: depixAddress, // Store user's Liquid address in metadata for reference
+					payerTaxNumberMasked: maskTaxNumber(taxValidation.formatted),
+					payerFullName: fullName.trim(),
 				},
 			});
 
@@ -257,6 +284,8 @@ export class AccountValidationService {
 							qrCode: qrCodeData.qrCode,
 							isValidation: true,
 							userLiquidAddress: depixAddress, // Store the user's Liquid address for later use
+							payerTaxNumberMasked: maskTaxNumber(taxValidation.formatted),
+							payerFullName: fullName.trim(),
 						}),
 					},
 				});
@@ -378,6 +407,48 @@ export class AccountValidationService {
 		// Extract EUID from webhook metadata if available
 		const webhookMetadata = metadata.webhookEvent;
 		const verifiedEUID = webhookMetadata?.payerEUID;
+		const webhookTaxNumber = webhookMetadata?.payerTaxNumber;
+		const webhookTaxNumberMasked = webhookTaxNumber?.includes('*')
+			? webhookTaxNumber
+			: maskTaxNumber(webhookTaxNumber);
+
+		if (!verifiedEUID || !webhookTaxNumberMasked) {
+			await this.prisma.transaction.update({
+				where: { id: transactionId },
+				data: {
+					status: TransactionStatus.FAILED,
+					errorMessage: 'Validation payment missing payer identity from Eulen',
+					metadata: JSON.stringify({
+						...metadata,
+						validationFailed: true,
+						validationError: !verifiedEUID ? 'EUID_MISSING' : 'TAX_NUMBER_MISSING',
+					}),
+				},
+			});
+			return;
+		}
+
+		if (
+			metadata.payerTaxNumberMasked &&
+			webhookTaxNumberMasked &&
+			metadata.payerTaxNumberMasked !== webhookTaxNumberMasked
+		) {
+			await this.prisma.transaction.update({
+				where: { id: transactionId },
+				data: {
+					status: TransactionStatus.FAILED,
+					errorMessage: 'Validation payment payer document mismatch',
+					metadata: JSON.stringify({
+						...metadata,
+						validationFailed: true,
+						validationError: 'TAX_NUMBER_MISMATCH',
+						expectedPayerTaxNumberMasked: metadata.payerTaxNumberMasked,
+						actualPayerTaxNumberMasked: webhookTaxNumberMasked,
+					}),
+				},
+			});
+			return;
+		}
 
 		// Extract liquid wallet address from transaction metadata
 		const userLiquidAddress = metadata.userLiquidAddress;

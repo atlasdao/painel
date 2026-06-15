@@ -15,10 +15,12 @@ import {
 	PixPaymentWebhookDto,
 } from '../common/dto/webhook.dto';
 import { TransactionStatus } from '@prisma/client';
+import { PayerMatchStatus } from '@prisma/client';
 import { BotSyncService } from '../common/services/bot-sync.service';
 import { WebhookService as PaymentLinkWebhookService } from '../payment-link/webhook.service';
 import { ExternalWebhookService } from '../external-api/external-webhook.service';
 import { EmailService } from '../services/email.service';
+import { IdentityVaultService } from '../identity-vault/identity-vault.service';
 
 @Injectable()
 export class WebhookService {
@@ -34,6 +36,7 @@ export class WebhookService {
 		@Inject(forwardRef(() => ExternalWebhookService))
 		private readonly externalWebhookService: ExternalWebhookService,
 		private readonly emailService: EmailService,
+		private readonly identityVaultService: IdentityVaultService,
 	) {}
 
 	/**
@@ -106,6 +109,9 @@ export class WebhookService {
 				},
 				include: {
 					user: true,
+					merchantContact: {
+						include: { identity: true },
+					},
 				},
 			});
 
@@ -124,7 +130,7 @@ export class WebhookService {
 
 			// Map Eulen status to our transaction status
 			const previousStatus = transaction.status;
-			const newStatus = this.mapEulenStatusToTransactionStatus(
+			let newStatus = this.mapEulenStatusToTransactionStatus(
 				eventData.status,
 			);
 
@@ -150,6 +156,35 @@ export class WebhookService {
 			const existingMetadata = transaction.metadata
 				? JSON.parse(transaction.metadata)
 				: {};
+			let identityResult: { matchStatus: PayerMatchStatus } | null = null;
+
+			if (
+				(newStatus === TransactionStatus.PROCESSING ||
+					newStatus === TransactionStatus.COMPLETED) &&
+				(eventData.payerEUID || eventData.payerTaxNumber || eventData.payerName)
+			) {
+				const session = existingMetadata.sessionToken
+					? await this.prisma.paymentLinkSession.findUnique({
+							where: { sessionToken: existingMetadata.sessionToken },
+						})
+					: null;
+
+				identityResult =
+					await this.identityVaultService.upsertMerchantContactFromPayment({
+						merchantId: transaction.userId,
+						transactionId: transaction.id,
+						payerName: eventData.payerName,
+						payerTaxNumber: eventData.payerTaxNumber,
+						payerEuid: eventData.payerEUID,
+						expectedTaxNumber: session?.payerTaxNumber,
+						expectedEuid: transaction.merchantContact?.identity?.euid,
+					});
+
+				if (identityResult.matchStatus === PayerMatchStatus.MISMATCH) {
+					newStatus = TransactionStatus.IN_REVIEW;
+				}
+			}
+
 			const updatedMetadata = {
 				...existingMetadata,
 				webhookEvent: {
@@ -163,6 +198,7 @@ export class WebhookService {
 					pixKey: eventData.pixKey,
 					valueInCents: eventData.valueInCents,
 					eulenStatus: eventData.status,
+					payerMatchStatus: identityResult?.matchStatus,
 					webhookReceivedAt: new Date().toISOString(),
 				},
 			};
@@ -179,7 +215,9 @@ export class WebhookService {
 							? new Date()
 							: transaction.processedAt,
 					errorMessage:
-						newStatus === TransactionStatus.FAILED
+						identityResult?.matchStatus === PayerMatchStatus.MISMATCH
+							? 'Webhook: payer identity mismatch'
+							: newStatus === TransactionStatus.FAILED
 							? `Webhook: ${eventData.status}`
 							: null,
 					updatedAt: new Date(),

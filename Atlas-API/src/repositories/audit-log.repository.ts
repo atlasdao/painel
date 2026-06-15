@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuditLog, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AbstractBaseRepository } from './base.repository';
+import { redactSensitiveData } from '../common/utils/sensitive-redaction.util';
 
 @Injectable()
 export class AuditLogRepository extends AbstractBaseRepository<AuditLog> {
@@ -31,8 +32,8 @@ export class AuditLogRepository extends AbstractBaseRepository<AuditLog> {
 			data: {
 				...data,
 				userId: data.userId || null, // Allow null userId for system actions
-				requestBody: requestBody ? JSON.stringify(requestBody) : null,
-				responseBody: responseBody ? JSON.stringify(responseBody) : null,
+				requestBody: requestBody ? JSON.stringify(redactSensitiveData(requestBody)) : null,
+				responseBody: responseBody ? JSON.stringify(redactSensitiveData(responseBody)) : null,
 			},
 		});
 	}

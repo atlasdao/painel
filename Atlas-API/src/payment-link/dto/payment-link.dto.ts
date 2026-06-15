@@ -233,6 +233,14 @@ export class GenerateQRWithTaxNumberDto {
 		message: 'CPF/CNPJ inválido. Use apenas números ou formatos: 000.000.000-00 (CPF) ou 00.000.000/0000-00 (CNPJ)',
 	})
 	taxNumber: string;
+
+	@ApiPropertyOptional({
+		description: 'Nome completo do pagador quando ainda não há contato/EUID salvo',
+		example: 'Rafael Vieira da Rocha',
+	})
+	@IsString()
+	@IsOptional()
+	fullName?: string;
 }
 
 export class GenerateQRCodeDto {
@@ -255,4 +263,7 @@ export class QRCodeResponseDto {
 	requiresTaxNumber?: boolean;
 	sessionToken?: string;
 	needsTaxNumber?: boolean;
+	needsFullName?: boolean;
+	contactFound?: boolean;
+	payerNameHint?: string;
 }

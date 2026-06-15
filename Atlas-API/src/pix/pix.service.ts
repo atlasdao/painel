@@ -13,13 +13,19 @@ import { TransactionRepository } from '../repositories/transaction.repository';
 import { AuditLogRepository } from '../repositories/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { LevelsService } from '../levels/levels.service';
+import { IdentityVaultService } from '../identity-vault/identity-vault.service';
+import {
+	hashEuid,
+	hashTaxNumber,
+	maskTaxNumber,
+} from '../identity-vault/identity-vault.utils';
 import {
 	DepositDto,
 	WithdrawDto,
 	TransferDto,
 	TransactionResponseDto,
 } from '../eulen/dto/eulen.dto';
-import { TransactionType, TransactionStatus } from '@prisma/client';
+import { PayerMatchStatus, TransactionType, TransactionStatus } from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +46,7 @@ export class PixService {
 		private readonly auditLogRepository: AuditLogRepository,
 		private readonly prisma: PrismaService,
 		private readonly levelsService: LevelsService,
+		private readonly identityVaultService: IdentityVaultService,
 	) {}
 
 	/**
@@ -365,6 +372,9 @@ export class PixService {
 			description?: string;
 			expirationMinutes?: number;
 			payerCpfCnpj?: string; // CPF/CNPJ do pagador (para modo comércio)
+			payerTaxNumber?: string;
+			payerFullName?: string;
+			payerContactId?: string;
 			metadata?: any; // Additional metadata to store with the transaction
 			isApiRequest?: boolean; // Whether this request is from API (via x-api-key header)
 			isCommerceRequest?: boolean; // Whether this request is from commerce page (not deposit page)
@@ -419,6 +429,67 @@ export class PixService {
 				// If present, it will be used as EUID in the Eulen API call below
 			}
 
+			const merchantEuid = this.isEuid(user.verifiedTaxNumber)
+				? user.verifiedTaxNumber
+				: undefined;
+			const isCommerceQr =
+				user.commerceMode === true ||
+				data.isCommerceRequest === true ||
+				Boolean(isPaymentLink);
+			let payerTaxNumber = data.payerTaxNumber || data.payerCpfCnpj;
+			let payerFullName = data.payerFullName?.trim();
+			let payerEuid: string | undefined;
+			let expectedPayerIdentityId: string | undefined;
+			let merchantContactId: string | undefined;
+
+			if (data.payerContactId) {
+				const contact = await this.identityVaultService.getMerchantContactForQr(
+					userId,
+					data.payerContactId,
+				);
+				if (!contact) {
+					throw new HttpException(
+						'Contato do pagador não encontrado para este merchant.',
+						HttpStatus.BAD_REQUEST,
+					);
+				}
+				if (!contact.identity.euid) {
+					throw new HttpException(
+						'Contato ainda não possui EUID verificado. Informe CPF/CNPJ e nome completo para gerar o QR.',
+						HttpStatus.BAD_REQUEST,
+					);
+				}
+				payerEuid = contact.identity.euid;
+				payerFullName = contact.displayName;
+				expectedPayerIdentityId = contact.identity.id;
+				merchantContactId = contact.id;
+			}
+
+			if (!payerEuid && !payerTaxNumber && !isCommerceQr && merchantEuid) {
+				payerEuid = merchantEuid;
+			}
+
+			if (isCommerceQr && !isValidationPayment && !merchantEuid) {
+				throw new HttpException(
+					'Merchant sem EUID validado. Valide a conta antes de gerar QR de comércio.',
+					HttpStatus.FORBIDDEN,
+				);
+			}
+
+			if (!payerEuid && !payerTaxNumber) {
+				throw new HttpException(
+					'Identificação do pagador é obrigatória para gerar QR Code.',
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+
+			if (!payerEuid && payerTaxNumber && !payerFullName) {
+				throw new HttpException(
+					'Nome completo do pagador é obrigatório quando o CPF/CNPJ ainda não possui EUID.',
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+
 			// Apply limits based on the REQUEST CONTEXT (not just user attributes)
 			if (!isValidationPayment) {
 				// Check if user is making an API request via x-api-key header
@@ -444,9 +515,9 @@ export class PixService {
 				} else if (isCommerceManualQR && user.commerceMode) {
 					// COMMERCE MANUAL QR CODE (from /commerce page): Apply commerce-specific limits, NO level limits
 					// Minimum: 1 BRL
-					// Maximum: 3000 BRL (without CPF/CNPJ) or 5000 BRL (with CPF/CNPJ)
+					// Maximum: 5000 BRL after payer identity is provided.
 					const minAmount = 1;
-					const maxAmount = data.payerCpfCnpj ? 5000 : 3000;
+					const maxAmount = 5000;
 
 					if (data.amount < minAmount) {
 						throw new HttpException(
@@ -456,23 +527,22 @@ export class PixService {
 					}
 
 					if (data.amount > maxAmount) {
-						const limitType = data.payerCpfCnpj ? 'com CPF/CNPJ' : 'sem CPF/CNPJ';
 						throw new HttpException(
-							`Valor máximo por transação no modo comércio ${limitType}: R$ ${maxAmount.toFixed(2)}`,
+							`Valor máximo por transação no modo comércio identificado: R$ ${maxAmount.toFixed(2)}`,
 							HttpStatus.FORBIDDEN
 						);
 					}
 
 					this.logger.log(
 						`✅ Commerce manual QR validation passed for user ${userId}: ` +
-						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (${data.payerCpfCnpj ? 'with' : 'without'} CPF/CNPJ) - NO level limits enforced`
+						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (identified payer) - NO level limits enforced`
 					);
 				} else if (isPaymentLink && user.commerceMode) {
 					// PAYMENT LINKS (Commerce feature): Apply commerce-specific limits
 					// Minimum: 1 BRL
-					// Maximum: 3000 BRL (without CPF/CNPJ) or 5000 BRL (with CPF/CNPJ)
+					// Maximum: 5000 BRL after payer identity is provided.
 					const minAmount = 1;
-					const maxAmount = data.payerCpfCnpj ? 5000 : 3000;
+					const maxAmount = 5000;
 
 					if (data.amount < minAmount) {
 						throw new HttpException(
@@ -482,16 +552,15 @@ export class PixService {
 					}
 
 					if (data.amount > maxAmount) {
-						const limitType = data.payerCpfCnpj ? 'com CPF/CNPJ' : 'sem CPF/CNPJ';
 						throw new HttpException(
-							`Valor máximo por transação no modo comércio ${limitType}: R$ ${maxAmount.toFixed(2)}`,
+							`Valor máximo por transação no modo comércio identificado: R$ ${maxAmount.toFixed(2)}`,
 							HttpStatus.FORBIDDEN
 						);
 					}
 
 					this.logger.log(
 						`✅ Commerce payment link validation passed for user ${userId}: ` +
-						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (${data.payerCpfCnpj ? 'with' : 'without'} CPF/CNPJ)`
+						`Amount: R$ ${data.amount.toFixed(2)}, Limit: R$ ${maxAmount.toFixed(2)} (identified payer)`
 					);
 				} else {
 					// PANEL /DEPOSIT PAGE: Apply level-based limits for ALL users
@@ -570,41 +639,15 @@ export class PixService {
 				}
 			}
 
-			// For personal deposits, only use verified tax number if it's not the problematic EUID
-			// For API requests, preserve the payerCpfCnpj provided by the caller (e.g. taxNumber from external API)
-			if (!data.metadata?.isValidation && !data.metadata?.paymentLinkId) { // Skip enforcement for validation payments and payment links
-				if (data.isApiRequest && data.payerCpfCnpj) {
-					// API request with explicit tax number - use it as-is
-					this.logger.log(`🔑 API request: Using provided taxNumber ${data.payerCpfCnpj} for user ${userId}`);
-				} else if (user.verifiedTaxNumber && user.verifiedTaxNumber !== 'EU022986123087767') {
-					data.payerCpfCnpj = user.verifiedTaxNumber; // Use verified tax number as EUID
-					this.logger.log(`🔒 Personal deposit: Using verified EUID ${user.verifiedTaxNumber} for user ${userId} (commerceMode: ${user.commerceMode})`);
-				} else {
-					data.payerCpfCnpj = undefined; // Don't send any EUID to avoid Eulen API rejection
-					this.logger.log(`🔄 Personal deposit: Skipping invalid/problematic EUID for user ${userId} - sending without userTaxNumber`);
+			if (payerTaxNumber) {
+				const cpfCnpjClean = payerTaxNumber.replace(/\D/g, '');
+				if (cpfCnpjClean.length !== 11 && cpfCnpjClean.length !== 14) {
+					throw new HttpException(
+						'CPF/CNPJ inválido. Use 11 dígitos para CPF ou 14 para CNPJ.',
+						HttpStatus.BAD_REQUEST,
+					);
 				}
-			}
-
-			// If commerce mode is enabled, allow multiple CPF/CNPJ
-			if (user?.commerceMode && data.payerCpfCnpj) {
-				// Check if it's EUID format (for Eulen API) or CPF/CNPJ format
-				const isEuidFormat = /^[a-zA-Z0-9]+$/.test(data.payerCpfCnpj) &&
-									 data.payerCpfCnpj.length >= 3 &&
-									 data.payerCpfCnpj.length <= 20 &&
-									 !/^\d+$/.test(data.payerCpfCnpj); // Not purely numeric
-
-				if (!isEuidFormat) {
-					// Validate traditional CPF/CNPJ format
-					const cpfCnpjClean = data.payerCpfCnpj.replace(/\D/g, '');
-					if (cpfCnpjClean.length !== 11 && cpfCnpjClean.length !== 14) {
-						throw new HttpException(
-							'CPF/CNPJ inválido. Use 11 dígitos para CPF ou 14 para CNPJ.',
-							HttpStatus.BAD_REQUEST,
-						);
-					}
-				} else {
-					this.logger.log(`✅ EUID format detected for commerce user: ${data.payerCpfCnpj}`);
-				}
+				payerTaxNumber = cpfCnpjClean;
 			}
 
 			// NOTE: depixAddress is now optional and should be a PIX key (CPF, CNPJ, email, phone, EVP)
@@ -615,7 +658,13 @@ export class PixService {
 				isQrCodePayment: true,
 				depixAddress: data.depixAddress, // Also store in metadata for reference
 				expirationMinutes: data.expirationMinutes || Math.floor((29 * 60 + 50) / 60), // 29 minutes 50 seconds
-				payerCpfCnpj: data.payerCpfCnpj, // Store payer CPF/CNPJ if provided
+				payerTaxNumberMasked: payerTaxNumber ? maskTaxNumber(payerTaxNumber) : undefined,
+				payerTaxNumberHash: payerTaxNumber ? hashTaxNumber(payerTaxNumber) : undefined,
+				hasPayerEuid: Boolean(payerEuid),
+				payerEuidHash: payerEuid ? hashEuid(payerEuid) : undefined,
+				expectedPayerIdentityId,
+				merchantContactId,
+				merchantId: isCommerceQr && !isValidationPayment ? merchantEuid : undefined,
 				...data.metadata, // Include any additional metadata (like paymentLinkId)
 			};
 
@@ -628,6 +677,13 @@ export class PixService {
 				amount: data.amount,
 				description: data.description || 'PIX QR Code Payment',
 				pixKey: data.depixAddress, // Store DePix address in pixKey field
+				buyerName: payerFullName,
+				expectedPayerIdentityId,
+				merchantContactId,
+				payerMatchStatus: PayerMatchStatus.UNKNOWN,
+				payerTaxNumberHash: payerTaxNumber ? hashTaxNumber(payerTaxNumber) : null,
+				payerTaxNumberMasked: payerTaxNumber ? maskTaxNumber(payerTaxNumber) : null,
+				payerEuidHash: payerEuid ? hashEuid(payerEuid) : null,
 				metadata: JSON.stringify(metadataToStore),
 			});
 
@@ -692,6 +748,10 @@ export class PixService {
 					amount: data.amount,
 					depixAddress: data.depixAddress,
 					description: data.description,
+					hasPayerEuid: Boolean(payerEuid),
+					hasPayerTaxNumber: Boolean(payerTaxNumber),
+					hasPayerFullName: Boolean(payerFullName),
+					merchantId: isCommerceQr && !isValidationPayment ? 'present' : 'not_applicable',
 					whitelist: isWhitelisted,
 					splitFee: splitFeeString || 'disabled (0%)',
 					depixSplitAddress: splitFeeString ? SPLIT_FEE_ADDRESS : 'N/A',
@@ -736,7 +796,10 @@ export class PixService {
 				amount: data.amount,
 				depixAddress: data.depixAddress, // Pass DePix address from frontend
 				description: data.description,
-				userTaxNumber: data.payerCpfCnpj, // Pass tax number as EUID
+				payerEuid,
+				payerFullName,
+				merchantId: isCommerceQr && !isValidationPayment ? merchantEuid : undefined,
+				userTaxNumber: payerTaxNumber,
 				whitelist: isWhitelisted, // Pass whitelist parameter to Eulen API
 				// Only send splitFee if percentage > 0 (Eulen API requires > 0% and < 20%)
 				splitFee: splitFeeString,
@@ -949,7 +1012,7 @@ export class PixService {
 
 					this.logger.log(`💰 PAYMENT COMPLETED!`);
 					this.logger.log(`👤 Payer Name: ${payerInfo.payerName}`);
-					this.logger.log(`📋 Payer Tax Number: ${payerInfo.payerTaxNumber}`);
+					this.logger.log(`📋 Payer Tax Number: ${maskTaxNumber(payerInfo.payerTaxNumber) || 'unavailable'}`);
 					this.logger.log(`🏦 Bank Transaction ID: ${payerInfo.bankTxId}`);
 					this.logger.log(
 						`⛓️ Blockchain Transaction ID: ${payerInfo.blockchainTxID}`,
@@ -978,14 +1041,42 @@ export class PixService {
 						const currentMetadata = transaction.metadata
 							? JSON.parse(transaction.metadata)
 							: {};
+						let payerMatchStatus = transaction.payerMatchStatus || PayerMatchStatus.UNKNOWN;
+						if (payerInfo.payerEUID || payerInfo.payerTaxNumber || payerInfo.payerName) {
+							const session = currentMetadata.sessionToken
+								? await this.prisma.paymentLinkSession.findUnique({
+										where: { sessionToken: currentMetadata.sessionToken },
+									})
+								: null;
+							const txWithContact = await this.prisma.transaction.findUnique({
+								where: { id: transaction.id },
+								include: { merchantContact: { include: { identity: true } } },
+							});
+							const identityResult = await this.identityVaultService.upsertMerchantContactFromPayment({
+								merchantId: transaction.userId,
+								transactionId: transaction.id,
+								payerName: payerInfo.payerName,
+								payerTaxNumber: payerInfo.payerTaxNumber,
+								payerEuid: payerInfo.payerEUID,
+								expectedTaxNumber: session?.payerTaxNumber,
+								expectedEuid: txWithContact?.merchantContact?.identity?.euid,
+							});
+							payerMatchStatus = identityResult.matchStatus;
+							if (payerMatchStatus === PayerMatchStatus.MISMATCH) {
+								newStatus = TransactionStatus.IN_REVIEW;
+								shouldStopPolling = false;
+							}
+						}
 						await this.transactionRepository.update(transaction.id, {
 							status: newStatus,
 							processedAt: new Date(),
 							buyerName: payerInfo.payerName, // Save payer name to buyerName field
+							payerMatchStatus,
 							metadata: JSON.stringify({
 								...currentMetadata,
 								payerInfo,
 								eulenResponse: eulenStatus.response,
+								payerMatchStatus,
 								completedAt: new Date().toISOString(),
 							}),
 						});
@@ -1234,6 +1325,10 @@ export class PixService {
 			default:
 				return 'Status desconhecido';
 		}
+	}
+
+	private isEuid(value?: string | null): value is string {
+		return /^EU[A-Z0-9]{8,}$/i.test(value || '');
 	}
 
 	private mapTransactionToResponse(transaction: any): TransactionResponseDto {

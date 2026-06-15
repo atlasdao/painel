@@ -90,6 +90,8 @@ model User {
 
   // Sistema de Colateral
   collateralTransactions  CollateralTransaction[]      // Histórico de transações de colateral
+  merchantContacts        MerchantContact[]
+  identityVaultEvents     IdentityVaultEvent[]
 
   @@index([email])
   @@index([username])
@@ -115,6 +117,13 @@ model Transaction {
   payerTaxNumber String?          // CPF/CNPJ do pagador
   payerTaxNumberType PixKeyType?   // Tipo do documento (CPF ou CNPJ)
   metadata      String?
+  expectedPayerIdentityId String?
+  actualPayerIdentityId   String?
+  merchantContactId       String?
+  payerMatchStatus        PayerMatchStatus?
+  payerTaxNumberHash      String?
+  payerTaxNumberMasked    String?
+  payerEuidHash           String?
   errorMessage  String?
   processedAt   DateTime?
   splitFeeApplied Float?          // Taxa de split fee aplicada nesta transação (em %)
@@ -124,6 +133,10 @@ model Transaction {
   auditLogs     AuditLog[]
   user          User              @relation(fields: [userId], references: [id])
   webhookEvents WebhookEvent[]
+  expectedPayerIdentity PayerIdentity? @relation("ExpectedPayerIdentity", fields: [expectedPayerIdentityId], references: [id])
+  actualPayerIdentity   PayerIdentity? @relation("ActualPayerIdentity", fields: [actualPayerIdentityId], references: [id])
+  merchantContact       MerchantContact? @relation(fields: [merchantContactId], references: [id])
+  identityVaultEvents   IdentityVaultEvent[]
 
   @@index([userId])
   @@index([status])
@@ -131,6 +144,9 @@ model Transaction {
   @@index([externalId])
   @@index([createdAt])
   @@index([payerTaxNumber])
+  @@index([userId, merchantContactId])
+  @@index([userId, actualPayerIdentityId, createdAt])
+  @@index([payerMatchStatus, status, createdAt])
 }
 
 model WebhookEvent {
@@ -283,6 +299,13 @@ model PaymentLinkSession {
   sessionToken      String       @unique
   payerTaxNumber    String?
   payerTaxNumberType PixKeyType?
+  payerFullName      String?
+  payerIdentityId    String?
+  merchantContactId  String?
+  expectedPayerTaxNumberHash String?
+  expectedPayerTaxNumberMasked String?
+  expectedPayerEuidHash String?
+  payerMatchStatus   PayerMatchStatus?
   amount            Float?
   qrCode            String?
   qrCodeGeneratedAt DateTime?
@@ -294,6 +317,78 @@ model PaymentLinkSession {
   @@index([sessionToken])
   @@index([paymentLinkId])
   @@index([expiresAt])
+  @@index([merchantContactId])
+  @@index([payerIdentityId])
+}
+
+model PayerIdentity {
+  id                      String              @id @default(uuid())
+  euid                    String?             @unique
+  euidHash                String?             @unique
+  taxNumberHash           String?             @unique
+  taxNumberMasked         String?
+  canonicalName           String?
+  searchName              String?
+  riskTier                PayerRiskTier       @default(UNKNOWN)
+  status                  PayerIdentityStatus @default(UNKNOWN)
+  medCount                Int                 @default(0)
+  lastSuccessfulPaymentAt DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  merchantContacts        MerchantContact[]
+  expectedTransactions    Transaction[]       @relation("ExpectedPayerIdentity")
+  actualTransactions      Transaction[]       @relation("ActualPayerIdentity")
+  events                  IdentityVaultEvent[]
+
+  @@index([taxNumberMasked])
+  @@index([status, lastSuccessfulPaymentAt])
+  @@index([searchName])
+}
+
+model MerchantContact {
+  id                      String              @id @default(uuid())
+  merchantId              String
+  identityId              String
+  displayName             String
+  searchName              String
+  taxNumberMasked         String?
+  taxNumberSearchTokens   String[]            @default([])
+  status                  PayerIdentityStatus @default(VERIFIED)
+  paymentCount            Int                 @default(0)
+  lastTransactionId       String?
+  lastSuccessfulPaymentAt DateTime?
+  deletedAt               DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  merchant                User                @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  identity                PayerIdentity       @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  transactions            Transaction[]
+  events                  IdentityVaultEvent[]
+
+  @@unique([merchantId, identityId])
+  @@index([merchantId, status, searchName])
+  @@index([merchantId, lastSuccessfulPaymentAt])
+  @@index([merchantId, deletedAt])
+}
+
+model IdentityVaultEvent {
+  id            String                 @id @default(uuid())
+  identityId    String?
+  merchantId    String?
+  contactId     String?
+  transactionId String?
+  type          IdentityVaultEventType
+  details       Json?
+  createdAt     DateTime               @default(now())
+  identity      PayerIdentity?          @relation(fields: [identityId], references: [id], onDelete: SetNull)
+  merchant      User?                   @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  contact       MerchantContact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  transaction   Transaction?            @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([identityId, createdAt])
+  @@index([merchantId, createdAt])
+  @@index([transactionId])
+  @@index([type, createdAt])
 }
 
 model PaymentLinkWebhook {
@@ -398,6 +493,9 @@ model WithdrawalRequest {
   eulenPayoutAmountCents  Int?
   eulenStatus             String?
   eulenSplits             Json?
+  eulenNextPollAt         DateTime?
+  eulenPollAttempts       Int              @default(0)
+  eulenRateLimitedAt      DateTime?
   receiptData             Json?
   excessAmount            Float?
   createdAt               DateTime         @default(now())
@@ -411,6 +509,7 @@ model WithdrawalRequest {
   @@index([method])
   @@index([depixReceiveAddress])
   @@index([eulenWithdrawalId])
+  @@index([eulenNextPollAt])
 }
 
 model SystemSettings {
@@ -615,6 +714,36 @@ enum TransactionStatus {
   FAILED
   CANCELLED
   EXPIRED
+}
+
+enum PayerIdentityStatus {
+  UNKNOWN
+  VERIFIED
+  TRUSTED
+  FLAGGED
+  BLOCKED
+}
+
+enum PayerRiskTier {
+  UNKNOWN
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PayerMatchStatus {
+  UNKNOWN
+  MATCHED
+  MISMATCH
+  UNVERIFIABLE
+}
+
+enum IdentityVaultEventType {
+  IDENTITY_CREATED
+  CONTACT_UPSERTED
+  PAYMENT_MATCHED
+  PAYMENT_MISMATCH
+  CONTACT_SEARCHED
 }
 
 enum PixKeyType {

@@ -68,6 +68,6 @@ export class PublicPaymentLinkController {
 		@Param('shortCode') shortCode: string,
 		@Param('transactionId') transactionId: string,
 	): Promise<{ status: string; paid: boolean }> {
-		return this.paymentLinkService.checkPaymentStatus(transactionId);
+		return this.paymentLinkService.checkPaymentStatus(shortCode, transactionId);
 	}
 }

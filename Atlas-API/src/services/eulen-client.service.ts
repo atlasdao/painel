@@ -1,12 +1,15 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { RateLimiterService } from './rate-limiter.service';
+import { EulenRateLimitError, RateLimiterService } from './rate-limiter.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { redactSensitiveData } from '../common/utils/sensitive-redaction.util';
 
 interface DepositRequest {
 	amountInCents: number;
 	depixAddress?: string;
+	euid?: string;
+	merchantId?: string;
 	endUserFullName?: string;
 	endUserTaxNumber?: string;
 	splitFee?: string; // Percentual da taxa (ex: "0.5%")
@@ -76,7 +79,7 @@ export class EulenClientService {
 				);
 				if (config.data) {
 					this.logger.log(
-						`📦 Request Body: ${JSON.stringify(config.data, null, 2)}`,
+						`📦 Request Body: ${JSON.stringify(redactSensitiveData(config.data), null, 2)}`,
 					);
 				}
 
@@ -101,12 +104,27 @@ export class EulenClientService {
 					`🔍 Response Headers: ${JSON.stringify(response.headers, null, 2)}`,
 				);
 				this.logger.log(
-					`📦 Response Body: ${JSON.stringify(response.data, null, 2)}`,
+					`📦 Response Body: ${JSON.stringify(redactSensitiveData(response.data), null, 2)}`,
 				);
 
 				return response;
 			},
 			(error: AxiosError) => {
+				if (this.isProviderRateLimit(error)) {
+					const endpoint = this.resolveEndpointName(error.config?.url);
+					const retryAfterMs = this.extractRetryAfterMs(error);
+					this.logger.warn(
+						`Eulen API rate limited ${endpoint}: retry after ${Math.ceil(retryAfterMs / 1000)}s`,
+					);
+					return Promise.reject(
+						new EulenRateLimitError(
+							endpoint,
+							retryAfterMs,
+							this.getProviderErrorMessage(error) || 'Eulen API rate limit',
+						),
+					);
+				}
+
 				// Detailed error logging
 				this.logger.error(`❌ EULEN API ERROR`);
 				this.logger.error(
@@ -117,7 +135,7 @@ export class EulenClientService {
 				);
 				if (error.response?.data) {
 					this.logger.error(
-						`📦 Error Response: ${JSON.stringify(error.response.data, null, 2)}`,
+						`📦 Error Response: ${JSON.stringify(redactSensitiveData(error.response.data), null, 2)}`,
 					);
 				}
 				this.logger.error(`🔍 Error Message: ${error.message}`);
@@ -237,6 +255,55 @@ export class EulenClientService {
 		}
 	}
 
+	private isProviderRateLimit(error: AxiosError): boolean {
+		const status = error.response?.status;
+		const message = this.getProviderErrorMessage(error).toLowerCase();
+		return (
+			status === 429 ||
+			(status === 520 && message.includes('too many requests')) ||
+			message.includes('rate limit')
+		);
+	}
+
+	private getProviderErrorMessage(error: AxiosError): string {
+		const data = error.response?.data as any;
+		return data?.response?.errorMessage || data?.message || error.message || '';
+	}
+
+	private extractRetryAfterMs(error: AxiosError): number {
+		const headers = error.response?.headers || {};
+		const retryAfter = headers['retry-after'] || headers['Retry-After'];
+		if (retryAfter) {
+			const retryAfterNumber = Number(retryAfter);
+			if (!Number.isNaN(retryAfterNumber)) {
+				return Math.max(retryAfterNumber * 1000, 0);
+			}
+
+			const retryAfterDate = Date.parse(String(retryAfter));
+			if (!Number.isNaN(retryAfterDate)) {
+				return Math.max(retryAfterDate - Date.now(), 0);
+			}
+		}
+
+		const message = this.getProviderErrorMessage(error);
+		const secondsMatch = message.match(/wait\s+(\d+)\s+(?:more\s+)?seconds?/i);
+		if (secondsMatch) {
+			return Number(secondsMatch[1]) * 1000;
+		}
+
+		return 60_000;
+	}
+
+	private resolveEndpointName(url?: string): string {
+		if (!url) return 'unknown';
+		if (url.includes('/withdraw-status')) return 'withdraw-status';
+		if (url.includes('/deposit-status')) return 'deposit-status';
+		if (url.includes('/withdraw')) return 'withdraw';
+		if (url.includes('/deposit')) return 'deposit';
+		if (url.includes('/ping')) return 'ping';
+		return url.replace(/^\//, '') || 'unknown';
+	}
+
 	/**
 	 * Ping endpoint - Basic connectivity check
 	 */
@@ -260,6 +327,8 @@ export class EulenClientService {
 		amount: number; // Amount in cents
 		pixKey: string; // DePix address (Liquid address)
 		description?: string;
+		euid?: string;
+		merchantId?: string;
 		userFullName?: string;
 		userTaxNumber?: string;
 		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
@@ -294,6 +363,16 @@ export class EulenClientService {
 					requestData.endUserFullName = data.userFullName;
 				}
 
+				if (data.euid) {
+					requestData.euid = data.euid;
+					this.logger.log(`✅ Including payer EUID for deposit`);
+				}
+
+				if (data.merchantId) {
+					requestData.merchantId = data.merchantId;
+					this.logger.log(`✅ Including merchantId for commerce deposit`);
+				}
+
 				// Add whitelist parameter if provided
 				if (data.whitelist === true) {
 					requestData.whitelist = true;
@@ -314,7 +393,7 @@ export class EulenClientService {
 				}
 
 				// Format and validate CPF/CNPJ
-				if (data.userTaxNumber) {
+				if (data.userTaxNumber && !data.euid) {
 					// Remove all non-numeric characters
 					const cleanedTaxNumber = data.userTaxNumber.replace(/\D/g, '');
 
@@ -326,12 +405,12 @@ export class EulenClientService {
 						this.logger.warn(`⚠️ Invalid tax number length: ${cleanedTaxNumber.length} digits (${data.userTaxNumber})`);
 						// Don't send invalid tax numbers
 					}
-				} else {
-					this.logger.log(`📋 No tax number provided - API will proceed without EUID restriction`);
+				} else if (!data.euid) {
+					this.logger.log(`📋 No tax number or payer EUID provided`);
 				}
 
 				this.logger.log(
-					`📤 Request Data: ${JSON.stringify(requestData, null, 2)}`,
+					`📤 Request Data: ${JSON.stringify(redactSensitiveData(requestData), null, 2)}`,
 				);
 				const response = await this.client.post<DepositResponse>(
 					'/deposit',
@@ -347,14 +426,18 @@ export class EulenClientService {
 					`🖼️ QR Image URL: ${response.data.response.qrImageUrl ? 'Generated' : 'Missing'}`,
 				);
 				this.logger.log(
-					`📦 Full Response: ${JSON.stringify(response.data, null, 2)}`,
+					`📦 Full Response: ${JSON.stringify(redactSensitiveData(response.data), null, 2)}`,
 				);
 
 				return response.data;
 			} catch (error) {
 				// Always throw errors - no more development mode fallbacks
 				// The real DePix API should be used in all environments
-				this.logger.error(`❌ Eulen API createDeposit failed: ${error.message}`);
+				if (this.rateLimiter.isRateLimitError(error)) {
+					this.logger.warn(`Eulen API createDeposit deferred by rate limit: ${error.message}`);
+				} else {
+					this.logger.error(`❌ Eulen API createDeposit failed: ${error.message}`);
+				}
 				throw error;
 			}
 		});
@@ -479,7 +562,11 @@ export class EulenClientService {
 					payoutAmountInCents: result.payoutAmountInCents || data.payoutAmountInCents,
 				};
 			} catch (error) {
-				this.logger.error(`❌ Eulen API createWithdraw failed: ${error.message}`);
+				if (this.rateLimiter.isRateLimitError(error)) {
+					this.logger.warn(`Eulen API createWithdraw deferred by rate limit: ${error.message}`);
+				} else {
+					this.logger.error(`❌ Eulen API createWithdraw failed: ${error.message}`);
+				}
 				throw error;
 			}
 		});
@@ -518,7 +605,11 @@ export class EulenClientService {
 					paidAt: result.paidAt,
 				};
 			} catch (error) {
-				this.logger.error(`❌ Eulen API getWithdrawStatus failed: ${error.message}`);
+				if (this.rateLimiter.isRateLimitError(error)) {
+					this.logger.warn(`Eulen API getWithdrawStatus deferred by rate limit: ${error.message}`);
+				} else {
+					this.logger.error(`❌ Eulen API getWithdrawStatus failed: ${error.message}`);
+				}
 				throw error;
 			}
 		});
@@ -552,6 +643,9 @@ export class EulenClientService {
 		amount: number; // Amount in REAIS
 		depixAddress?: string; // PIX key (CPF, CNPJ, email, phone, or EVP) - OPTIONAL
 		description?: string;
+		payerEuid?: string;
+		payerFullName?: string;
+		merchantId?: string;
 		userTaxNumber?: string; // Tax number (CPF/CNPJ) for EUID restriction
 		whitelist?: boolean; // Optional whitelist parameter to bypass first purchase limit
 		splitFee?: string; // Percentual da taxa (ex: "0.5%")
@@ -579,6 +673,9 @@ export class EulenClientService {
 				amount: amountInCents, // Already in cents
 				pixKey: data.depixAddress || '', // Use provided PIX key or empty string (API will use default)
 				description: data.description,
+				euid: data.payerEuid,
+				merchantId: data.merchantId,
+				userFullName: data.payerFullName,
 				userTaxNumber: data.userTaxNumber, // Pass tax number for EUID restriction
 				whitelist: data.whitelist, // Pass whitelist parameter to bypass first purchase limit
 				splitFee: data.splitFee, // Pass split fee percentage

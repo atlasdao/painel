@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { TransactionStatus } from '@prisma/client';
+import { PayerMatchStatus, TransactionStatus } from '@prisma/client';
 import { EulenClientService } from './eulen-client.service';
+import { EulenRateLimitError } from './rate-limiter.service';
+import { IdentityVaultService } from '../identity-vault/identity-vault.service';
 
 @Injectable()
 export class TransactionStatusSyncService {
@@ -12,6 +14,7 @@ export class TransactionStatusSyncService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly eulenClient: EulenClientService,
+		private readonly identityVaultService: IdentityVaultService,
 	) {}
 
 	/**
@@ -85,6 +88,12 @@ export class TransactionStatusSyncService {
 					await new Promise(resolve => setTimeout(resolve, 500));
 				} catch (error) {
 					errors++;
+					if (error instanceof EulenRateLimitError || error?.isEulenRateLimitError) {
+						this.logger.warn(
+							`Eulen deposit-status sync deferred by rate limit: ${error.message}`,
+						);
+						break;
+					}
 					this.logger.error(
 						`Failed to sync transaction ${transaction.id}: ${error.message}`,
 					);
@@ -190,21 +199,53 @@ export class TransactionStatusSyncService {
 
 			// Only update if status actually changed
 			if (newStatus && newStatus !== transaction.status) {
-				const currentMetadata = await this.prisma.transaction
+				const currentTransaction = await this.prisma.transaction
 					.findUnique({
 						where: { id: transaction.id },
-						select: { metadata: true },
-					})
-					.then((tx) => (tx?.metadata ? JSON.parse(tx.metadata) : {}));
+						select: {
+							metadata: true,
+							merchantContact: {
+								include: { identity: true },
+							},
+						},
+					});
+				const currentMetadata = currentTransaction?.metadata
+					? JSON.parse(currentTransaction.metadata)
+					: {};
+				let payerMatchStatus: PayerMatchStatus | undefined;
+
+				if (payerInfo) {
+					const session = currentMetadata.sessionToken
+						? await this.prisma.paymentLinkSession.findUnique({
+								where: { sessionToken: currentMetadata.sessionToken },
+							})
+						: null;
+					const identityResult =
+						await this.identityVaultService.upsertMerchantContactFromPayment({
+							merchantId: transaction.userId,
+							transactionId: transaction.id,
+							payerName: payerInfo.payerName,
+							payerTaxNumber: payerInfo.payerTaxNumber,
+							payerEuid: payerInfo.payerEUID,
+							expectedTaxNumber: session?.payerTaxNumber,
+							expectedEuid: currentTransaction?.merchantContact?.identity?.euid,
+						});
+					payerMatchStatus = identityResult.matchStatus;
+					if (identityResult.matchStatus === PayerMatchStatus.MISMATCH) {
+						newStatus = TransactionStatus.IN_REVIEW;
+					}
+				}
 
 				await this.prisma.transaction.update({
 					where: { id: transaction.id },
 					data: {
 						status: newStatus,
 						processedAt: new Date(),
+						payerMatchStatus,
 						metadata: JSON.stringify({
 							...currentMetadata,
 							...payerInfo,
+							payerMatchStatus,
 							syncedAt: new Date().toISOString(),
 							syncedVia: 'cron-job',
 							eulenStatus: eulenStatusString,
@@ -229,6 +270,9 @@ export class TransactionStatusSyncService {
 			}
 		} catch (error) {
 			// Log but don't throw - continue with other transactions
+			if (error instanceof EulenRateLimitError || error?.isEulenRateLimitError) {
+				throw error;
+			}
 			this.logger.error(
 				`Error checking transaction ${transaction.id} with Eulen: ${error.message}`,
 			);

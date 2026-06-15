@@ -9,6 +9,12 @@ import {
 } from './dto/payment-link.dto';
 import { PixService } from '../pix/pix.service';
 import { WebhookService } from './webhook.service';
+import { IdentityVaultService } from '../identity-vault/identity-vault.service';
+import {
+	hashEuid,
+	hashTaxNumber,
+	maskTaxNumber,
+} from '../identity-vault/identity-vault.utils';
 import { nanoid } from 'nanoid';
 import { validateTaxNumber } from './utils/tax-number-validator';
 import { PixKeyType } from '@prisma/client';
@@ -21,6 +27,7 @@ export class PaymentLinkService {
 		private readonly prisma: PrismaService,
 		private readonly pixService: PixService,
 		private readonly webhookService: WebhookService,
+		private readonly identityVaultService: IdentityVaultService,
 	) {}
 
 	async create(
@@ -488,7 +495,7 @@ export class PaymentLinkService {
 			where: { shortCode },
 			include: {
 				user: {
-					select: { commerceMode: true },
+					select: { commerceMode: true, verifiedTaxNumber: true },
 				},
 			},
 		});
@@ -559,83 +566,13 @@ export class PaymentLinkService {
 			amount = link.amount;
 		}
 
-		// Check if tax number is required
-		// CPF/CNPJ é SEMPRE obrigatório para valores acima de R$ 3.000,00
-		const TAX_NUMBER_THRESHOLD = 3000.00;
-		const needsTaxNumber = amount > TAX_NUMBER_THRESHOLD;
+		return {
+			qrCode: '',
+			expiresAt: new Date(),
+			transactionId: '',
+			needsTaxNumber: true,
+		};
 
-		if (needsTaxNumber) {
-			// Return indication that tax number is needed
-			return {
-				qrCode: '',
-				expiresAt: new Date(),
-				transactionId: '',
-				needsTaxNumber: true,
-			};
-		}
-
-		try {
-			// Generate PIX QR Code with paymentLinkId in metadata
-			this.logger.log(`🔗 PAYMENT LINK: Generating QR code for link ${link.id} (${link.shortCode})`);
-			this.logger.log(`  Amount: ${amount}, Wallet: ${link.walletAddress}`);
-
-			const metadata = {
-				paymentLinkId: link.id,
-				shortCode: link.shortCode,
-			};
-
-			this.logger.log(`  Metadata being passed: ${JSON.stringify(metadata)}`);
-
-			const qrCodeData = await this.pixService.generatePixQRCode(link.userId, {
-				amount,
-				depixAddress: link.walletAddress,
-				description: link.description || `Payment ${shortCode}`,
-				metadata,
-			});
-
-			// Update link with new QR code
-			const expiresAt = new Date(Date.now() + 28 * 60 * 1000); // 28 minutes from now
-
-			await this.prisma.paymentLink.update({
-				where: { id: link.id },
-				data: {
-					currentQrCode: qrCodeData.qrCode,
-					qrCodeGeneratedAt: new Date(),
-				},
-			});
-
-			// Trigger "payment.created" webhook
-			const webhookPayload = {
-				paymentLinkId: link.id,
-				shortCode: link.shortCode,
-				amount,
-				qrCode: qrCodeData.qrCode,
-				walletAddress: link.walletAddress,
-				description: link.description,
-				expiresAt: expiresAt.toISOString(),
-				generatedAt: new Date().toISOString(),
-			};
-
-			this.logger.log(`🎯 Triggering payment.created webhook for ${link.shortCode}`);
-
-			// Fire and forget - don't await so QR generation isn't slowed down
-			this.webhookService.triggerWebhooks(link.id, 'payment.created', webhookPayload)
-				.catch(error => {
-					this.logger.error('Webhook trigger failed:', error);
-				});
-
-			return {
-				qrCode: qrCodeData.qrCode,
-				expiresAt,
-				transactionId: qrCodeData.transactionId || '',
-			};
-		} catch (error) {
-			this.logger.error(`Failed to generate QR code for ${shortCode}:`, error);
-			throw new HttpException(
-				'Failed to generate QR code',
-				HttpStatus.INTERNAL_SERVER_ERROR,
-			);
-		}
 	}
 
 	async generateQRCodeWithTaxNumber(
@@ -711,6 +648,23 @@ export class PaymentLinkService {
 			);
 		}
 
+		const contact = await this.identityVaultService.findMerchantContactByTaxNumber(
+			link.userId,
+			taxValidation.formatted,
+		);
+		const fullName = dto.fullName?.trim();
+
+		if (!contact?.identity?.euid && !fullName) {
+			return {
+				qrCode: '',
+				expiresAt: new Date(),
+				transactionId: '',
+				needsFullName: true,
+				contactFound: Boolean(contact),
+				payerNameHint: contact?.displayName,
+			};
+		}
+
 		try {
 			// Create payment session
 			const sessionToken = nanoid(32);
@@ -722,6 +676,14 @@ export class PaymentLinkService {
 					sessionToken,
 					payerTaxNumber: taxValidation.formatted,
 					payerTaxNumberType: taxValidation.type === 'CPF' ? PixKeyType.CPF : PixKeyType.CNPJ,
+					payerFullName: fullName || contact?.displayName,
+					payerIdentityId: contact?.identity?.id,
+					merchantContactId: contact?.id,
+					expectedPayerTaxNumberHash: hashTaxNumber(taxValidation.formatted),
+					expectedPayerTaxNumberMasked: maskTaxNumber(taxValidation.formatted),
+					expectedPayerEuidHash: contact?.identity?.euid
+						? hashEuid(contact.identity.euid)
+						: null,
 					amount,
 					expiresAt,
 				},
@@ -734,8 +696,11 @@ export class PaymentLinkService {
 			const metadata = {
 				paymentLinkId: link.id,
 				shortCode: link.shortCode,
-				payerTaxNumber: taxValidation.formatted,
+				payerTaxNumberMasked: maskTaxNumber(taxValidation.formatted),
+				payerTaxNumberHash: hashTaxNumber(taxValidation.formatted),
 				sessionToken,
+				merchantContactId: contact?.id,
+				expectedPayerIdentityId: contact?.identity?.id,
 			};
 
 			const qrCodeData = await this.pixService.generatePixQRCode(link.userId, {
@@ -743,8 +708,9 @@ export class PaymentLinkService {
 				depixAddress: link.walletAddress,
 				description: link.description || `Pagamento ${shortCode}`,
 				metadata,
-				// This will be passed to Eulen API as userTaxNumber
-				payerCpfCnpj: taxValidation.formatted,
+				payerContactId: contact?.identity?.euid ? contact.id : undefined,
+				payerTaxNumber: contact?.identity?.euid ? undefined : taxValidation.formatted,
+				payerFullName: contact?.identity?.euid ? undefined : fullName,
 			});
 
 			// Update session with QR code
@@ -775,9 +741,7 @@ export class PaymentLinkService {
 				description: link.description,
 				expiresAt: expiresAt.toISOString(),
 				generatedAt: new Date().toISOString(),
-				payerTaxNumber: taxValidation.type === 'CPF' ?
-					`***.${taxValidation.formatted.slice(3, 6)}.${taxValidation.formatted.slice(6, 9)}-**` :
-					`**.***.***/****-${taxValidation.formatted.slice(12, 14)}`,
+				payerTaxNumber: maskTaxNumber(taxValidation.formatted),
 				payerTaxNumberType: taxValidation.type,
 			};
 
@@ -794,6 +758,7 @@ export class PaymentLinkService {
 				expiresAt,
 				transactionId: qrCodeData.transactionId || '',
 				sessionToken,
+				contactFound: Boolean(contact),
 			};
 		} catch (error) {
 			this.logger.error(`Failed to generate QR code with tax number for ${shortCode}:`, error);
@@ -807,18 +772,33 @@ export class PaymentLinkService {
 		}
 	}
 
-	async checkPaymentStatus(transactionId: string): Promise<{ status: string; paid: boolean }> {
+	async checkPaymentStatus(shortCode: string, transactionId: string): Promise<{ status: string; paid: boolean }> {
 		try {
+			const link = await this.prisma.paymentLink.findUnique({
+				where: { shortCode },
+				select: { id: true, userId: true },
+			});
+
+			if (!link) {
+				return { status: 'not_found', paid: false };
+			}
+
 			const transaction = await this.prisma.transaction.findFirst({
 				where: {
 					OR: [
 						{ id: transactionId },
 						{ externalId: transactionId },
 					],
+					userId: link.userId,
 				},
 			});
 
 			if (!transaction) {
+				return { status: 'not_found', paid: false };
+			}
+
+			const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {};
+			if (metadata.paymentLinkId !== link.id && metadata.shortCode !== shortCode) {
 				return { status: 'not_found', paid: false };
 			}
 

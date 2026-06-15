@@ -27,8 +27,11 @@ class CreateValidationPaymentDto {
 	@IsOptional()
 	depixAddress?: string;
 
-	// Note: Tax number/EUID will be automatically extracted from webhook
-	// when user completes the PIX payment
+	@IsString()
+	taxNumber: string;
+
+	@IsString()
+	fullName: string;
 }
 
 class AdjustUserLimitsDto {
@@ -111,6 +114,8 @@ export class AccountValidationController {
 		return this.accountValidationService.createValidationPayment(
 			req.user.id,
 			dto.depixAddress,
+			dto.taxNumber,
+			dto.fullName,
 		);
 	}
 

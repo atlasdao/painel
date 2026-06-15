@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, isAuxiliarCollaborator } from '@/app/lib/api';
 import { toast } from 'sonner';
 import {
@@ -30,12 +30,24 @@ interface GeneratedQR {
   status: 'pending' | 'completed' | 'expired';
 }
 
+interface ContactSuggestion {
+  id: string;
+  displayName: string;
+  taxNumberMasked: string | null;
+  status: string;
+  lastSuccessfulPaymentAt: string | null;
+}
+
 export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps) {
   const [formData, setFormData] = useState({
     amount: '',
     payerCpf: '',
+    payerName: '',
     walletAddress: defaultWallet || ''
   });
+  const [contactSuggestions, setContactSuggestions] = useState<ContactSuggestion[]>([]);
+  const [selectedContact, setSelectedContact] = useState<ContactSuggestion | null>(null);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [useCustomWallet, setUseCustomWallet] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -86,6 +98,40 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
     }
   };
 
+  useEffect(() => {
+    const query = formData.payerCpf || formData.payerName;
+    if (selectedContact || query.trim().length < 2) {
+      setContactSuggestions([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      setIsSearchingContacts(true);
+      try {
+        const response = await api.get('/identity-vault/contacts/search', {
+          params: { q: query.trim() }
+        });
+        setContactSuggestions(response.data || []);
+      } catch (error) {
+        setContactSuggestions([]);
+      } finally {
+        setIsSearchingContacts(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [formData.payerCpf, formData.payerName, selectedContact]);
+
+  const selectContact = (contact: ContactSuggestion) => {
+    setSelectedContact(contact);
+    setContactSuggestions([]);
+    setFormData({
+      ...formData,
+      payerName: contact.displayName,
+      payerCpf: ''
+    });
+  };
+
   const handleGenerateQR = async () => {
     if (!formData.amount || parseFloat(formData.amount.replace(',', '.')) <= 0) {
       toast.error('Digite um valor válido');
@@ -95,7 +141,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
     // Validate amount limits (Commerce Mode: NO level limits, only max per transaction)
     const amountValue = parseFloat(formData.amount.replace(',', '.'));
     const minAmount = 1;
-    const maxAmount = formData.payerCpf ? 5000 : 3000;
+    const maxAmount = 5000;
 
     if (amountValue < minAmount) {
       toast.error(`Valor mínimo permitido: R$ ${minAmount.toFixed(2)}`);
@@ -107,9 +153,16 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
       return;
     }
 
-    if (formData.payerCpf && !validateCPF(formData.payerCpf)) {
-      toast.error('CPF/CNPJ inválido');
-      return;
+    if (!selectedContact) {
+      if (!formData.payerName.trim()) {
+        toast.error('Informe o nome completo do pagador');
+        return;
+      }
+
+      if (!validateCPF(formData.payerCpf)) {
+        toast.error('CPF/CNPJ inválido');
+        return;
+      }
     }
 
     // Handle wallet validation
@@ -127,7 +180,9 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
     try {
       const payload = {
         amount: parseFloat(formData.amount.replace(',', '.')), // Handle comma decimal separator
-        payerCpfCnpj: formData.payerCpf ? formData.payerCpf.replace(/\D/g, '') : undefined,
+        payerContactId: selectedContact?.id,
+        payerTaxNumber: selectedContact ? undefined : formData.payerCpf.replace(/\D/g, ''),
+        payerFullName: selectedContact ? undefined : formData.payerName.trim(),
         depixAddress: useCustomWallet ? formData.walletAddress : defaultWallet,
         isCommerceRequest: true // Flag to indicate this is from commerce page, not deposit page
       };
@@ -217,8 +272,11 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
     setFormData({
       amount: '',
       payerCpf: '',
+      payerName: '',
       walletAddress: defaultWallet || ''
     });
+    setSelectedContact(null);
+    setContactSuggestions([]);
     setUseCustomWallet(false);
   };
 
@@ -269,8 +327,8 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                 Aviso para Clientes Novos
               </p>
               <p className="text-yellow-700 dark:text-yellow-300/90 text-sm">
-                Clientes que nunca compraram DePix possuem um limite de <strong>R$ 500,00</strong> na primeira compra.
-                Após 24 horas da primeira transação, poderão realizar compras com os limites normais (até R$ 3.000 ou R$ 5.000 com CPF/CNPJ).
+                Para pagadores novos, informe CPF/CNPJ e nome completo. Depois do primeiro pagamento confirmado,
+                o contato ficará salvo para gerar novos QR Codes por sugestão.
               </p>
             </div>
           </div>
@@ -300,15 +358,34 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               />
             </div>
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              Limites: R$ 1,00 (mínimo) a R$ {formData.payerCpf ? '5.000,00' : '3.000,00'} {formData.payerCpf ? '(com CPF/CNPJ)' : '(sem CPF/CNPJ)'} por transação
+              Limites: R$ 1,00 (mínimo) a R$ 5.000,00 por transação identificada
             </p>
           </div>
 
 
-          {/* Payer CPF/CNPJ Input */}
+          {/* Payer Identity Inputs */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
-              CPF/CNPJ do Pagador (opcional)
+              Nome completo do Pagador *
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                value={formData.payerName}
+                onChange={(e) => {
+                  setSelectedContact(null);
+                  setFormData({ ...formData, payerName: e.target.value });
+                }}
+                placeholder="Digite para buscar contato ou informar novo pagador"
+                className="w-full pl-10 pr-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-hover)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
+              CPF/CNPJ do Pagador *
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
@@ -317,6 +394,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                 value={formData.payerCpf}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 14);
+                  setSelectedContact(null);
                   setFormData({ ...formData, payerCpf: value });
                 }}
                 placeholder="000.000.000-00 ou 00.000.000/0000-00"
@@ -324,9 +402,48 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
               />
             </div>
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              Deixe em branco para aceitar pagamento de qualquer CPF/CNPJ (limite de R$ 3.000 por transação). Com CPF/CNPJ específico o limite é R$ 5.000
+              Digite nome ou CPF/CNPJ para buscar contatos já pagos; pagadores novos precisam de nome completo e documento.
             </p>
           </div>
+
+          {selectedContact && (
+            <div className="flex items-center justify-between gap-3 p-3 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/30 rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">{selectedContact.displayName}</p>
+                {selectedContact.taxNumberMasked && (
+                  <p className="text-xs text-green-700 dark:text-green-400">{selectedContact.taxNumberMasked}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedContact(null)}
+                className="text-sm text-green-700 dark:text-green-300 hover:underline"
+              >
+                Trocar
+              </button>
+            </div>
+          )}
+
+          {(isSearchingContacts || contactSuggestions.length > 0) && (
+            <div className="border border-[var(--border-hover)] rounded-lg overflow-hidden bg-[var(--bg-elevated)]">
+              {isSearchingContacts && (
+                <div className="px-4 py-3 text-sm text-[var(--text-muted)]">Buscando contatos...</div>
+              )}
+              {contactSuggestions.map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  onClick={() => selectContact(contact)}
+                  className="w-full px-4 py-3 text-left hover:bg-[var(--bg-secondary)] transition-colors border-t border-[var(--border-default)] first:border-t-0"
+                >
+                  <span className="block text-sm font-medium text-[var(--text-primary)]">{contact.displayName}</span>
+                  {contact.taxNumberMasked && (
+                    <span className="block text-xs text-[var(--text-muted)]">{contact.taxNumberMasked}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Custom Wallet Toggle - Only show if user has default wallet AND is not AUXILIAR */}
           {defaultWallet && !isAuxiliarCollaborator() ? (
@@ -388,7 +505,7 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
           {/* Generate Button */}
           <button
             onClick={handleGenerateQR}
-            disabled={isGenerating || !formData.amount}
+            disabled={isGenerating || !formData.amount || (!selectedContact && (!formData.payerName.trim() || !formData.payerCpf))}
             className="w-full py-3 bg-[var(--accent)] text-[var(--text-primary)] rounded-lg font-medium hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
           >
             {isGenerating ? (
@@ -472,10 +589,17 @@ export default function QRCodeGenerator({ defaultWallet }: QRCodeGeneratorProps)
                   </div>
 
 
-                  {formData.payerCpf && (
+                  {(selectedContact || formData.payerName) && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-muted)]">Pagador:</span>
+                      <span className="text-[var(--text-primary)]">{selectedContact?.displayName || formData.payerName}</span>
+                    </div>
+                  )}
+
+                  {(selectedContact?.taxNumberMasked || formData.payerCpf) && (
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">CPF/CNPJ:</span>
-                      <span className="text-[var(--text-primary)]">{formatCPFCNPJ(formData.payerCpf)}</span>
+                      <span className="text-[var(--text-primary)]">{selectedContact?.taxNumberMasked || formatCPFCNPJ(formData.payerCpf)}</span>
                     </div>
                   )}
 

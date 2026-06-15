@@ -23,6 +23,8 @@ export default function AccountValidationModal({
   const [validationAmount, setValidationAmount] = useState<number>(2.0);
   const [useCustomWallet, setUseCustomWallet] = useState(false);
   const [customDepixAddress, setCustomDepixAddress] = useState('');
+  const [taxNumber, setTaxNumber] = useState('');
+  const [fullName, setFullName] = useState('');
   const [qrCodeData, setQrCodeData] = useState<{
     qrCode: string;
     pixKey: string;
@@ -58,6 +60,8 @@ export default function AccountValidationModal({
         setQrCodeData(null);
         setPaymentStatus('idle');
         setCustomDepixAddress('');
+        setTaxNumber('');
+        setFullName('');
         setUseCustomWallet(false);
         setCopied(false);
       }, 300);
@@ -168,9 +172,20 @@ export default function AccountValidationModal({
       return;
     }
 
+    const cleanTaxNumber = taxNumber.replace(/\D/g, '');
+    if (cleanTaxNumber.length !== 11 && cleanTaxNumber.length !== 14) {
+      toast.error('Informe um CPF/CNPJ valido');
+      return;
+    }
+
+    if (!fullName.trim()) {
+      toast.error('Informe o nome completo');
+      return;
+    }
+
     setLoading(true);
     try {
-      const payment = await accountValidationService.createValidationPayment(walletToUse);
+      const payment = await accountValidationService.createValidationPayment(walletToUse, cleanTaxNumber, fullName.trim());
 
       if (payment.qrCode && typeof payment.qrCode === 'string' && payment.qrCode.length > 0) {
         // Generate QR Code image
@@ -263,6 +278,34 @@ export default function AccountValidationModal({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  CPF/CNPJ do titular *
+                </label>
+                <input
+                  type="text"
+                  value={taxNumber}
+                  onChange={(e) => setTaxNumber(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-[var(--bg-secondary)] border border-[var(--border-hover)] text-[var(--text-primary)] text-sm sm:text-base rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 placeholder-[var(--text-muted)]"
+                  placeholder="00000000000 ou 00000000000000"
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  Nome completo *
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-[var(--bg-secondary)] border border-[var(--border-hover)] text-[var(--text-primary)] text-sm sm:text-base rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 placeholder-[var(--text-muted)]"
+                  placeholder="Nome completo do pagador"
+                  disabled={loading}
+                />
+              </div>
+
               {/* Custom Wallet Toggle - Only show if user has default wallet */}
               {defaultWallet && (
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-[var(--bg-secondary)] rounded-lg gap-3">
@@ -320,7 +363,7 @@ export default function AccountValidationModal({
                   type="button"
                   onClick={handleValidationPayment}
                   className="w-full sm:flex-1 px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 active:from-yellow-800 active:to-orange-800 text-[var(--text-primary)] text-sm sm:text-base rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-                  disabled={loading || (!defaultWallet && !customDepixAddress) || (useCustomWallet && !customDepixAddress)}
+                  disabled={loading || taxNumber.replace(/\D/g, '').length < 11 || !fullName.trim() || (!defaultWallet && !customDepixAddress) || (useCustomWallet && !customDepixAddress)}
                 >
                   {loading ? (
                     <div className="flex items-center justify-center gap-2">

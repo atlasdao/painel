@@ -201,6 +201,10 @@ export class PixController {
 			description?: string;
 			expirationMinutes?: number;
 			isCommerceRequest?: boolean; // Flag to indicate if request is from commerce page
+			payerContactId?: string; // Existing merchant contact, already linked to an EUID
+			payerTaxNumber?: string; // CPF/CNPJ for a new payer identity
+			payerFullName?: string; // Full legal name for a new payer identity
+			payerCpfCnpj?: string; // Legacy alias kept for older clients
 		},
 	) {
 		const userId = getEffectiveUserId(req);

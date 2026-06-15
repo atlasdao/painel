@@ -49,6 +49,8 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
   const [isExpired, setIsExpired] = useState(false);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [taxNumber, setTaxNumber] = useState('');
+  const [payerFullName, setPayerFullName] = useState('');
+  const [needsFullName, setNeedsFullName] = useState(false);
   const [taxNumberError, setTaxNumberError] = useState('');
   const [needsTaxNumberForFixedAmount, setNeedsTaxNumberForFixedAmount] = useState(false);
 
@@ -213,6 +215,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       setTaxNumberError('CPF/CNPJ inválido');
       return;
     }
+    if (needsFullName && !payerFullName.trim()) {
+      setTaxNumberError('Informe o nome completo para gerar o QR Code');
+      return;
+    }
 
     try {
       setIsGenerating(true);
@@ -224,6 +230,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           body: JSON.stringify({
             amount: paymentData.isCustomAmount ? parseFloat(customAmount) : undefined,
             taxNumber: taxNumber.replace(/\D/g, ''),
+            fullName: payerFullName.trim() || undefined,
           }),
         }
       );
@@ -235,8 +242,16 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       const data = await response.json();
       console.log('📦 QR Code with tax number generated:', data);
 
+      if (data.needsFullName) {
+        setNeedsFullName(true);
+        setTaxNumberError('Informe o nome completo para continuar');
+        setIsGenerating(false);
+        return;
+      }
+
       setQrCode(data.qrCode);
       setShowQrCode(true);
+      setNeedsFullName(false);
 
       // Store transaction ID
       if (data.transactionId) {
@@ -278,6 +293,10 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       setTaxNumberError('CPF/CNPJ inválido');
       return;
     }
+    if (needsFullName && !payerFullName.trim()) {
+      setTaxNumberError('Informe o nome completo para gerar o QR Code');
+      return;
+    }
 
     try {
       setIsGenerating(true);
@@ -288,6 +307,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             taxNumber: taxNumber.replace(/\D/g, ''),
+            fullName: payerFullName.trim() || undefined,
           }),
         }
       );
@@ -299,9 +319,17 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
       const data = await response.json();
       console.log('📦 QR Code with tax number for fixed amount generated:', data);
 
+      if (data.needsFullName) {
+        setNeedsFullName(true);
+        setTaxNumberError('Informe o nome completo para continuar');
+        setIsGenerating(false);
+        return;
+      }
+
       setQrCode(data.qrCode);
       setShowQrCode(true);
       setNeedsTaxNumberForFixedAmount(false);
+      setNeedsFullName(false);
 
       // Store transaction ID
       if (data.transactionId) {
@@ -373,6 +401,29 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
     }
 
     return false;
+  };
+
+  const renderFullNameInput = () => {
+    if (!needsFullName) return null;
+
+    return (
+      <div className="animate-in slide-in-from-top-2 duration-300">
+        <input
+          type="text"
+          value={payerFullName}
+          onChange={(e) => {
+            setPayerFullName(e.target.value);
+            setTaxNumberError('');
+          }}
+          placeholder="Nome completo do pagador"
+          className="w-full px-4 py-3 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl text-[var(--text-primary)] text-center focus:outline-none focus:border-[var(--accent)] placeholder-[var(--text-muted)]"
+          style={{ fontSize: '16px' }}
+        />
+        <p className="text-xs text-[var(--text-muted)] mt-2 text-center">
+          Necessário apenas quando o CPF/CNPJ ainda não está salvo nos contatos do merchant.
+        </p>
+      </div>
+    );
   };
 
   const generateNewQRCode = async (amount?: number) => {
@@ -1007,7 +1058,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                       <div className="space-y-5">
                         <div className="text-center">
                           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Informe seu CPF/CNPJ</h3>
-                          <p className="text-sm text-[var(--text-secondary)]">Obrigatório para valores acima de R$ 3.000</p>
+                          <p className="text-sm text-[var(--text-secondary)]">Obrigatório para gerar o QR Code</p>
                         </div>
 
                         {/* Amount Display */}
@@ -1028,6 +1079,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                               onChange={(e) => {
                                 setTaxNumber(formatTaxNumber(e.target.value));
                                 setTaxNumberError('');
+                                setNeedsFullName(false);
                               }}
                               placeholder="CPF ou CNPJ"
                               className="w-full px-4 py-3 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
@@ -1040,11 +1092,12 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         {taxNumberError && (
                           <p className="text-red-400 text-xs text-center">{taxNumberError}</p>
                         )}
+                        {renderFullNameInput()}
 
                         {/* Submit Button */}
                         <button
                           onClick={generateWithTaxNumberForFixed}
-                          disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
+                          disabled={taxNumber.replace(/\D/g, '').length < 11 || (needsFullName && !payerFullName.trim()) || isGenerating}
                           className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="hidden" />
@@ -1080,13 +1133,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     <div className="py-6">
                       {(() => {
                         const currentAmount = parseAmount(customAmount);
-                        const taxThreshold = paymentData.minAmountForTaxNumber || 3000;
-                        const needsCpf = paymentData.requiresTaxNumber && currentAmount > taxThreshold;
+                        const needsCpf = true;
                         const isValidCpf = taxNumber.replace(/\D/g, '').length >= 11;
                         const canSubmit = currentAmount > 0 &&
                           (!paymentData.minAmount || currentAmount >= paymentData.minAmount) &&
                           (!paymentData.maxAmount || currentAmount <= paymentData.maxAmount) &&
-                          (!needsCpf || isValidCpf);
+                          isValidCpf &&
+                          (!needsFullName || payerFullName.trim().length > 0);
 
                         return (
                           <div className="space-y-5">
@@ -1195,6 +1248,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                       onChange={(e) => {
                                         setTaxNumber(formatTaxNumber(e.target.value));
                                         setTaxNumberError('');
+                                        setNeedsFullName(false);
                                       }}
                                       placeholder="CPF ou CNPJ"
                                       className="w-full px-4 py-3 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
@@ -1206,6 +1260,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                                 {taxNumberError && (
                                   <p className="text-red-400 text-xs mt-2 text-center">{taxNumberError}</p>
                                 )}
+                                {renderFullNameInput()}
                               </div>
                             )}
 
@@ -1420,7 +1475,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             <div className="space-y-4">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Informe seu CPF/CNPJ</h3>
-                <p className="text-sm text-[var(--text-secondary)]">Obrigatório para valores acima de R$ 3.000</p>
+                <p className="text-sm text-[var(--text-secondary)]">Obrigatório para gerar o QR Code</p>
               </div>
 
               {/* Amount Display */}
@@ -1442,6 +1497,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                     onChange={(e) => {
                       setTaxNumber(formatTaxNumber(e.target.value));
                       setTaxNumberError('');
+                      setNeedsFullName(false);
                     }}
                     placeholder="CPF ou CNPJ"
                     className="w-full px-4 py-3.5 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
@@ -1454,11 +1510,12 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
               {taxNumberError && (
                 <p className="text-red-400 text-xs text-center">{taxNumberError}</p>
               )}
+              {renderFullNameInput()}
 
               {/* Submit Button */}
               <button
                 onClick={generateWithTaxNumberForFixed}
-                disabled={taxNumber.replace(/\D/g, '').length < 11 || isGenerating}
+                disabled={taxNumber.replace(/\D/g, '').length < 11 || (needsFullName && !payerFullName.trim()) || isGenerating}
                 className="w-full relative group disabled:opacity-50 disabled:active:scale-100"
               >
                 <div className="hidden" />
@@ -1493,13 +1550,13 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
             <div className="space-y-4">
               {(() => {
                 const currentAmount = parseAmount(customAmount);
-                const taxThreshold = paymentData.minAmountForTaxNumber || 3000;
-                const needsCpf = paymentData.requiresTaxNumber && currentAmount > taxThreshold;
+                const needsCpf = true;
                 const isValidCpf = taxNumber.replace(/\D/g, '').length >= 11;
                 const canSubmit = currentAmount > 0 &&
                   (!paymentData.minAmount || currentAmount >= paymentData.minAmount) &&
                   (!paymentData.maxAmount || currentAmount <= paymentData.maxAmount) &&
-                  (!needsCpf || isValidCpf);
+                  isValidCpf &&
+                  (!needsFullName || payerFullName.trim().length > 0);
 
                 return (
                   <>
@@ -1620,6 +1677,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                               onChange={(e) => {
                                 setTaxNumber(formatTaxNumber(e.target.value));
                                 setTaxNumberError('');
+                                setNeedsFullName(false);
                               }}
                               placeholder="CPF ou CNPJ"
                               className="w-full px-4 py-3.5 bg-transparent text-[var(--text-primary)] text-center focus:outline-none placeholder-[var(--text-muted)]"
@@ -1631,6 +1689,7 @@ export default function PaymentClient({ shortCode, initialData }: PaymentClientP
                         {taxNumberError && (
                           <p className="text-red-400 text-xs mt-2 text-center">{taxNumberError}</p>
                         )}
+                        {renderFullNameInput()}
                       </div>
                     )}
 

@@ -56,9 +56,12 @@ export class ExternalApiController {
       throw new BadRequestException('Amount must be greater than 0');
     }
 
-    // taxNumber is required only for amounts >= 3000 BRL
-    if (body.amount >= 3000 && !body.taxNumber) {
-      throw new BadRequestException('Tax number (CPF/CNPJ) is required for amounts equal to or above R$ 3000');
+    if (!body.taxNumber) {
+      throw new BadRequestException('Tax number (CPF/CNPJ) is required for all QR codes');
+    }
+
+    if (!body.fullName) {
+      throw new BadRequestException('Full payer name is required for all QR codes without a saved EUID');
     }
 
     return this.externalApiService.createPixTransaction(userId, apiKeyId, body);

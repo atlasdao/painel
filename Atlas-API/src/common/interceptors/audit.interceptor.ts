@@ -8,6 +8,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { AuditLogRepository } from '../../repositories/audit-log.repository';
+import { redactSensitiveData } from '../utils/sensitive-redaction.util';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -133,25 +134,7 @@ export class AuditInterceptor implements NestInterceptor {
 
 	private sanitizeBody(body: any): any {
 		if (!body) return null;
-
-		const sanitized = { ...body };
-		const sensitiveFields = [
-			'password',
-			'token',
-			'apiKey',
-			'secret',
-			'authorization',
-			'creditCard',
-			'cvv',
-		];
-
-		for (const field of sensitiveFields) {
-			if (sanitized[field]) {
-				sanitized[field] = '[REDACTED]';
-			}
-		}
-
-		return sanitized;
+		return redactSensitiveData(body);
 	}
 
 	private sanitizeResponse(data: any): any {
@@ -163,6 +146,6 @@ export class AuditInterceptor implements NestInterceptor {
 			return { _truncated: true, _size: stringified.length };
 		}
 
-		return data;
+		return redactSensitiveData(data);
 	}
 }

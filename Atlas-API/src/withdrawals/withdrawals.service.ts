@@ -15,6 +15,7 @@ import { CouponsService } from '../coupons/coupons.service';
 import { ValidateCouponDto } from '../coupons/dto/coupon.dto';
 import { LwkService } from '../services/lwk.service';
 import { EulenClientService } from '../services/eulen-client.service';
+import { EulenRateLimitError } from '../services/rate-limiter.service';
 
 @Injectable()
 export class WithdrawalsService {
@@ -553,12 +554,22 @@ export class WithdrawalsService {
 	@Cron(CronExpression.EVERY_MINUTE)
 	async pollEulenWithdrawals() {
 		try {
+			const now = new Date();
 			const processing = await this.prisma.withdrawalRequest.findMany({
 				where: {
 					status: WithdrawalStatus.PROCESSING,
 					eulenWithdrawalId: { not: null },
+					OR: [
+						{ eulenNextPollAt: null },
+						{ eulenNextPollAt: { lte: now } },
+					],
 				},
 				include: { user: { select: { id: true, email: true, username: true } } },
+				orderBy: [
+					{ eulenNextPollAt: 'asc' },
+					{ updatedAt: 'asc' },
+				],
+				take: 20,
 			});
 
 			if (processing.length === 0) return;
@@ -594,7 +605,12 @@ export class WithdrawalsService {
 							}
 						}
 
-						const updateData: any = { eulenSplits: updatedSplits };
+						const updateData: any = {
+							eulenSplits: updatedSplits,
+							eulenPollAttempts: { increment: 1 },
+							eulenNextPollAt: null,
+							eulenRateLimitedAt: null,
+						};
 
 						if (anyFailed) {
 							updateData.status = WithdrawalStatus.FAILED;
@@ -629,7 +645,12 @@ export class WithdrawalsService {
 					} else {
 						// Single withdrawal (no splits)
 						const eulenStatus = await this.eulenClient.getWithdrawStatus(w.eulenWithdrawalId!);
-						const updateData: any = { eulenStatus: eulenStatus.status };
+						const updateData: any = {
+							eulenStatus: eulenStatus.status,
+							eulenPollAttempts: { increment: 1 },
+							eulenNextPollAt: null,
+							eulenRateLimitedAt: null,
+						};
 
 						if (eulenStatus.status === 'sent') {
 							updateData.status = WithdrawalStatus.COMPLETED;
@@ -660,12 +681,35 @@ export class WithdrawalsService {
 						});
 					}
 				} catch (error) {
-					this.logger.error(`[WITHDRAWAL] Eulen polling error for ${w.id}: ${error.message}`);
+					await this.handleEulenPollingError(w.id, error);
 				}
 			}
 		} catch (error) {
 			this.logger.error(`[WITHDRAWAL] Eulen polling cron error: ${error.message}`);
 		}
+	}
+
+	private async handleEulenPollingError(withdrawalId: string, error: any) {
+		if (error instanceof EulenRateLimitError || error?.isEulenRateLimitError) {
+			const retryAfterMs = Math.max(error.retryAfterMs || 60_000, 60_000);
+			const nextPollAt = new Date(Date.now() + retryAfterMs);
+
+			await this.prisma.withdrawalRequest.update({
+				where: { id: withdrawalId },
+				data: {
+					eulenNextPollAt: nextPollAt,
+					eulenRateLimitedAt: new Date(),
+					eulenPollAttempts: { increment: 1 },
+				},
+			});
+
+			this.logger.warn(
+				`[WITHDRAWAL] Eulen polling rate-limited for ${withdrawalId}; next poll at ${nextPollAt.toISOString()}`,
+			);
+			return;
+		}
+
+		this.logger.error(`[WITHDRAWAL] Eulen polling error for ${withdrawalId}: ${error.message}`);
 	}
 
 	/**

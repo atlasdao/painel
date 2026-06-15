@@ -19,13 +19,17 @@ export const accountValidationService = {
     return response.data;
   },
 
-  async createValidationPayment(depixAddress?: string): Promise<any> {
+  async createValidationPayment(depixAddress?: string, taxNumber?: string, fullName?: string): Promise<any> {
     const payload: any = {};
     if (depixAddress) {
       payload.depixAddress = depixAddress;
     }
-    // Note: EUID/tax number will be automatically extracted from the webhook
-    // when the user completes the PIX payment
+    if (taxNumber) {
+      payload.taxNumber = taxNumber;
+    }
+    if (fullName) {
+      payload.fullName = fullName;
+    }
     const response = await api.post('/account-validation/create-payment', payload);
     return response.data;
   },

@@ -12,6 +12,7 @@ import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { HealthService } from '../../health/health.service';
+import { redactSensitiveData } from '../utils/sensitive-redaction.util';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -90,22 +91,6 @@ export class LoggingInterceptor implements NestInterceptor {
 
 	private sanitizeBody(body: any): any {
 		if (!body) return body;
-
-		const sanitized = { ...body };
-		const sensitiveFields = [
-			'password',
-			'token',
-			'apiKey',
-			'secret',
-			'authorization',
-		];
-
-		for (const field of sensitiveFields) {
-			if (sanitized[field]) {
-				sanitized[field] = '[REDACTED]';
-			}
-		}
-
-		return sanitized;
+		return redactSensitiveData(body);
 	}
 }

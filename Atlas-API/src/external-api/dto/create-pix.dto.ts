@@ -90,13 +90,21 @@ export class CreatePixDto {
   @MaxLength(200)
   description?: string;
 
-  @ApiPropertyOptional({
-    description: 'Tax number (CPF/CNPJ) - required for amounts >= R$ 3000',
-    example: '123.456.789-01',
-  })
-  @IsOptional()
-  @IsString()
-  taxNumber?: string;
+	@ApiPropertyOptional({
+		description: 'Tax number (CPF/CNPJ) of the payer - required for all QR codes',
+		example: '123.456.789-01',
+	})
+	@IsOptional()
+	@IsString()
+	taxNumber?: string;
+
+	@ApiPropertyOptional({
+		description: 'Full legal name of the payer - required when no saved EUID is available',
+		example: 'Rafael Vieira da Rocha',
+	})
+	@IsOptional()
+	@IsString()
+	fullName?: string;
 
   @ApiPropertyOptional({
     description: 'Your internal order ID for tracking',
